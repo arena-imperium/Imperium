@@ -1,0 +1,13 @@
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+hologram = "AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"

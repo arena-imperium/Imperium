@@ -5,17 +5,17 @@ mod audio;
 mod loading;
 mod menu;
 mod player;
+mod solana_client;
 
-use crate::actions::ActionsPlugin;
-use crate::audio::InternalAudioPlugin;
-use crate::loading::LoadingPlugin;
-use crate::menu::MenuPlugin;
-use crate::player::PlayerPlugin;
-
-use bevy::app::App;
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use bevy::prelude::*;
+use {
+    crate::{
+        actions::ActionsPlugin, audio::InternalAudioPlugin, loading::LoadingPlugin,
+        menu::MenuPlugin, player::PlayerPlugin,
+    },
+    bevy::{app::App, prelude::*},
+};
 
 // This example game uses States to separate logic
 // See https://bevy-cheatbook.github.io/programming/states.html

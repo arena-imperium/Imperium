@@ -3,16 +3,18 @@
 Template for a Game using the awesome [Bevy engine][bevy] featuring out of the box builds for Windows, Linux, macOS, and Web (Wasm). It also includes the setup for android support.
 
 _Since Bevy is in heavy development, there regularly are unpublished new features or bug fixes. If you like living on the edge, you can use the branch `bevy_main` of this template to be close to the current state of Bevy's main branch_
- 
+
 # What does this template give you?
-* small example ["game"](https://niklasei.github.io/bevy_game_template/) (*warning: biased; e.g., split into a lot of plugins and using `bevy_kira_audio` for sound*)
-* easy setup for running the web build using [trunk] (`trunk serve`) 
+
+* small example ["game"](https://niklasei.github.io/bevy_game_template/) (_warning: biased; e.g., split into a lot of plugins and using `bevy_kira_audio` for sound_)
+* easy setup for running the web build using [trunk] (`trunk serve`)
 * run the native version with `cargo run`
 * workflow for GitHub actions creating releases for Windows, Linux, macOS, and Web (Wasm) ready for distribution
-    * push a tag in the form of `v[0-9]+.[0-9]+.[0-9]+*` (e.g. `v1.1.42`) to trigger the flow
-    * WARNING: if you work in a private repository, please be aware that macOS and Windows runners cost more build minutes. You might want to consider running the workflow less often or removing some builds from it. **For public repositories the builds are free!**
+  * push a tag in the form of `v[0-9]+.[0-9]+.[0-9]+*` (e.g. `v1.1.42`) to trigger the flow
+  * WARNING: if you work in a private repository, please be aware that macOS and Windows runners cost more build minutes. You might want to consider running the workflow less often or removing some builds from it. **For public repositories the builds are free!**
 
 # How to use this template?
+
  1. Click "Use this template" on the repository's page
  2. Look for `ToDo` to use your own game name everywhere
  3. [Update the icons as described below](#updating-the-icons)
@@ -33,6 +35,7 @@ _Since Bevy is in heavy development, there regularly are unpublished new feature
 You should keep the `credits` directory up to date. The release workflow automatically includes the directory in every build.
 
 ### Updating the icons
+
  1. Replace `build/macos/icon_1024x1024.png` with a `1024` times `1024` pixel png icon and run `create_icns.sh` (make sure to run the script inside the `build/macos` directory) - _Note: this requires a mac_
  2. Replace `build/windows/icon.ico` (used for windows executable and as favicon for the web-builds)
     * You can create an `.ico` file for windows by following these steps:
@@ -43,6 +46,7 @@ You should keep the `credits` directory up to date. The release workflow automat
  3. Replace `build/android/res/mipmap-mdpi/icon.png` with `macos/AppIcon.iconset/icon_256x256.png`, but rename it to `icon.png`
 
 ### Deploy web build to GitHub pages
+
  1. Trigger the `deploy-github-page` workflow
  2. Activate [GitHub pages](https://pages.github.com/) for your repository
      1. Source from the `gh-pages` branch (created by the just executed action)
@@ -76,7 +80,16 @@ This project is licensed under [CC0 1.0 Universal](LICENSE) except some content 
 [nikl-mastodon]: https://mastodon.online/@nikl_me
 [firefox-sound-issue]: https://github.com/NiklasEi/bevy_kira_audio/issues/9
 [Bevy Cheat Book]: https://bevy-cheatbook.github.io/introduction.html
-[`wasm-server-runner`]: https://github.com/jakobhellermann/wasm-server-runner
 [trunk]: https://trunkrs.dev/
 [android-instructions]: https://github.com/bevyengine/bevy/blob/latest/examples/README.md#setup
 [ios-instructions]: https://github.com/bevyengine/bevy/blob/latest/examples/README.md#setup-1
+
+## Deploying Solana program
+
+localnet keypair for program ID AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u
+
+```
+[201,253,91,101,122,119,235,89,74,207,78,253,45,165,86,61,63,21,61,127,52,173,224,46,123,96,174,87,211,82,176,100,138,251,96,173,12,12,103,160,49,242,247,32,51,93,82,5,67,189,233,89,219,180,206,114,34,237,146,79,109,94,114,194]
+```
+
+`anchor build && anchor deploy`

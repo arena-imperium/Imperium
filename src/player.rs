@@ -1,7 +1,7 @@
-use crate::actions::Actions;
-use crate::loading::TextureAssets;
-use crate::GameState;
-use bevy::prelude::*;
+use {
+    crate::{actions::Actions, loading::TextureAssets, GameState},
+    bevy::prelude::*,
+};
 
 pub struct PlayerPlugin;
 

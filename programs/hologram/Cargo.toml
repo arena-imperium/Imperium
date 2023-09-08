@@ -1,0 +1,27 @@
+[package]
+name = "hologram"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "hologram"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.28.0"
+anchor-spl = "0.28.0"
+solana-program = "1.16.12"
+solana-security-txt = "1.1.1"
+num-traits = "0.2.16"
+num = "0.4.1"
+#
+getrandom = { version = "0.2.10", features = ["custom"] }
+bracket-random = "0.8.7"
