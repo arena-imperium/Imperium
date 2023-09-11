@@ -8,6 +8,7 @@ use {
     std::io::Cursor,
     winit::window::Icon,
 };
+
 fn main() {
     App::new()
         .insert_resource(Msaa::Off)

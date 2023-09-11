@@ -55,6 +55,13 @@ bevy-inspector-egui = { version = "0.19.0" }
 
 hologram = { path = "programs/hologram", features = ["no-entrypoint"] }
 
+# Conf
+dotenv = "0.15"
+shellexpand = "3.1.0"
+
+futures-lite = "1.13.0"
+
+# 
 # Solana related
 anchor-client = "0.28"
 solana-program = "1.16"

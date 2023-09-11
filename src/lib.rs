@@ -5,7 +5,7 @@ mod audio;
 mod loading;
 mod menu;
 mod player;
-mod solana_client;
+mod solana;
 
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -14,7 +14,9 @@ use {
         actions::ActionsPlugin, audio::InternalAudioPlugin, loading::LoadingPlugin,
         menu::MenuPlugin, player::PlayerPlugin,
     },
-    bevy::{app::App, prelude::*},
+    bevy::{app::App, log, prelude::*},
+    futures_lite::future,
+    solana::{HologramServer, SolanaTransactionTask},
 };
 
 // This example game uses States to separate logic
@@ -35,17 +37,49 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<GameState>().add_plugins((
-            LoadingPlugin,
-            MenuPlugin,
-            ActionsPlugin,
-            InternalAudioPlugin,
-            PlayerPlugin,
-        ));
+        app.init_resource::<HologramServer>()
+            .add_state::<GameState>()
+            .add_plugins((
+                LoadingPlugin,
+                MenuPlugin,
+                ActionsPlugin,
+                InternalAudioPlugin,
+                PlayerPlugin,
+            ))
+            .add_systems(Update, solana_transaction_task_handler);
 
         #[cfg(debug_assertions)]
         {
             app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
         }
+    }
+}
+
+fn solana_transaction_task_handler(
+    mut commands: Commands,
+    mut solana_transaction_tasks: Query<(Entity, &mut SolanaTransactionTask)>,
+) {
+    for (entity, mut task) in &mut solana_transaction_tasks {
+        match future::block_on(future::poll_once(&mut task.task)) {
+            Some(result) => {
+                let status = match result {
+                    Ok(confirmed_transaction) => {
+                        match confirmed_transaction.transaction.meta.unwrap().err {
+                            Some(error) => {
+                                format!("Transaction failed: {}", error)
+                            }
+                            None => "Transaction succeeded".to_string(),
+                        }
+                    }
+                    Err(error) => {
+                        format!("Transaction failed: {}", error)
+                    }
+                };
+                let message = format!("{}: {}", task.description, status);
+                log::info!("{}", message);
+                commands.entity(entity).despawn();
+            }
+            None => {}
+        };
     }
 }

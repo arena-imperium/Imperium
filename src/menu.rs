@@ -1,6 +1,7 @@
 use {
-    crate::{loading::FontAssets, GameState},
-    bevy::{a11y::accesskit::Size, log, prelude::*},
+    crate::{loading::FontAssets, solana::HologramServer, GameState},
+    bevy::{log, prelude::*},
+    std::borrow::BorrowMut,
 };
 
 #[derive(Component)]
@@ -94,6 +95,8 @@ fn create_menu(
 }
 
 fn button_clicked(
+    mut commands: Commands,
+    hologam_server: Res<HologramServer>,
     button_colors: Res<ButtonColors>,
     mut state: ResMut<NextState<GameState>>,
     mut interaction_query: Query<
@@ -108,32 +111,9 @@ fn button_clicked(
                     state.set(GameState::Playing);
                 }
                 MenuButton::InitializeRealm => {
-                    log::info!("TODO Initialize Realm");
+                    hologam_server.default_initialize_realm(commands.borrow_mut());
                 }
             },
-            Interaction::Hovered => {
-                *color = button_colors.hovered.into();
-            }
-            Interaction::None => {
-                *color = button_colors.normal.into();
-            }
-        }
-    }
-}
-
-fn click_initialize_realm_button(
-    button_colors: Res<ButtonColors>,
-    mut state: ResMut<NextState<GameState>>,
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
-) {
-    for (interaction, mut color) in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                state.set(GameState::Playing);
-            }
             Interaction::Hovered => {
                 *color = button_colors.hovered.into();
             }
