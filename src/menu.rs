@@ -1,6 +1,6 @@
 use {
     crate::{loading::FontAssets, solana::HologramServer, GameState},
-    bevy::{log, prelude::*},
+    bevy::prelude::*,
     std::borrow::BorrowMut,
 };
 
@@ -11,6 +11,7 @@ pub struct MenuRoot;
 pub enum MenuButton {
     Play,
     InitializeRealm,
+    CreateUserAccount,
 }
 
 pub struct MenuPlugin;
@@ -49,6 +50,7 @@ fn create_menu(
     let buttons = [
         (MenuButton::Play, "Play"),
         (MenuButton::InitializeRealm, "Init Realm"),
+        (MenuButton::CreateUserAccount, "Create User Account"),
     ];
     let button_text_style = TextStyle {
         font: font_assets.fira_sans.clone(),
@@ -112,6 +114,9 @@ fn button_clicked(
                 }
                 MenuButton::InitializeRealm => {
                     hologam_server.default_initialize_realm(commands.borrow_mut());
+                }
+                MenuButton::CreateUserAccount => {
+                    hologam_server.default_create_user_account(commands.borrow_mut());
                 }
             },
             Interaction::Hovered => {

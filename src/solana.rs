@@ -96,6 +96,14 @@ impl HologramServer {
         );
     }
 
+    pub fn default_create_user_account(&self, commands: &mut Commands) {
+        self.create_user_account(
+            commands,
+            self.realm_name.clone(),
+            &self.solana_client.payer.pubkey(),
+        );
+    }
+
     pub fn initialize_realm(
         &self,
         commands: &mut Commands,
@@ -126,6 +134,35 @@ impl HologramServer {
 
         commands.spawn(SolanaTransactionTask {
             description: "initialize_realm".to_string(),
+            task,
+        });
+    }
+
+    pub fn create_user_account(&self, commands: &mut Commands, realm_name: String, user: &Pubkey) {
+        log::info!("<Solana> Sending create_user_account IX");
+        let (realm_pda, _) = Self::get_realm_pda(&realm_name);
+        let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, user);
+        let payer = self.solana_client.payer().clone();
+        let user = user.clone();
+
+        let program_id = hologram::id();
+        let instruction = hologram::instruction::CreateUserAccount {};
+        let accounts = hologram::accounts::CreateUserAccount {
+            user,
+            user_account: user_account_pda,
+            realm: realm_pda,
+            system_program: solana_program::system_program::id(),
+        };
+
+        let task = self.create_send_and_confirm_instruction_task(
+            program_id,
+            instruction,
+            accounts,
+            payer.clone(),
+        );
+
+        commands.spawn(SolanaTransactionTask {
+            description: "create_user_account".to_string(),
             task,
         });
     }

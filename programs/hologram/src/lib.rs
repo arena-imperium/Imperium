@@ -20,11 +20,15 @@ solana_security_txt::security_txt! {
 pub mod hologram {
     use super::*;
 
+    // Public IX ----------------------------------------------------------------
     pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<()> {
         instructions::initialize_realm(ctx, name)
     }
 
-    // // Public IX ----------------------------------------------------------------
+    pub fn create_user_account(ctx: Context<CreateUserAccount>) -> Result<()> {
+        instructions::create_user_account(ctx)
+    }
+
 }
 
 use getrandom::register_custom_getrandom;

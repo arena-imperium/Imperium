@@ -86,10 +86,22 @@ This project is licensed under [CC0 1.0 Universal](LICENSE) except some content 
 
 ## Deploying Solana program
 
-localnet keypair for program ID AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u
+### Airdrop sol
+
+`> solana airdrop -u l -k ~/.config/solana/id.json 10`
+
+### Set solana to localhost
+
+`solana config set -u l`
+
+localnet keypair for program ID `AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u`
 
 ```
 [201,253,91,101,122,119,235,89,74,207,78,253,45,165,86,61,63,21,61,127,52,173,224,46,123,96,174,87,211,82,176,100,138,251,96,173,12,12,103,160,49,242,247,32,51,93,82,5,67,189,233,89,219,180,206,114,34,237,146,79,109,94,114,194]
 ```
 
 `anchor build && anchor deploy`
+
+then run client
+
+`cargo run`
