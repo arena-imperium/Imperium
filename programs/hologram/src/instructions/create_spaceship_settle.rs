@@ -20,7 +20,7 @@ pub struct CreateSpaceshipSettle<'info> {
     pub user: AccountInfo<'info>,
 
     #[account(
-        seeds=[b"realm", realm.name.to_bytes().as_ref()],
+        seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
     )]
     pub realm: Account<'info, Realm>,
@@ -116,7 +116,7 @@ pub fn create_spaceship_settle(
         realm_name: ctx.accounts.realm.name.to_string(),
         user: ctx.accounts.user.key(),
         spaceship: SpaceShipLite {
-            name: ctx.accounts.spaceship.name.clone(),
+            name: ctx.accounts.spaceship.name,
             hull: ctx.accounts.spaceship.hull.clone(),
             spaceship: *ctx.accounts.spaceship.to_account_info().key,
         },

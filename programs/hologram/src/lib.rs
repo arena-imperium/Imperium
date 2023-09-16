@@ -29,7 +29,7 @@ pub const MAX_SPACESHIPS_PER_USER_ACCOUNT: usize = 25;
 
 #[program]
 pub mod hologram {
-    use {super::*, crate::state::Randomness};
+    use super::*;
 
     // Public IX ----------------------------------------------------------------
     pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<()> {

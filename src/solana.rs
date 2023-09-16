@@ -271,7 +271,7 @@ impl HologramServer {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
 
-        thread_pool.spawn_local(async move {
+        thread_pool.spawn(async move {
             let program = client.anchor_client.program(program_id).unwrap();
 
             let increase_compute_budget_ix =

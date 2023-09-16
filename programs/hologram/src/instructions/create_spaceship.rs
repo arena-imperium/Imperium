@@ -17,7 +17,7 @@ pub struct CreateSpaceship<'info> {
     pub user: Signer<'info>,
 
     #[account(
-        seeds=[b"realm", realm.name.to_bytes().as_ref()],
+        seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
         has_one = admin,
     )]
