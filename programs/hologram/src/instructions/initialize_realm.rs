@@ -51,8 +51,11 @@ pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<(
         ctx.accounts.realm.bump = *ctx.bumps.get("realm").ok_or(ProgramError::InvalidSeeds)?;
         ctx.accounts.realm.name = LimitedString::new(name);
         ctx.accounts.realm.admin = ctx.accounts.admin.key();
-        ctx.accounts.realm.randomness.function = ctx.accounts.switchboard_function.key();
-        ctx.accounts.realm.randomness.authority = ctx.accounts.admin.key();
+        ctx.accounts
+            .realm
+            .switchboard_info
+            .spaceship_seed_generation_function = ctx.accounts.switchboard_function.key();
+        ctx.accounts.realm.switchboard_info.authority = ctx.accounts.admin.key();
     }
 
     Ok(())

@@ -55,7 +55,7 @@ pub struct CreateSpaceship<'info> {
     #[account(
         mut, 
         // validate that we use the realm custom switchboard function
-        constraint = realm.randomness.function == switchboard_function.key() && !switchboard_function.load()?.requests_disabled
+        constraint = realm.switchboard_info.spaceship_seed_generation_function == switchboard_function.key() && !switchboard_function.load()?.requests_disabled
     )]
     pub switchboard_function: AccountLoader<'info, FunctionAccountData>,
 

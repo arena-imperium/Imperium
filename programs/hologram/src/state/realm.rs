@@ -6,14 +6,14 @@ pub struct Realm {
     pub bump: u8,
     pub name: LimitedString,
     pub admin: Pubkey, // Also used as randomness authority
-    pub randomness: SwitchboardRandomness,
+    pub switchboard_info: SwitchboardInfo,
     pub stats: Stats,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct SwitchboardRandomness {
+pub struct SwitchboardInfo {
     pub authority: Pubkey,
-    pub function: Pubkey,
+    pub spaceship_seed_generation_function: Pubkey,
 }
 
 impl Realm {
