@@ -5,9 +5,33 @@ skip-lint = false
 [programs.localnet]
 hologram = "AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u"
 
+[programs.devnet]
+hologram = "5EDtp1G7GkGEGWCKJf6np2gC7kdCdJ7Xi59fSmqEEPfX"
+
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
+
+[test]
+startup_wait = 15000
+
+[[test.validator.clone]] # sbv2 programID
+address = "SW1TCH7qEPTdLsDHRgPuMQjbQxKdH2aBStViMFnt64f"
+
+[[test.validator.clone]] # sbv2 IDL
+address = "Fi8vncGpNKbq62gPo56G4toCehWNy77GgqGkTaAF5Lkk"
+
+[[test.validator.clone]] # sbv2 SbState
+address = "CyZuD7RPDcrqCGbNvLCyqk6Py9cEZTKmNKujfPi3ynDd"
+
+[[test.validator.clone]] # sb attestation programID
+address = "sbattyXrzedoNATfc4L31wC9Mhxsi1BmFhTiN8gDshx"
+
+[[test.validator.clone]] # sb devnet attestation IDL
+address = "5ExuoQR69trmKQfB95fDsUGsUrrChbGq9PFgt8qouncz"
+
+[[test.validator.clone]] # sb devnet programState
+address = "5MFs7RGTjLi1wtKNBFRtuLipCkkjs4YQwRRU9sjnbQbS"

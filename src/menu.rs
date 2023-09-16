@@ -12,6 +12,7 @@ pub enum MenuButton {
     Play,
     InitializeRealm,
     CreateUserAccount,
+    CreateSpaceship,
 }
 
 pub struct MenuPlugin;
@@ -51,6 +52,7 @@ fn create_menu(
         (MenuButton::Play, "Play"),
         (MenuButton::InitializeRealm, "Init Realm"),
         (MenuButton::CreateUserAccount, "Create User Account"),
+        (MenuButton::CreateSpaceship, "Create Spaceship"),
     ];
     let button_text_style = TextStyle {
         font: font_assets.fira_sans.clone(),
@@ -117,6 +119,9 @@ fn button_clicked(
                 }
                 MenuButton::CreateUserAccount => {
                     hologam_server.default_create_user_account(commands.borrow_mut());
+                }
+                MenuButton::CreateSpaceship => {
+                    hologam_server.default_create_spaceship(commands.borrow_mut());
                 }
             },
             Interaction::Hovered => {

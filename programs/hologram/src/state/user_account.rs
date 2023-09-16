@@ -1,11 +1,19 @@
-use anchor_lang::prelude::*;
+use {super::Hull, crate::utils::LimitedString, anchor_lang::prelude::*};
 
 #[account()]
 #[derive(Debug)]
 pub struct UserAccount {
     pub bump: u8,
     pub user: Pubkey,
-    pub spaceships: Vec<Pubkey>,
+    pub spaceships: Vec<SpaceShipLite>,
+}
+
+// A lite representation used for rendering in the client
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct SpaceShipLite {
+    pub name: LimitedString,
+    pub hull: Hull,
+    pub spaceship: Pubkey,
 }
 
 impl UserAccount {

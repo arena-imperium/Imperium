@@ -9,6 +9,12 @@ pub struct CreateUserAccount<'info> {
     pub user: Signer<'info>,
 
     #[account(
+        seeds=[b"realm", realm.name.to_bytes().as_ref()],
+        bump = realm.bump,
+    )]
+    pub realm: Account<'info, Realm>,
+
+    #[account(
         init,
         payer=user,
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
@@ -17,13 +23,14 @@ pub struct CreateUserAccount<'info> {
     )]
     pub user_account: Account<'info, UserAccount>,
 
-    #[account(
-        seeds=[b"realm", realm.name.to_bytes().as_ref()],
-        bump = realm.bump,
-    )]
-    pub realm: Account<'info, Realm>,
-
     pub system_program: Program<'info, System>,
+}
+
+#[event]
+pub struct UserAccountCreated {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub user_account: Pubkey,
 }
 
 pub fn create_user_account(ctx: Context<CreateUserAccount>) -> Result<()> {
@@ -42,5 +49,11 @@ pub fn create_user_account(ctx: Context<CreateUserAccount>) -> Result<()> {
     {
         ctx.accounts.realm.stats.total_user_accounts += 1;
     }
+
+    emit!(UserAccountCreated {
+        realm_name: ctx.accounts.realm.name.to_string(),
+        user: ctx.accounts.user.key(),
+        user_account: ctx.accounts.user_account.key(),
+    });
     Ok(())
 }

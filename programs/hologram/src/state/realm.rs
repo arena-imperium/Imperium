@@ -5,8 +5,15 @@ use {crate::utils::LimitedString, anchor_lang::prelude::*};
 pub struct Realm {
     pub bump: u8,
     pub name: LimitedString,
-    pub admin: Pubkey,
+    pub admin: Pubkey, // Also used as randomness authority
+    pub randomness: SwitchboardRandomness,
     pub stats: Stats,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
+pub struct SwitchboardRandomness {
+    pub authority: Pubkey,
+    pub function: Pubkey,
 }
 
 impl Realm {
