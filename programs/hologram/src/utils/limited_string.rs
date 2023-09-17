@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 
+// Storage space must be known in advance, as such all strings are limited to 64 chars
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub struct LimitedString {
-    pub value: [u8; 64], // Self::MaxLenght
+    pub value: [u8; 64], // Self::MaxLenght - anchor bug, cannot use constants here
     pub length: u8,
 }
 

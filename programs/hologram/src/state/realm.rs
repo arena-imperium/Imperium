@@ -14,6 +14,7 @@ pub struct Realm {
 pub struct SwitchboardInfo {
     pub authority: Pubkey,
     pub spaceship_seed_generation_function: Pubkey,
+    pub arena_matchmaking_function: Pubkey,
 }
 
 impl Realm {
@@ -27,6 +28,15 @@ pub struct Stats {
 }
 
 impl Realm {
+    pub fn get_time() -> Result<i64> {
+        let time = solana_program::sysvar::clock::Clock::get()?.unix_timestamp;
+        if time > 0 {
+            Ok(time)
+        } else {
+            Err(ProgramError::InvalidAccountData.into())
+        }
+    }
+
     pub fn transfer_sol<'a>(
         source_account: AccountInfo<'a>,
         destination_account: AccountInfo<'a>,

@@ -1,9 +1,11 @@
+use crate::BASE_MAX_FUEL;
+
 use {
     crate::{
         error::HologramError,
         state::{Realm, SpaceShip, SpaceShipLite, UserAccount},
         utils::LimitedString,
-        MAX_SPACESHIPS_PER_USER_ACCOUNT, RANDOMNESS_LAMPORT_COST,
+        MAX_SPACESHIPS_PER_USER_ACCOUNT, SPACESHIP_RANDOMNESS_FUNCTION_FEE,
     },
     switchboard_solana::prelude::*,
 };
@@ -54,7 +56,7 @@ pub struct CreateSpaceship<'info> {
     /// CHECK: validated by Switchboard CPI
     #[account(
         mut, 
-        // validate that we use the realm custom switchboard function
+        // validate that we use the realm custom switchboard function for spaceship seed generation
         constraint = realm.switchboard_info.spaceship_seed_generation_function == switchboard_function.key() && !switchboard_function.load()?.requests_disabled
     )]
     pub switchboard_function: AccountLoader<'info, FunctionAccountData>,
@@ -121,14 +123,14 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
                 .any(|s| s.name.to_string() == name),
             HologramError::SpaceshipNameAlreadyExists
         );
-        // // verify that there is no pending request already
-        // require!(
-        //     ctx.accounts.spaceship.randomness.status == crate::state::RandomnessStatus::None,
-        //     HologramError::SpaceshipRandomnessAlreadyRequested
-        // );
+        // verify that there is no pending request already
+        require!(
+            ctx.accounts.spaceship.randomness.status == crate::state::SwitchboardFunctionRequestStatus::None,
+            HologramError::SpaceshipRandomnessAlreadyRequested
+        );
     }
 
-    // @TODO: add a fee to create a spaceship
+    // @TODO: add a fee to create a spaceship if rolling premium hulls
 
     // Initialize the new SpaceShip account
     {
@@ -144,7 +146,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     // wrap GUESS_COST lamports on user wallet, if needed, to prepare for the function execution cost
     {
         // Only proceed if the user doesn't have enough lamports to pay for the function execution
-        if ctx.accounts.user_wsol_token_account.amount < RANDOMNESS_LAMPORT_COST {
+        if ctx.accounts.user_wsol_token_account.amount < SPACESHIP_RANDOMNESS_FUNCTION_FEE {
             switchboard_solana::wrap_native(
                 &ctx.accounts.system_program,
                 &ctx.accounts.token_program,
@@ -155,7 +157,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
                     ctx.accounts.realm.name.to_bytes(),
                     &[ctx.accounts.realm.bump],
                 ]],
-                RANDOMNESS_LAMPORT_COST
+                SPACESHIP_RANDOMNESS_FUNCTION_FEE
                     .checked_sub(ctx.accounts.user_wsol_token_account.amount)
                     .unwrap(),
             )?;
@@ -215,12 +217,32 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         )?;
 
         // update the spaceship randomness state
-        let spaceship = &mut ctx.accounts.spaceship;
-        spaceship.randomness.switchboard_request = ctx.accounts.switchboard_request.key();
-        spaceship.randomness.status = crate::state::RandomnessStatus::Pending;
-        spaceship.randomness.original_seed = 0;
-        spaceship.randomness.current_seed = 0;
-        spaceship.randomness.iteration = 0;
+        {
+            let spaceship = &mut ctx.accounts.spaceship;
+            spaceship.randomness.switchboard_request = ctx.accounts.switchboard_request.key();
+            spaceship.randomness.status = crate::state::SwitchboardFunctionRequestStatus::Requested;
+            // randomness fields defaulted to 0 for now, soon updated in the settle callback
+        }
+
+        // set starting spaceship state
+        {
+            let spaceship = &mut ctx.accounts.spaceship;
+
+            // arena matchmaking fields defaulted
+
+            spaceship.fuel.max = BASE_MAX_FUEL;
+            spaceship.fuel.current = BASE_MAX_FUEL;
+            spaceship.fuel.daily_allowance_last_collection = Realm::get_time()?;
+            
+            // all stats defaulted to 0
+
+            // experience fields defaulted to 0
+            spaceship.experience.exp_to_next_level = spaceship.experience_to_next_level();
+
+
+            // hull is rolled during settle callback
+        }
+
     }
 
     Ok(())

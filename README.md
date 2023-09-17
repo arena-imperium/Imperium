@@ -108,6 +108,14 @@ then run client
 
 # Devnet
 
+spaceship_seed_generation_function
+<https://app.switchboard.xyz/solana/devnet/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5>
+<https://github.com/acamill/spaceship_seed_generation_function>
+
+arena_matchmaking_function
+<https://app.switchboard.xyz/solana/devnet/function/TODO>
+<https://github.com/acamill/arena_matchmaking_function>
+
 Generate new keypair (to get a fresh program instance)
 `solana-keygen new -o program_id_devnet.json --force`
 

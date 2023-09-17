@@ -69,7 +69,7 @@ pub fn create_spaceship_settle(
     {
         // verify that this request was not settled already
         require!(
-            ctx.accounts.spaceship.randomness.status == spaceship::RandomnessStatus::Pending,
+            ctx.accounts.spaceship.randomness.status == spaceship::SwitchboardFunctionRequestStatus::Requested,
             HologramError::SpaceshipRandomnessAlreadySettled
         );
 
@@ -80,9 +80,9 @@ pub fn create_spaceship_settle(
         // );
     }
 
-    // Finish Spaceship initialization
+    // Finish Spaceship initialization with the generated seed
     {
-        ctx.accounts.spaceship.randomness.status = spaceship::RandomnessStatus::Ready;
+        ctx.accounts.spaceship.randomness.status = spaceship::SwitchboardFunctionRequestStatus::Settled;
         ctx.accounts.spaceship.randomness.original_seed = generated_seed.into();
         ctx.accounts.spaceship.randomness.current_seed = generated_seed.into();
         ctx.accounts.spaceship.randomness.iteration = 1;

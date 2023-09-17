@@ -8,7 +8,7 @@ pub struct UserAccount {
     pub spaceships: Vec<SpaceShipLite>,
 }
 
-// A lite representation used for rendering in the client
+// This is a subset of the SpaceShip account, mainly for the client to render the spaceship list
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct SpaceShipLite {
     pub name: LimitedString,

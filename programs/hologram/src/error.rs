@@ -14,10 +14,12 @@ pub enum HologramError {
     SpaceshipNameAlreadyExists,
     #[msg("The switchboard validation failed")]
     SwitchboardFunctionValidationFailed,
-    #[msg("The switchboard randomness for the Spaceship has already been requested")]
+    #[msg("The switchboard function for the Spaceship randomness has already been requested")]
     SpaceshipRandomnessAlreadyRequested,
     #[msg("The switchboard randomness for the Spaceship has already been settled")]
     SpaceshipRandomnessAlreadySettled,
+    #[msg("The switchboard function for the Arena Matchmaking has already been requested")]
+    ArenaMatchmakingAlreadyRequested,
     #[msg("The switchboard request was not successful")]
     SwitchboardRequestNotSuccessful,
     #[msg("The game state does not permit this action")]
