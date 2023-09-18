@@ -29,8 +29,8 @@ pub const DAILY_FUEL_ALLOWANCE: u8 = 3;
 pub const XP_REQUIERED_PER_LEVEL_MULT: u8 = 5;
 // Maximum amount of xp for next level (caps the above calculation)
 pub const MAX_XP_PER_LEVEL: u16 = 50;
-// Maximum spaceship level
-pub const MAX_LEVEL: u8 = 15;
+// Maximum spaceship level -  MUST be an even number
+pub const MAX_LEVEL: u8 = 16;
 
 //  -- Statistics --
 // 2 level of related stat provide 1% dodge chance
@@ -53,6 +53,10 @@ pub const BASE_SHIELD_HITPOINTS: u16 = 0;
 pub const HULL_HITPOINTS_PER_LEVEL: u16 = 5;
 pub const ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL: u16 = 20;
 pub const SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL: u16 = 15;
+
+pub const ARENA_MATCHMAKING_FUEL_COST: u8 = 1;
+pub const ARENA_MATCHMAKING_LEVEL_PER_RANGE: u8 = 2;
+pub const ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE: u8 = 5;
 
 solana_security_txt::security_txt! {
     name: "Hologram",
@@ -83,6 +87,11 @@ pub mod hologram {
     }
 
     // Create a spaceship for a user_account. A spaceship can be though of as a Character in a RPG.
+    //
+    // During the instruction a request account is initialized and triggered for the spaceship_seed_generation_function.
+    // The call back for this is the create_spaceship_settle IX.
+    //
+    // During the instruction a request account is initialized for the arena_matchmaking_function.
     pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<()> {
         instructions::create_spaceship(ctx, name)
     }

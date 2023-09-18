@@ -1,3 +1,5 @@
+use spaceship::SwitchboardFunctionRequestStatus;
+
 use {
     crate::{
         error::HologramError,
@@ -35,19 +37,19 @@ pub struct CreateSpaceshipSettle<'info> {
         mut,
         seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
         bump = spaceship.bump,
-        constraint = spaceship.randomness.switchboard_request == switchboard_request.key(),
+        constraint = spaceship.randomness.switchboard_request_info.account == switchboard_request.key(),
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
     #[account( 
         // validate that we use the realm custom switchboard function
-        constraint = realm.switchboard_info.spaceship_seed_generation_function == switchboard_function.key()
+        constraint = realm.switchboard_info.spaceship_seed_generation_function == spaceship_seed_generation_function.key()
     )]
-    pub switchboard_function: AccountLoader<'info, FunctionAccountData>,
+    pub spaceship_seed_generation_function: AccountLoader<'info, FunctionAccountData>,
 
     #[account(
       constraint = switchboard_request.validate_signer(
-          &switchboard_function.to_account_info(),
+          &spaceship_seed_generation_function.to_account_info(),
           &enclave_signer.to_account_info()
         )? @ HologramError::SwitchboardFunctionValidationFailed,
     )]
@@ -67,9 +69,9 @@ pub fn create_spaceship_settle(
 ) -> Result<()> {
     // Validations
     {
-        // verify that this request was not settled already
+        // verify that the request is pending settlement
         require!(
-            ctx.accounts.spaceship.randomness.status == spaceship::SwitchboardFunctionRequestStatus::Requested,
+            matches!(ctx.accounts.spaceship.randomness.switchboard_request_info.status, SwitchboardFunctionRequestStatus::Requested(_)),
             HologramError::SpaceshipRandomnessAlreadySettled
         );
 
@@ -82,7 +84,7 @@ pub fn create_spaceship_settle(
 
     // Finish Spaceship initialization with the generated seed
     {
-        ctx.accounts.spaceship.randomness.status = spaceship::SwitchboardFunctionRequestStatus::Settled;
+        ctx.accounts.spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Settled(Realm::get_time()?);
         ctx.accounts.spaceship.randomness.original_seed = generated_seed.into();
         ctx.accounts.spaceship.randomness.current_seed = generated_seed.into();
         ctx.accounts.spaceship.randomness.iteration = 1;
@@ -107,9 +109,9 @@ pub fn create_spaceship_settle(
         };
     }
 
-    // Update realm stats
+    // Update realm analytics
     {
-        ctx.accounts.realm.stats.total_spaceships_created += 1;
+        ctx.accounts.realm.analytics.total_spaceships_created += 1;
     }
 
     emit!(SpaceshipCreated {

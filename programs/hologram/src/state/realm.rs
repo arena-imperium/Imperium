@@ -5,9 +5,15 @@ use {crate::utils::LimitedString, anchor_lang::prelude::*};
 pub struct Realm {
     pub bump: u8,
     pub name: LimitedString,
-    pub admin: Pubkey, // Also used as randomness authority
+    pub admin: Pubkey, // must also be the owner of the Switchboard functions
     pub switchboard_info: SwitchboardInfo,
-    pub stats: Stats,
+    // matchmaking queues for the arena (softcore). Each queue catters to a specific level range. Details in init_realm IX
+    pub arena_matchmaking_queue: Vec<MatchmakingQueue>,
+    pub analytics: Analytics,
+}
+
+impl Realm {
+    pub const LEN: usize = 8 + std::mem::size_of::<Realm>();
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
@@ -17,12 +23,26 @@ pub struct SwitchboardInfo {
     pub arena_matchmaking_function: Pubkey,
 }
 
-impl Realm {
-    pub const LEN: usize = 8 + std::mem::size_of::<Realm>();
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
+pub struct MatchmakingQueue {
+    // maximum level of the spaceships in the queue
+    pub up_to_level: u8,
+    // up to ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE spaceship can be in the queue.
+    // After than when someone join a match is created selected a random spaceship from the queue.
+    pub spaceships: [Option<Pubkey>; 5], // @HARDCODED ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE anchor bug cannot use const here
+    // since this will be modified concurently, we cannot process more request than there is spaceships in the queue
+    pub matchmaking_request_count: u8,
+}
+
+impl MatchmakingQueue {
+    // informe wether the queue is currently filled
+    pub fn is_filled(&self) -> bool {
+        self.spaceships.iter().all(Option::is_some)
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct Stats {
+pub struct Analytics {
     pub total_user_accounts: u64,
     pub total_spaceships_created: u64,
 }

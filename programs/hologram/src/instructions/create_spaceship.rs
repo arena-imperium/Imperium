@@ -1,4 +1,4 @@
-use crate::BASE_MAX_FUEL;
+use crate::{BASE_MAX_FUEL, state::SwitchboardFunctionRequestStatus};
 
 use {
     crate::{
@@ -25,7 +25,8 @@ pub struct CreateSpaceship<'info> {
     )]
     pub realm: Box<Account<'info, Realm>>,
 
-    /// CHECK: by the realm account. Used with switchboard function
+    /// CHECK: validated by the realm admin
+    #[account(constraint = admin.key() == realm.admin)]
     pub admin: AccountInfo<'info>,
 
     #[account(
@@ -57,9 +58,9 @@ pub struct CreateSpaceship<'info> {
     #[account(
         mut, 
         // validate that we use the realm custom switchboard function for spaceship seed generation
-        constraint = realm.switchboard_info.spaceship_seed_generation_function == switchboard_function.key() && !switchboard_function.load()?.requests_disabled
+        constraint = realm.switchboard_info.spaceship_seed_generation_function == spaceship_seed_generation_function.key() && !spaceship_seed_generation_function.load()?.requests_disabled
     )]
-    pub switchboard_function: AccountLoader<'info, FunctionAccountData>,
+    pub spaceship_seed_generation_function: AccountLoader<'info, FunctionAccountData>,
 
     // The Switchboard Function Request account we will create with a CPI.
     // Should be an empty keypair with no lamports or data.
@@ -68,17 +69,44 @@ pub struct CreateSpaceship<'info> {
         mut,
         signer,
         owner = system_program.key(),
-        constraint = switchboard_request.data_len() == 0 && switchboard_request.lamports() == 0
+        constraint = switchboard_ssgf_request.data_len() == 0 && switchboard_ssgf_request.lamports() == 0
       )]
-    pub switchboard_request: AccountInfo<'info>,
+    pub switchboard_ssgf_request: AccountInfo<'info>,
 
     /// CHECK:
     #[account(
         mut,
         owner = system_program.key(),
-        constraint = switchboard_request_escrow.data_len() == 0 && switchboard_request_escrow.lamports() == 0
+        constraint = switchboard_ssgf_request_escrow.data_len() == 0 && switchboard_ssgf_request_escrow.lamports() == 0
       )]
-    pub switchboard_request_escrow: AccountInfo<'info>,
+    pub switchboard_ssgf_request_escrow: AccountInfo<'info>,
+
+    /// CHECK: validated by Switchboard CPI
+    #[account(
+        mut, 
+        // validate that we use the realm custom switchboard function for spaceship seed generation
+        constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key() && !arena_matchmaking_function.load()?.requests_disabled
+    )]
+    pub arena_matchmaking_function: AccountLoader<'info, FunctionAccountData>,
+
+    // The Switchboard Function Request account we will create with a CPI.
+    // Should be an empty keypair with no lamports or data.
+    /// CHECK: validated by Switchboard CPI
+    #[account(
+        mut,
+        signer,
+        owner = system_program.key(),
+        constraint = switchboard_amf_request.data_len() == 0 && switchboard_amf_request.lamports() == 0
+      )]
+    pub switchboard_amf_request: AccountInfo<'info>,
+
+    /// CHECK:
+    #[account(
+        mut,
+        owner = system_program.key(),
+        constraint = switchboard_amf_request_escrow.data_len() == 0 && switchboard_amf_request_escrow.lamports() == 0
+      )]
+    pub switchboard_amf_request_escrow: AccountInfo<'info>,
 
     // User WSOL token account to pay for the function execution
     #[account(
@@ -125,7 +153,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         );
         // verify that there is no pending request already
         require!(
-            ctx.accounts.spaceship.randomness.status == crate::state::SwitchboardFunctionRequestStatus::None,
+            matches!(ctx.accounts.spaceship.randomness.switchboard_request_info.status, crate::state::SwitchboardFunctionRequestStatus::None),
             HologramError::SpaceshipRandomnessAlreadyRequested
         );
     }
@@ -143,7 +171,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         spaceship.name = LimitedString::new(name);
     }
 
-    // wrap GUESS_COST lamports on user wallet, if needed, to prepare for the function execution cost
+    // create SPACESHIP_RANDOMNESS_FUNCTION_FEE, if needed
     {
         // Only proceed if the user doesn't have enough lamports to pay for the function execution
         if ctx.accounts.user_wsol_token_account.amount < SPACESHIP_RANDOMNESS_FUNCTION_FEE {
@@ -166,7 +194,56 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         }
     }
 
-    // Init and Trigger the Switchboard request
+    // init the request account for the arena_matchmaking_function. Not used in this context, but
+    // will be ready for future calls to arena_matchmaking IX.
+    {
+        // Create the Switchboard request account.
+        let request_init_ctx = FunctionRequestInit {
+            request: ctx.accounts.switchboard_amf_request.clone(),
+            authority: ctx.accounts.user_account.to_account_info(),
+            function: ctx.accounts.arena_matchmaking_function.to_account_info(), 
+            function_authority: None, // only needed if switchboard_function.requests_require_authorization is enabled
+            escrow: ctx.accounts.switchboard_amf_request_escrow.to_account_info(),
+            mint: ctx.accounts.switchboard_mint.to_account_info(),
+            state: ctx.accounts.switchboard_state.to_account_info(),
+            attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
+            payer: ctx.accounts.user.to_account_info(),
+            system_program: ctx.accounts.system_program.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+            associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
+        };
+        let request_params = format!(
+            "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={}",
+            crate::id(),
+            ctx.accounts.user.key(),
+            ctx.accounts.realm.key(),
+            ctx.accounts.user_account.key(),
+            ctx.accounts.spaceship.key()
+        );
+        request_init_ctx.invoke(
+            ctx.accounts.switchboard_program.clone(),
+            &FunctionRequestInitParams {
+                // max_container_params_len - the length of the vec containing the container params
+                // default: 256 bytes
+                max_container_params_len: Some(512),
+                // container_params - the container params
+                // default: empty vec
+                container_params: request_params.into_bytes(),
+                // garbage_collection_slot - the slot when the request can be closed by anyone and is considered dead
+                // default: None, only authority can close the request
+                garbage_collection_slot: None,
+            },
+        )?;
+    }
+
+    // update the spaceship arena_matchmaking state
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        spaceship.arena_matchmaking.switchboard_request_info.account = ctx.accounts.switchboard_amf_request.key();
+        spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::None;
+    }
+
+    // Init and Trigger the request account for the spaceship_seed_generation_function
     // This will instruct the off-chain oracles to execute the docker container and relay
     // the result back to our program via the 'create_spaceship_settle' instruction.
     {
@@ -181,10 +258,10 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             ctx.accounts.spaceship.key()
         );
 
-        let request_init_ctx = FunctionRequestInitAndTrigger {
-            request: ctx.accounts.switchboard_request.clone(),
-            function: ctx.accounts.switchboard_function.to_account_info(),
-            escrow: ctx.accounts.switchboard_request_escrow.to_account_info(),
+        let request_init_and_trigger_ctx = FunctionRequestInitAndTrigger {
+            request: ctx.accounts.switchboard_ssgf_request.clone(),
+            function: ctx.accounts.spaceship_seed_generation_function.to_account_info(),
+            escrow: ctx.accounts.switchboard_ssgf_request_escrow.to_account_info(),
             mint: ctx.accounts.switchboard_mint.to_account_info(),
             state: ctx.accounts.switchboard_state.to_account_info(),
             attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
@@ -193,7 +270,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             token_program: ctx.accounts.token_program.to_account_info(),
             associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
         };
-        request_init_ctx.invoke(
+        request_init_and_trigger_ctx.invoke(
             ctx.accounts.switchboard_program.clone(),
             // bounty - optional fee to reward oracles for priority processing
             // default: 0 lamports
@@ -215,34 +292,31 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             // default: 0 slots, valid immediately for oracles to process
             None,
         )?;
+    }
 
-        // update the spaceship randomness state
-        {
-            let spaceship = &mut ctx.accounts.spaceship;
-            spaceship.randomness.switchboard_request = ctx.accounts.switchboard_request.key();
-            spaceship.randomness.status = crate::state::SwitchboardFunctionRequestStatus::Requested;
-            // randomness fields defaulted to 0 for now, soon updated in the settle callback
-        }
+    // update the spaceship randomness state
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        spaceship.randomness.switchboard_request_info.account = ctx.accounts.switchboard_ssgf_request.key();
+        spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested(Realm::get_time()?);
+        // randomness fields defaulted to 0 for now, soon updated in the settle callback
+    }
 
-        // set starting spaceship state
-        {
-            let spaceship = &mut ctx.accounts.spaceship;
+    // initialize remaining spaceship fields
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
 
-            // arena matchmaking fields defaulted
+        spaceship.fuel.max = BASE_MAX_FUEL;
+        spaceship.fuel.current = BASE_MAX_FUEL;
+        spaceship.fuel.daily_allowance_last_collection = Realm::get_time()?;
+        
+        // all stats defaulted to 0
 
-            spaceship.fuel.max = BASE_MAX_FUEL;
-            spaceship.fuel.current = BASE_MAX_FUEL;
-            spaceship.fuel.daily_allowance_last_collection = Realm::get_time()?;
-            
-            // all stats defaulted to 0
-
-            // experience fields defaulted to 0
-            spaceship.experience.exp_to_next_level = spaceship.experience_to_next_level();
+        // experience fields defaulted to 0
+        spaceship.experience.exp_to_next_level = spaceship.experience_to_next_level();
 
 
-            // hull is rolled during settle callback
-        }
-
+        // hull is rolled during settle callback
     }
 
     Ok(())

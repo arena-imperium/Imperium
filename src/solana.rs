@@ -59,7 +59,9 @@ pub struct HologramServer {
     pub solana_client: Arc<SolanaClient>,
     pub realm_name: String,
     pub admin_pubkey: Pubkey,
-    pub randomness_function: Pubkey,
+    // Custom Switchboard functions
+    pub spaceship_seed_generation_function: Pubkey,
+    pub arena_matchmaking_function: Pubkey,
 }
 
 impl Default for HologramServer {
@@ -86,8 +88,11 @@ impl Default for HologramServer {
             solana_client: client,
             realm_name: "Holorealm".to_string(), // @HARDCODED
             admin_pubkey: payer.pubkey().clone(),
-            randomness_function: Pubkey::from_str("CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5")
-                .unwrap(), // @HARDCODED
+            spaceship_seed_generation_function: Pubkey::from_str(
+                "CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5",
+            )
+            .unwrap(), // @HARDCODED
+            arena_matchmaking_function: Pubkey::from_str("Todo").unwrap(), // @HARDCODED
         }
     }
 }
@@ -100,7 +105,7 @@ impl HologramServer {
         self.initialize_realm(
             commands,
             &self.realm_name,
-            &self.randomness_function,
+            &self.spaceship_seed_generation_function,
             &self.solana_client.payer.pubkey(),
         );
     }
@@ -211,9 +216,16 @@ impl HologramServer {
         let user_wsol_token_account = get_associated_token_address(&user, &native_mint::ID);
 
         let (switchboard_state_pda, _) = Self::get_switchboard_state();
-        let switchboard_request_keypair = Keypair::new();
-        let switchboard_request_escrow =
-            get_associated_token_address(&switchboard_request_keypair.pubkey(), &native_mint::ID);
+        let switchboard_ssgf_request_keypair = Keypair::new();
+        let switchboard_ssgf_request_escrow = get_associated_token_address(
+            &switchboard_ssgf_request_keypair.pubkey(),
+            &native_mint::ID,
+        );
+        let switchboard_amf_request_keypair = Keypair::new();
+        let switchboard_amf_request_escrow = get_associated_token_address(
+            &switchboard_amf_request_keypair.pubkey(),
+            &native_mint::ID,
+        );
         let program_id = hologram::id();
         let instruction = hologram::instruction::CreateSpaceship {
             name: spaceship_name,
@@ -230,9 +242,12 @@ impl HologramServer {
                 "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE",
             )
             .unwrap(),
-            switchboard_function: self.randomness_function,
-            switchboard_request: switchboard_request_keypair.pubkey(),
-            switchboard_request_escrow,
+            spaceship_seed_generation_function: self.spaceship_seed_generation_function,
+            switchboard_ssgf_request: switchboard_ssgf_request_keypair.pubkey(),
+            switchboard_ssgf_request_escrow,
+            arena_matchmaking_function: self.arena_matchmaking_function,
+            switchboard_amf_request: switchboard_amf_request_keypair.pubkey(),
+            switchboard_amf_request_escrow,
             user_wsol_token_account,
             switchboard_mint: native_mint::ID,
             system_program: solana_program::system_program::id(),
@@ -246,7 +261,10 @@ impl HologramServer {
             instruction,
             accounts,
             payer.clone(),
-            vec![switchboard_request_keypair],
+            vec![
+                switchboard_ssgf_request_keypair,
+                switchboard_amf_request_keypair,
+            ],
             250_000,
         );
 

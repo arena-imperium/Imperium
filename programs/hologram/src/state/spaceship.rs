@@ -1,9 +1,10 @@
 use {
     crate::{
-        utils::LimitedString, ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL, BASE_ARMOR_HITPOINTS,
-        BASE_CELERITY, BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE,
-        BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP, DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO,
-        HULL_HITPOINTS_PER_LEVEL, JAMMING_NULLIFYING_CHANCE_CAP,
+        error::HologramError, utils::LimitedString, ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL,
+        BASE_ARMOR_HITPOINTS, BASE_CELERITY, BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS,
+        BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP,
+        DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO, HULL_HITPOINTS_PER_LEVEL,
+        JAMMING_NULLIFYING_CHANCE_CAP,
         JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_XP_PER_LEVEL,
         SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL, XP_REQUIERED_PER_LEVEL_MULT,
     },
@@ -71,6 +72,14 @@ pub struct Fuel {
     pub daily_allowance_last_collection: i64,
 }
 
+impl Fuel {
+    pub fn consume(&mut self, amount: u8) -> Result<()> {
+        require!(self.current > amount, HologramError::InsufficientFuel);
+        self.current -= amount;
+        Ok(())
+    }
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
 pub struct Experience {
     pub current_level: u8,
@@ -85,10 +94,7 @@ pub struct Experience {
 // mainet: @TODO
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct Randomness {
-    // the switchboard request that generated the seed. Might be closed by the time the spaceship is created (@TODO)
-    pub switchboard_request: Pubkey,
-    // only used during initialization
-    pub status: SwitchboardFunctionRequestStatus,
+    pub switchboard_request_info: SwitchboardRequestInfo,
     // the first seed fetched from the switchboard request
     pub original_seed: u64,
     pub current_seed: u64,
@@ -102,9 +108,22 @@ pub struct Randomness {
 // mainet: @TODO
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct ArenaMatchmaking {
-    pub switchboard_request: Pubkey,
+    pub switchboard_request_info: SwitchboardRequestInfo,
+    pub matchmaking_status: MatchMakingStatus,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct SwitchboardRequestInfo {
+    pub account: Pubkey,
     pub status: SwitchboardFunctionRequestStatus,
-    pub request_timestamp: i64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum MatchMakingStatus {
+    // the user is not in the queue
+    None,
+    // the user is queued and waiting for a match
+    InQueue(i64),
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -116,14 +135,34 @@ pub struct Module {
     pub class: ModuleClass,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub enum SwitchboardFunctionRequestStatus {
     // No request has been made yet
-    None = 0,
+    None,
     // The request has been made but the callback has not been called by the Function yet
-    Requested,
+    Requested(i64),
     // The request has been settled. the callback has been made
-    Settled,
+    Settled(i64),
+}
+
+// Ignore specific timestamp
+impl PartialEq for SwitchboardFunctionRequestStatus {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (SwitchboardFunctionRequestStatus::None, SwitchboardFunctionRequestStatus::None) => {
+                true
+            }
+            (
+                SwitchboardFunctionRequestStatus::Requested(_),
+                SwitchboardFunctionRequestStatus::Requested(_),
+            ) => true,
+            (
+                SwitchboardFunctionRequestStatus::Settled(_),
+                SwitchboardFunctionRequestStatus::Settled(_),
+            ) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -145,7 +184,10 @@ impl SpaceShip {
 
     // the account has finished the initialization process
     pub fn is_initialized(&self) -> bool {
-        self.randomness.status == SwitchboardFunctionRequestStatus::Settled
+        match self.randomness.switchboard_request_info.status {
+            SwitchboardFunctionRequestStatus::Settled(_) => true,
+            _ => false,
+        }
     }
 
     // --- [Game engine code] ---

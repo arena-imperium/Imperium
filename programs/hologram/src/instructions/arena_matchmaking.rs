@@ -1,13 +1,11 @@
-use crate::ARENA_MATCHMAKING_FUNCTION_FEE;
+use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}};
 
 use {
     crate::{
         error::HologramError,
-        state::{spaceship, Realm, SpaceShip, SpaceShipLite, UserAccount},
-        utils::RandomNumberGenerator,
+        state::{Realm, SpaceShip, SpaceShipLite, UserAccount},
     },
     anchor_lang::prelude::*,
-    spaceship::Hull,
     switchboard_solana::prelude::*,
 };
 
@@ -24,7 +22,8 @@ pub struct ArenaMatchmaking<'info> {
     )]
     pub realm: Box<Account<'info, Realm>>,
 
-    /// CHECK: by the realm account. Used with switchboard function
+    /// CHECK: validated by the realm admin
+    #[account(constraint = admin.key() == realm.admin)]
     pub admin: AccountInfo<'info>,
 
     #[account(
@@ -56,9 +55,9 @@ pub struct ArenaMatchmaking<'info> {
     #[account(
         mut, 
         // validate that we use the realm custom switchboard function for the arena matchmaking
-        constraint = realm.switchboard_info.arena_matchmaking_function == switchboard_function.key() && !switchboard_function.load()?.requests_disabled
+        constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key() && !arena_matchmaking_function.load()?.requests_disabled
     )]
-    pub switchboard_function: AccountLoader<'info, FunctionAccountData>,
+    pub arena_matchmaking_function: AccountLoader<'info, FunctionAccountData>,
 
     // The Switchboard Function Request account we will create with a CPI.
     // Should be an empty keypair with no lamports or data.
@@ -79,25 +78,18 @@ pub struct ArenaMatchmaking<'info> {
       )]
     pub switchboard_request_escrow: AccountInfo<'info>,
 
-    // User WSOL token account to pay for the function execution
-    #[account(
-      init_if_needed,
-      payer = user,
-      associated_token::mint = switchboard_mint,
-      associated_token::authority = user,
-    )]
-    pub user_wsol_token_account: Account<'info, TokenAccount>,
-
-    // WSOL Mint, and function related accounts used to pay for the switchboard function execution
-    #[account(address = anchor_spl::token::spl_token::native_mint::ID)]
-    pub switchboard_mint: Account<'info, Mint>,
-
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     /// CHECK: SWITCHBOARD_ATTESTATION_PROGRAM
     #[account(executable, address = SWITCHBOARD_ATTESTATION_PROGRAM_ID)]
     pub switchboard_program: AccountInfo<'info>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
+}
+
+#[event]
+pub struct ArenaMatchmakingQueueJoined {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
 }
 
 pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
@@ -105,38 +97,133 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     {
         // verify that the user has not registered for the arena yet
         require!(
-            ctx.accounts.spaceship.arena_matchmaking.status != crate::state::SwitchboardFunctionRequestStatus::Requested,
+            !matches!(ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.status, SwitchboardFunctionRequestStatus::Requested(_)),
             HologramError::ArenaMatchmakingAlreadyRequested
+        );
+
+        // verify that the user is not already in the queue
+        require!(
+            matches!(ctx.accounts.spaceship.arena_matchmaking.matchmaking_status, MatchMakingStatus::None),
+            HologramError::MatchmakingAlreadyInQueue
         );
 
     }
 
-        // wrap GUESS_COST lamports on user wallet, if needed, to prepare for the function execution cost
+    // pay fuel entry price + update matchmaking status 
     {
-        // Only proceed if the user doesn't have enough lamports to pay for the function execution
-        if ctx.accounts.user_wsol_token_account.amount < ARENA_MATCHMAKING_FUNCTION_FEE {
-            switchboard_solana::wrap_native(
-                &ctx.accounts.system_program,
-                &ctx.accounts.token_program,
-                &ctx.accounts.user_wsol_token_account,
-                &ctx.accounts.user,
-                &[&[
-                    b"realm",
-                    ctx.accounts.realm.name.to_bytes(),
-                    &[ctx.accounts.realm.bump],
-                ]],
-                ARENA_MATCHMAKING_FUNCTION_FEE
-                    .checked_sub(ctx.accounts.user_wsol_token_account.amount)
-                    .unwrap(),
+        let spaceship = &mut ctx.accounts.spaceship;
+        spaceship.fuel.consume(ARENA_MATCHMAKING_FUEL_COST)?;
+    }
+
+    // Matchmaking logic, two paths:
+    // - the queue is filled, trigger match the caller and a participant
+    // - the queue isn't filled, place the caller in the queue 
+
+    // @TODO: Will roll with this for now cause probably premature optimization, but there is a problem: If multiple users call this instruction and the queue is filled,
+    //  they will all be matched with the same pool of opponent, which is limited, and the opponent is picked at random.
+    //  There will be collisions, or lack of opponent depend of the amount of stress put on the system.
+    //
+    // Basically it's a concurrency issue, with a long async matching process, and a limited pool of opponent.
+    //
+    // Needs :
+    // - The registration and matching need to stay decoupled, in order to avoid bundling TX and rerolling opponing
+    // - Keep the matchmaking queue small if possible, to limit the amount of players waiting and also the on chain size of array
+    // 
+    // Possible solution, from worst to best:
+    // - A lock per queue. This would be a bottleneck, but would solve the issue.
+    // - decoupling registration and matching fully. Downside is that we would need to store a big amount of opponents on chain.
+    //    - a possible way to alleviate that could be to first call the matching IX through CPI when someone registers. Basically free up a space if possible first
+    // - add a seed to MatchmakingQueue, and use it to pick an opponent. When a player registers and the queue is full, 
+    //   an opponent is selected base on the queue seed and the player seed (starting a match not for the caller but for the players already in the queue)
+    //    - doesn't work cause the caller can bundle IX (and thus reroll opponent)
+    //
+    // Update: After long thinking... I think I got it. Ok so what we want to do is preshot the future, put your vypers and let me explain...
+    //         We can add a counter in the MatchMaking Queue "requested_resolution" that we can increment right away, even if we don't know who is paired.
+    //         When we pick the random opponent, we might rand over an already paired player, but that's ok, we just need to reroll or get the next one.
+    //         Thanks to this we can reject if requested_resolution is >= max_spaceships in queue, that should give a more comfortable buffer before bottleneck.
+    //         It's still britle, but with the different layers of Matchmaking, that we can extend, with the number of player per queue, that we can increase, with the different Realms, where we could have a player limit eventually.. Should work-ish?
+    //              
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        let realm = &mut ctx.accounts.realm;
+
+        // find the queue matching spaceship level
+        let queue = realm.arena_matchmaking_queue.iter_mut().find(|q| q.up_to_level >= spaceship.experience.current_level).ok_or(HologramError::MatchmakingQueueNotFound)?;
+
+        // check that the system is not processing more matchmaking requests than there is spaceships in the queue (due to the concurrency issue described above)
+        {
+            require!(queue.matchmaking_request_count < queue.spaceships.len() as u8, HologramError::MatchmakingTooManyRequests);
+        }
+
+        // is the queue filled? Yes? -> matchmake, No? -> insert spaceship in the first available slot
+        if queue.is_filled() {
+            // increase request awaiting settlement counter
+            queue.matchmaking_request_count += 1;
+
+            // Trigger the request account for the arena_matchmaking_function
+            // This will instruct the off-chain oracles to execute the docker container and relay
+            // the result back to our program via the 'arena_matchmaking_settle' instruction.
+            let request_trigger_ctx = FunctionRequestTrigger {
+                request: ctx.accounts.switchboard_request.clone(),
+                authority: ctx.accounts.admin.clone(),
+                escrow: ctx.accounts.switchboard_request_escrow.to_account_info(),
+                function: ctx.accounts.arena_matchmaking_function.to_account_info(),
+                state: ctx.accounts.switchboard_state.to_account_info(),
+                attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
+                payer: ctx.accounts.user.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                token_program: ctx.accounts.token_program.to_account_info(),
+            };
+
+            let realm_key = ctx.accounts.realm.key();
+            let user_account_seed = &[
+                b"user_account",
+                realm_key.as_ref(), ctx.accounts.user.key.as_ref(),
+                &[ctx.accounts.user_account.bump],
+            ];
+
+            request_trigger_ctx.invoke_signed(
+                ctx.accounts.switchboard_program.clone(),
+                // bounty - optional fee to reward oracles for priority processing
+                // default: 0 lamports
+                None,
+                // slots_until_expiration - optional max number of slots the request can be processed in
+                // default: 2250 slots, ~ 15 min at 400 ms/slot
+                // minimum: 150 slots, ~ 1 min at 400 ms/slot
+                None,
+                // valid_after_slot - schedule a request to execute in N slots
+                // default: 0 slots, valid immediately for oracles to process
+                None,
+                &[user_account_seed],
             )?;
-            // Reload the user wallet account to get the new amount
-            ctx.accounts.user_wsol_token_account.reload()?;
+
+            // update arena_matchmaking status
+            {
+                let spaceship = &mut ctx.accounts.spaceship;
+                spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested(Realm::get_time()?);
+            }
+        } else {
+            // insert spaceship in the first available slot
+            let empty_slot = queue.spaceships.iter_mut().find(|slot| slot.is_none());
+            if let Some(slot) = empty_slot {
+                *slot = Some(ctx.accounts.spaceship.key());
+            } else {
+                return Err(error!(HologramError::MatchmakingQueueFull)); // Should not happen as we checked the queue is not filled
+            }
         }
     }
 
-    // pay 1 fuel to entry
-    {
-        
-    }
+    // update matchmaking status 
+    ctx.accounts.spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::InQueue(Realm::get_time()?);
+
+    emit!(ArenaMatchmakingQueueJoined {
+        realm_name: ctx.accounts.realm.name.to_string(),
+        user: ctx.accounts.user.key(),
+        spaceship: SpaceShipLite {
+            name: ctx.accounts.spaceship.name,
+            hull: ctx.accounts.spaceship.hull.clone(),
+            spaceship: *ctx.accounts.spaceship.to_account_info().key,
+        }
+    });
     Ok(())
 }

@@ -22,6 +22,16 @@ pub enum HologramError {
     ArenaMatchmakingAlreadyRequested,
     #[msg("The switchboard request was not successful")]
     SwitchboardRequestNotSuccessful,
+    #[msg("The spaceship doesn't have enough fuel for this action")]
+    InsufficientFuel,
+    #[msg("The spaceship is already queued for matchmaking")]
+    MatchmakingAlreadyInQueue,
+    #[msg("No matchmaking queue was found for this spaceship level")]
+    MatchmakingQueueNotFound,
+    #[msg("The matchmaking queue is full")]
+    MatchmakingQueueFull,
+    #[msg("The matchmaking queue cannot handle more requests at the moment. Please retry later")]
+    MatchmakingTooManyRequests,
     #[msg("The game state does not permit this action")]
     InvalidAction,
 }

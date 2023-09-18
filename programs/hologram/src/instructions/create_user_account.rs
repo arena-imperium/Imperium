@@ -45,9 +45,9 @@ pub fn create_user_account(ctx: Context<CreateUserAccount>) -> Result<()> {
         ua.spaceships = vec![];
     }
 
-    // Update realm stats
+    // Update realm analytics
     {
-        ctx.accounts.realm.stats.total_user_accounts += 1;
+        ctx.accounts.realm.analytics.total_user_accounts += 1;
     }
 
     emit!(UserAccountCreated {

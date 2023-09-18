@@ -1,5 +1,10 @@
 use {
-    crate::{error::HologramError, state::Realm, utils::LimitedString},
+    crate::{
+        error::HologramError,
+        state::{MatchmakingQueue, Realm},
+        utils::LimitedString,
+        ARENA_MATCHMAKING_LEVEL_PER_RANGE, ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE, MAX_LEVEL,
+    },
     anchor_lang::prelude::*,
     switchboard_solana::FunctionAccountData,
 };
@@ -19,7 +24,7 @@ pub struct InitializeRealm<'info> {
         payer=payer,
         seeds=[b"realm", name.as_bytes()],
         bump,
-        space = Realm::LEN,
+        space = Realm::LEN + (MAX_LEVEL as usize / ARENA_MATCHMAKING_LEVEL_PER_RANGE as usize * std::mem::size_of::<MatchmakingQueue>()),
     )]
     pub realm: Account<'info, Realm>,
 
@@ -56,6 +61,18 @@ pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<(
             .switchboard_info
             .spaceship_seed_generation_function = ctx.accounts.switchboard_function.key();
         ctx.accounts.realm.switchboard_info.authority = ctx.accounts.admin.key();
+    }
+
+    // Initialize arena matchmaking queue
+    {
+        let realm = &mut ctx.accounts.realm;
+        for i in (0..MAX_LEVEL).step_by(ARENA_MATCHMAKING_LEVEL_PER_RANGE as usize) {
+            realm.arena_matchmaking_queue.push(MatchmakingQueue {
+                up_to_level: i + ARENA_MATCHMAKING_LEVEL_PER_RANGE,
+                spaceships: [None; ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE as usize],
+                matchmaking_request_count: 0,
+            });
+        }
     }
 
     Ok(())
