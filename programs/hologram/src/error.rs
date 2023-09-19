@@ -32,6 +32,8 @@ pub enum HologramError {
     MatchmakingQueueFull,
     #[msg("The matchmaking queue cannot handle more requests at the moment. Please retry later")]
     MatchmakingTooManyRequests,
+    #[msg("The spaceship must allocate his level up stats and powerup before being able to join the arena")]
+    PendingStatOrPowerup,
     #[msg("The game state does not permit this action")]
     InvalidAction,
 }

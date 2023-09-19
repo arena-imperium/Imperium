@@ -95,6 +95,12 @@ pub struct ArenaMatchmakingQueueJoined {
 pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     // Validations
     {
+        // verify that the user has spend his level up upgrades yet
+        require!(
+            ctx.accounts.spaceship.has_no_pending_stats_or_powerup(),
+            HologramError::PendingStatOrPowerup
+        );
+
         // verify that the user has not registered for the arena yet
         require!(
             !matches!(ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.status, SwitchboardFunctionRequestStatus::Requested(_)),
@@ -145,6 +151,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     //              
     {
         let spaceship = &mut ctx.accounts.spaceship;
+        let realm_key = ctx.accounts.realm.key();
         let realm = &mut ctx.accounts.realm;
 
         // find the queue matching spaceship level
@@ -160,42 +167,63 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
             // increase request awaiting settlement counter
             queue.matchmaking_request_count += 1;
 
-            // Trigger the request account for the arena_matchmaking_function
-            // This will instruct the off-chain oracles to execute the docker container and relay
-            // the result back to our program via the 'arena_matchmaking_settle' instruction.
-            let request_trigger_ctx = FunctionRequestTrigger {
-                request: ctx.accounts.switchboard_request.clone(),
-                authority: ctx.accounts.admin.clone(),
-                escrow: ctx.accounts.switchboard_request_escrow.to_account_info(),
-                function: ctx.accounts.arena_matchmaking_function.to_account_info(),
-                state: ctx.accounts.switchboard_state.to_account_info(),
-                attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
-                payer: ctx.accounts.user.to_account_info(),
-                system_program: ctx.accounts.system_program.to_account_info(),
-                token_program: ctx.accounts.token_program.to_account_info(),
-            };
-
-            let realm_key = ctx.accounts.realm.key();
             let user_account_seed = &[
                 b"user_account",
                 realm_key.as_ref(), ctx.accounts.user.key.as_ref(),
                 &[ctx.accounts.user_account.bump],
             ];
 
-            request_trigger_ctx.invoke_signed(
-                ctx.accounts.switchboard_program.clone(),
-                // bounty - optional fee to reward oracles for priority processing
-                // default: 0 lamports
-                None,
-                // slots_until_expiration - optional max number of slots the request can be processed in
-                // default: 2250 slots, ~ 15 min at 400 ms/slot
-                // minimum: 150 slots, ~ 1 min at 400 ms/slot
-                None,
-                // valid_after_slot - schedule a request to execute in N slots
-                // default: 0 slots, valid immediately for oracles to process
-                None,
-                &[user_account_seed],
-            )?;
+            // Update the switchboard function parameters to include the queued spaceships
+            {
+                let request_set_config_ctx = FunctionRequestSetConfig { request: ctx.accounts.switchboard_request.clone(), authority: ctx.accounts.admin.clone() };
+                let request_params = format!(
+                    "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},OS_1_PDA={},OS_2_PDA={},OS_3_PDA={},OS_4_PDA={},OS_5_PDA={}",
+                    crate::id(),
+                    ctx.accounts.user.key(),
+                    realm_key,
+                    ctx.accounts.user_account.key(),
+                    ctx.accounts.spaceship.key(),
+                    queue.spaceships[0].unwrap(),
+                    queue.spaceships[1].unwrap(),
+                    queue.spaceships[2].unwrap(),
+                    queue.spaceships[3].unwrap(),
+                    queue.spaceships[4].unwrap(),
+                );
+
+                request_set_config_ctx.invoke_signed(ctx.accounts.switchboard_program.clone(), request_params.into_bytes(), false, &[user_account_seed])?;
+            }
+
+            // Trigger the request account for the arena_matchmaking_function
+            // This will instruct the off-chain oracles to execute the docker container and relay
+            // the result back to our program via the 'arena_matchmaking_settle' instruction.
+            {
+                let request_trigger_ctx = FunctionRequestTrigger {
+                    request: ctx.accounts.switchboard_request.clone(),
+                    authority: ctx.accounts.admin.clone(),
+                    escrow: ctx.accounts.switchboard_request_escrow.to_account_info(),
+                    function: ctx.accounts.arena_matchmaking_function.to_account_info(),
+                    state: ctx.accounts.switchboard_state.to_account_info(),
+                    attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
+                    payer: ctx.accounts.user.to_account_info(),
+                    system_program: ctx.accounts.system_program.to_account_info(),
+                    token_program: ctx.accounts.token_program.to_account_info(),
+                };
+
+                request_trigger_ctx.invoke_signed(
+                    ctx.accounts.switchboard_program.clone(),
+                    // bounty - optional fee to reward oracles for priority processing
+                    // default: 0 lamports
+                    None,
+                    // slots_until_expiration - optional max number of slots the request can be processed in
+                    // default: 2250 slots, ~ 15 min at 400 ms/slot
+                    // minimum: 150 slots, ~ 1 min at 400 ms/slot
+                    None,
+                    // valid_after_slot - schedule a request to execute in N slots
+                    // default: 0 slots, valid immediately for oracles to process
+                    None,
+                    &[user_account_seed],
+                )?;
+            }
 
             // update arena_matchmaking status
             {

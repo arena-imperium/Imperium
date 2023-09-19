@@ -92,13 +92,18 @@ impl Default for HologramServer {
                 "CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5",
             )
             .unwrap(), // @HARDCODED
-            arena_matchmaking_function: Pubkey::from_str("Todo").unwrap(), // @HARDCODED
+            arena_matchmaking_function: Pubkey::from_str(
+                "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog",
+            )
+            .unwrap(), // @HARDCODED
         }
     }
 }
 
-// DEVNET test randomness function CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
+// DEVNET test spaceship seed generation function CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
+// DEVNET test arena matchmaking function HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
 // https://app.switchboard.xyz/build/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
+// https://app.switchboard.xyz/build/function/HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
 
 impl HologramServer {
     pub fn default_initialize_realm(&self, commands: &mut Commands) {

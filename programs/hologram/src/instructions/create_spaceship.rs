@@ -213,12 +213,17 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
         };
         let request_params = format!(
-            "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={}",
+            "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},OS_1_PDA={},OS_2_PDA={},OS_3_PDA={},OS_4_PDA={},OS_5_PDA={}",
             crate::id(),
             ctx.accounts.user.key(),
             ctx.accounts.realm.key(),
             ctx.accounts.user_account.key(),
-            ctx.accounts.spaceship.key()
+            ctx.accounts.spaceship.key(),
+            Pubkey::default(),
+            Pubkey::default(),
+            Pubkey::default(),
+            Pubkey::default(),
+            Pubkey::default(),
         );
         request_init_ctx.invoke(
             ctx.accounts.switchboard_program.clone(),

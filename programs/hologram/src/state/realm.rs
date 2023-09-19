@@ -1,4 +1,4 @@
-use {crate::utils::LimitedString, anchor_lang::prelude::*};
+use {super::SpaceShip, crate::utils::LimitedString, anchor_lang::prelude::*};
 
 #[account()]
 #[derive(Default)]
@@ -45,6 +45,7 @@ impl MatchmakingQueue {
 pub struct Analytics {
     pub total_user_accounts: u64,
     pub total_spaceships_created: u64,
+    pub total_arena_matches: u64,
 }
 
 impl Realm {
@@ -57,6 +58,26 @@ impl Realm {
         }
     }
 
+    // This function is used to distribute experience points to the winner and loser of an arena match.
+    // The winner gains experience points equal to the maximum of 1 and the difference between the loser's level and their own.
+    // The loser gains 1 experience point if their level is less than or equal to 5.
+    // After level 5, losing in the arena does not grant any experience points.
+    pub fn distribute_arena_experience(winner: &mut SpaceShip, looser: &mut SpaceShip) {
+        let winner_lvl = winner.experience.current_level;
+        let looser_lvl = looser.experience.current_level;
+
+        // Winning in the Arena will grant you
+        // max(1, opponent_spaceship_level - spaceship_level) XP points
+        let xp_gain = std::cmp::max(1, looser_lvl + winner_lvl);
+        winner.experience.increase(xp_gain);
+
+        // Loosing in the Arena will grant you *1* XP point (after lvl.5 loosing won’t grant experience).
+        if looser_lvl <= 5 {
+            looser.experience.increase(1)
+        }
+    }
+
+    
     pub fn transfer_sol<'a>(
         source_account: AccountInfo<'a>,
         destination_account: AccountInfo<'a>,

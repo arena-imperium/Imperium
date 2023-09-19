@@ -5,8 +5,9 @@ use {
         BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP,
         DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO, HULL_HITPOINTS_PER_LEVEL,
         JAMMING_NULLIFYING_CHANCE_CAP,
-        JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_XP_PER_LEVEL,
-        SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL, XP_REQUIERED_PER_LEVEL_MULT,
+        JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_LEVEL,
+        MAX_XP_PER_LEVEL, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
+        XP_REQUIERED_PER_LEVEL_MULT,
     },
     anchor_lang::prelude::*,
 };
@@ -85,6 +86,33 @@ pub struct Experience {
     pub current_level: u8,
     pub current_exp: u16,
     pub exp_to_next_level: u16,
+    pub available_stats_points: bool,
+    pub available_power_up: bool,
+}
+
+impl Experience {
+    pub fn increase(&mut self, amount: u8) {
+        self.current_exp += amount as u16;
+        if self.current_exp >= self.exp_to_next_level {
+            self.level_up();
+        }
+    }
+
+    fn level_up(&mut self) {
+        if self.current_level >= MAX_LEVEL {
+            return;
+        }
+        self.current_level += 1;
+        self.current_exp -= self.exp_to_next_level;
+        self.exp_to_next_level = self.experience_to_next_level();
+        self.available_stats_points = true;
+        self.available_power_up = true;
+    }
+
+    pub fn experience_to_next_level(&self) -> u16 {
+        let xp_to_next_level = (self.current_level + 1) * XP_REQUIERED_PER_LEVEL_MULT;
+        std::cmp::min(xp_to_next_level.into(), MAX_XP_PER_LEVEL)
+    }
 }
 
 // Randomness is initially seeded using a Switchboard Function (custom).
@@ -188,6 +216,12 @@ impl SpaceShip {
             SwitchboardFunctionRequestStatus::Settled(_) => true,
             _ => false,
         }
+    }
+
+    // informs wether the spaceship has available stat or module point to spend.
+    // Untils these are spent, he is barred from entering the arena
+    pub fn has_no_pending_stats_or_powerup(&self) -> bool {
+        !(self.experience.available_stats_points || self.experience.available_power_up)
     }
 
     // --- [Game engine code] ---

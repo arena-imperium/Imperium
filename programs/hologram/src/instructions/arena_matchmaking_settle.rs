@@ -1,5 +1,7 @@
 use spaceship::{SwitchboardFunctionRequestStatus, MatchMakingStatus};
 
+use crate::{utils::RandomNumberGenerator, ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE};
+
 use {
     crate::{
         error::HologramError,
@@ -23,13 +25,13 @@ pub struct ArenaMatchmakingSettle<'info> {
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
     )]
-    pub realm: Account<'info, Realm>,
+    pub realm: Box<Account<'info, Realm>>,
 
     #[account(
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
         bump = user_account.bump,
     )]
-    pub user_account: Account<'info, UserAccount>,
+    pub user_account: Box<Account<'info, UserAccount>>,
 
     #[account(
         mut,
@@ -51,9 +53,22 @@ pub struct ArenaMatchmakingSettle<'info> {
           &enclave_signer.to_account_info()
         )? @ HologramError::SwitchboardFunctionValidationFailed,
     )]
-    pub switchboard_request: Box<Account<'info, FunctionRequestAccountData>>,
-    
-    // remaining accounts contain the potential spaceship matches for matchmaking
+    pub switchboard_request: Account<'info, FunctionRequestAccountData>,
+
+    #[account(mut)]
+    pub opponent_1_spaceship: Account<'info, SpaceShip>,
+
+    #[account(mut)]
+    pub opponent_2_spaceship: Account<'info, SpaceShip>,
+
+    #[account(mut)]
+    pub opponent_3_spaceship: Account<'info, SpaceShip>,
+
+    #[account(mut)]
+    pub opponent_4_spaceship: Account<'info, SpaceShip>,
+
+    #[account(mut)]
+    pub opponent_5_spaceship: Account<'info, SpaceShip>,
 }
 
 #[event]
@@ -73,7 +88,7 @@ pub struct ArenaMatchmakingMatchExited {
 
 pub fn arena_matchmaking_settle(
     ctx: Context<ArenaMatchmakingSettle>,
-    random_number: u8,
+    generated_seed: u32,
 ) -> Result<()> {
     // Validations
     {
@@ -97,9 +112,41 @@ pub fn arena_matchmaking_settle(
         ctx.accounts.spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::None;
     }
 
+    // pick the opponent spaceship based on the random seed
+    let (winner, looser) = {
+        let spaceship = &mut ctx.accounts.spaceship;
+        let mut rng = RandomNumberGenerator::new(generated_seed.into());
+        let dice_roll = rng.roll_dice(ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE as usize); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
+        let opponent_spaceship = match dice_roll {
+            1 => &mut ctx.accounts.opponent_1_spaceship,
+            2 => &mut ctx.accounts.opponent_2_spaceship,
+            3 => &mut ctx.accounts.opponent_3_spaceship,
+            4 => &mut ctx.accounts.opponent_4_spaceship,
+            5 => &mut ctx.accounts.opponent_5_spaceship,
+            _ => panic!("Invalid dice roll"),
+        };
 
+        // FIGHT
+        {
+            // emulate game engine for now
+            let winner_roll = rng.roll_dice(2);
+            match winner_roll {
+                1 => (spaceship, opponent_spaceship),
+                2 => (opponent_spaceship, spaceship),
+                _ => panic!("Invalid dice roll"),
+            }
+        }
+    };
+    
+    // distribute experience to participants
+    {
+        Realm::distribute_arena_experience(winner, looser);
+    }
 
-
+    // analytics
+    {
+        ctx.accounts.realm.analytics.total_arena_matches += 1;
+    }
 
     Ok(())
 }
