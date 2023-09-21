@@ -155,7 +155,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
         let realm = &mut ctx.accounts.realm;
 
         // find the queue matching spaceship level
-        let queue = realm.arena_matchmaking_queue.iter_mut().find(|q| q.up_to_level >= spaceship.experience.current_level).ok_or(HologramError::MatchmakingQueueNotFound)?;
+        let queue = realm.get_matching_matchmaking_queue_mut(spaceship)?;
 
         // check that the system is not processing more matchmaking requests than there is spaceships in the queue (due to the concurrency issue described above)
         {

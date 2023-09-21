@@ -8,7 +8,7 @@ use {anchor_lang::prelude::*, instructions::*};
 #[cfg(feature = "localnet")]
 declare_id!("AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u");
 #[cfg(feature = "devnet")]
-declare_id!("FsqyVQ113X1VzZhT17smtZoyAv9Jq9gJfiyMqpL59mo8");
+declare_id!("6am7oEqc9zNvfn7ufNTmgu3E5CD4qfwsDBhGTkUjdoPH");
 #[cfg(feature = "mainnet-beta")]
 declare_id!("Hologram1111");
 
@@ -102,4 +102,25 @@ pub mod hologram {
     ) -> Result<()> {
         instructions::create_spaceship_settle(ctx, generated_seed)
     }
+
+    // Queue for matchmaking in the arena (softcore)
+    pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
+        instructions::arena_matchmaking(ctx)
+    }
+    // Switchboard function callback
+    // pairs up the spaceship with another one from the matchmaking queue and start the fight
+    pub fn arena_matchmaking_settle(
+        ctx: Context<ArenaMatchmakingSettle>,
+        generated_seed: u32,
+    ) -> Result<()> {
+        instructions::arena_matchmaking_settle(ctx, generated_seed)
+    }
+
+    // pub fn spend_stat_points(ctx: Context<SpendStatPoints>, stat: Stat, amount: u8) -> Result<()> {
+    //     instructions::spend_stat_points(ctx, stat, amount)
+    // }
+
+    // pub fn pick_power_up(ctx: Context<PickPowerUp>, power_up: PowerUp) -> Result<()> {
+    //     instructions::pick_power_up(ctx, power_up)
+    // }
 }

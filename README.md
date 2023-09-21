@@ -131,4 +131,6 @@ Run the client
 `cargo run`
 
 Upload IDL for having deserialized accounts on Solana Explorer
-`anchor idl init 5EDtp1G7GkGEGWCKJf6np2gC7kdCdJ7Xi59fSmqEEPfX -f target/idl/hologram.json --provider.cluster devnet`
+`anchor idl init <program_id> -f target/idl/hologram.json --provider.cluster devnet`
+then
+`anchor idl upgrade <program_id> -f target/idl/hologram.json --provider.cluster devnet`

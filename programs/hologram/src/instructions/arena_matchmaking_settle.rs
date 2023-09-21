@@ -11,6 +11,8 @@ use {
     switchboard_solana::prelude::*,
 };
 
+use solana_program::log::sol_log_compute_units;
+
 #[derive(Accounts)]
 pub struct ArenaMatchmakingSettle<'info> {
 
@@ -53,22 +55,22 @@ pub struct ArenaMatchmakingSettle<'info> {
           &enclave_signer.to_account_info()
         )? @ HologramError::SwitchboardFunctionValidationFailed,
     )]
-    pub switchboard_request: Account<'info, FunctionRequestAccountData>,
+    pub switchboard_request: Box<Account<'info, FunctionRequestAccountData>>,
 
     #[account(mut)]
-    pub opponent_1_spaceship: Account<'info, SpaceShip>,
+    pub opponent_1_spaceship: Box<Account<'info, SpaceShip>>,
 
     #[account(mut)]
-    pub opponent_2_spaceship: Account<'info, SpaceShip>,
+    pub opponent_2_spaceship: Box<Account<'info, SpaceShip>>,
 
     #[account(mut)]
-    pub opponent_3_spaceship: Account<'info, SpaceShip>,
+    pub opponent_3_spaceship: Box<Account<'info, SpaceShip>>,
 
     #[account(mut)]
-    pub opponent_4_spaceship: Account<'info, SpaceShip>,
+    pub opponent_4_spaceship: Box<Account<'info, SpaceShip>>,
 
     #[account(mut)]
-    pub opponent_5_spaceship: Account<'info, SpaceShip>,
+    pub opponent_5_spaceship: Box<Account<'info, SpaceShip>>,
 }
 
 #[event]
@@ -105,7 +107,7 @@ pub fn arena_matchmaking_settle(
         // );
     }
 
-    // update arena_matchmaking status
+    // update caller arena_matchmaking status
     {
         let spaceship = &mut ctx.accounts.spaceship;
         spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Settled(Realm::get_time()?);
@@ -113,29 +115,55 @@ pub fn arena_matchmaking_settle(
     }
 
     // pick the opponent spaceship based on the random seed
-    let (winner, looser) = {
+    let opponent_spaceship = {
         let spaceship = &mut ctx.accounts.spaceship;
         let mut rng = RandomNumberGenerator::new(generated_seed.into());
         let dice_roll = rng.roll_dice(ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE as usize); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
-        let opponent_spaceship = match dice_roll {
-            1 => &mut ctx.accounts.opponent_1_spaceship,
-            2 => &mut ctx.accounts.opponent_2_spaceship,
-            3 => &mut ctx.accounts.opponent_3_spaceship,
-            4 => &mut ctx.accounts.opponent_4_spaceship,
-            5 => &mut ctx.accounts.opponent_5_spaceship,
-            _ => panic!("Invalid dice roll"),
-        };
+        let queue = ctx.accounts.realm.get_matching_matchmaking_queue_mut(spaceship)?;
+        let opponents_spaceship_keys = queue.spaceships.clone();
 
-        // FIGHT
-        {
-            // emulate game engine for now
-            let winner_roll = rng.roll_dice(2);
-            match winner_roll {
-                1 => (spaceship, opponent_spaceship),
-                2 => (opponent_spaceship, spaceship),
-                _ => panic!("Invalid dice roll"),
+        // find the opponent spaceship account pubkey
+        let mut opponent_spaceship_key: Pubkey = Pubkey::default();
+        let dice_rolled_opponent_key = queue.spaceships.get((dice_roll - 1) as usize).unwrap();
+
+        // if it was not found, pick the first spaceship available in the queue
+        // this can happen due to the concurent nature of the program
+        if let Some(key) = dice_rolled_opponent_key {
+            opponent_spaceship_key = *key;
+        } else {
+            for spaceship_key in opponents_spaceship_keys {
+                if let Some(key) = spaceship_key {
+                    opponent_spaceship_key = key;
+                    break;
+                }
             }
         }
+    
+        // load the opponent spaceship based on the key        
+        let opponent_spaceship = match opponent_spaceship_key {
+            key if key == ctx.accounts.opponent_1_spaceship.key() => &mut ctx.accounts.opponent_1_spaceship,
+            key if key == ctx.accounts.opponent_2_spaceship.key() => &mut ctx.accounts.opponent_2_spaceship,
+            key if key == ctx.accounts.opponent_3_spaceship.key() => &mut ctx.accounts.opponent_3_spaceship,
+            key if key == ctx.accounts.opponent_4_spaceship.key() => &mut ctx.accounts.opponent_4_spaceship,
+            key if key == ctx.accounts.opponent_5_spaceship.key() => &mut ctx.accounts.opponent_5_spaceship,
+            _ => panic!("Invalid spaceship key"),
+        };
+
+        // remove that spaceship from the matchmaking queue
+        if let Some(spaceship) = queue.spaceships.iter_mut().find(|s| **s == Some(opponent_spaceship_key)) {
+            *spaceship = None;
+        }
+
+        // updates the opponent matchmaking status
+        opponent_spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::None;
+
+        opponent_spaceship
+    };
+
+    // FIGHT
+    let (winner, looser) = {
+        let spaceship = &mut ctx.accounts.spaceship;
+        Realm::fight(spaceship, opponent_spaceship)
     };
     
     // distribute experience to participants
@@ -146,7 +174,13 @@ pub fn arena_matchmaking_settle(
     // analytics
     {
         ctx.accounts.realm.analytics.total_arena_matches += 1;
+
+        winner.analytics.total_arena_matches += 1;
+        looser.analytics.total_arena_matches += 1;
+        winner.analytics.total_arena_victories += 1;
     }
+
+    sol_log_compute_units();
 
     Ok(())
 }
