@@ -129,6 +129,7 @@ impl HologramServer {
             commands,
             &self.realm_name,
             &self.spaceship_seed_generation_function,
+            &self.arena_matchmaking_function,
             &self.solana_client.payer.pubkey(),
         );
     }
@@ -153,7 +154,8 @@ impl HologramServer {
         &self,
         commands: &mut Commands,
         realm_name: &String,
-        randomness_function: &Pubkey,
+        spaceship_seed_generation_function: &Pubkey,
+        arena_matchmaking_function: &Pubkey,
         admin: &Pubkey, // Here should be a keypair, but it's just the payer. This IX is not really meant to be in this bevy app (as it's more of an admin IX), just temporary for dev
     ) {
         let thread_pool = IoTaskPool::get();
@@ -161,7 +163,8 @@ impl HologramServer {
         let payer = client.payer().clone();
         let admin = admin.clone();
         let realm_name = realm_name.clone();
-        let randomness_function = randomness_function.clone();
+        let spaceship_seed_generation_function = spaceship_seed_generation_function.clone();
+        let arena_matchmaking_function = arena_matchmaking_function.clone();
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending initialize_realm IX");
@@ -173,7 +176,8 @@ impl HologramServer {
                 payer: payer.pubkey(),
                 admin,
                 realm: realm_pda,
-                switchboard_function: randomness_function,
+                spaceship_seed_generation_function,
+                arena_matchmaking_function,
                 system_program: solana_program::system_program::id(),
             };
 
@@ -314,7 +318,7 @@ impl HologramServer {
                     switchboard_ssgf_request_keypair,
                     switchboard_amf_request_keypair,
                 ],
-                250_000,
+                450_000,
             )
         });
 
