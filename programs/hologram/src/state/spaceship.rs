@@ -18,6 +18,7 @@ pub struct SpaceShip {
     pub bump: u8,
     pub owner: Pubkey,
     pub name: LimitedString,
+    pub analytics: SpaceShipAnalytics,
     pub randomness: Randomness,
     pub arena_matchmaking: ArenaMatchmaking,
     // The base skin of the Ship
@@ -30,6 +31,12 @@ pub struct SpaceShip {
     pub modules: Vec<Module>,
     pub drones: Vec<Drone>,
     pub mutations: Vec<Mutation>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct SpaceShipAnalytics {
+    pub total_arena_matches: u16,
+    pub total_arena_victories: u16,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]

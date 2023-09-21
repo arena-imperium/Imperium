@@ -46,7 +46,7 @@ pub struct CreateSpaceship<'info> {
         bump,
         space = SpaceShip::LEN
     )]
-    pub spaceship: Account<'info, SpaceShip>,
+    pub spaceship: Box<Account<'info, SpaceShip>>,
 
     /// CHECK: validated by Switchboard CPI
     pub switchboard_state: AccountLoader<'info, AttestationProgramState>,
@@ -115,11 +115,11 @@ pub struct CreateSpaceship<'info> {
       associated_token::mint = switchboard_mint,
       associated_token::authority = user,
     )]
-    pub user_wsol_token_account: Account<'info, TokenAccount>,
+    pub user_wsol_token_account: Box<Account<'info, TokenAccount>>,
 
     // WSOL Mint, and function related accounts used to pay for the switchboard function execution
     #[account(address = anchor_spl::token::spl_token::native_mint::ID)]
-    pub switchboard_mint: Account<'info, Mint>,
+    pub switchboard_mint: Box<Account<'info, Mint>>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,

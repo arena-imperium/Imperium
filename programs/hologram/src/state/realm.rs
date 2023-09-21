@@ -1,4 +1,11 @@
-use {super::SpaceShip, crate::utils::LimitedString, anchor_lang::prelude::*};
+use {
+    super::SpaceShip,
+    crate::{
+        error::HologramError,
+        utils::{LimitedString, RandomNumberGenerator},
+    },
+    anchor_lang::prelude::*,
+};
 
 #[account()]
 #[derive(Default)]
@@ -9,7 +16,7 @@ pub struct Realm {
     pub switchboard_info: SwitchboardInfo,
     // matchmaking queues for the arena (softcore). Each queue catters to a specific level range. Details in init_realm IX
     pub arena_matchmaking_queue: Vec<MatchmakingQueue>,
-    pub analytics: Analytics,
+    pub analytics: RealmAnalytics,
 }
 
 impl Realm {
@@ -42,7 +49,7 @@ impl MatchmakingQueue {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct Analytics {
+pub struct RealmAnalytics {
     pub total_user_accounts: u64,
     pub total_spaceships_created: u64,
     pub total_arena_matches: u64,
@@ -56,6 +63,18 @@ impl Realm {
         } else {
             Err(ProgramError::InvalidAccountData.into())
         }
+    }
+
+    // return the matchmaking queue matching the spaceship level (mutable)
+    pub fn get_matching_matchmaking_queue_mut(
+        &mut self,
+        spaceship: &SpaceShip,
+    ) -> Result<&mut MatchmakingQueue> {
+        // find the queue matching spaceship level
+        self.arena_matchmaking_queue
+            .iter_mut()
+            .find(|q| q.up_to_level >= spaceship.experience.current_level)
+            .ok_or(error!(HologramError::MatchmakingQueueNotFound))
     }
 
     // This function is used to distribute experience points to the winner and loser of an arena match.
@@ -77,7 +96,21 @@ impl Realm {
         }
     }
 
-    
+    pub fn fight<'a>(
+        s1: &'a mut SpaceShip,
+        s2: &'a mut SpaceShip,
+    ) -> (&'a mut SpaceShip, &'a mut SpaceShip) {
+        let fight_seed = s1.randomness.original_seed ^ s2.randomness.original_seed;
+        let mut rng = RandomNumberGenerator::new(fight_seed.into());
+        // emulate game engine for now
+        let winner_roll = rng.roll_dice(2);
+        match winner_roll {
+            1 => (s1, s2),
+            2 => (s2, s1),
+            _ => panic!("Invalid dice roll"),
+        }
+    }
+
     pub fn transfer_sol<'a>(
         source_account: AccountInfo<'a>,
         destination_account: AccountInfo<'a>,

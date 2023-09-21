@@ -13,6 +13,7 @@ pub enum MenuButton {
     InitializeRealm,
     CreateUserAccount,
     CreateSpaceship,
+    JoinArenaMatchmakingQueue,
 }
 
 pub struct MenuPlugin;
@@ -53,6 +54,10 @@ fn create_menu(
         (MenuButton::InitializeRealm, "Init Realm"),
         (MenuButton::CreateUserAccount, "Create User Account"),
         (MenuButton::CreateSpaceship, "Create Spaceship"),
+        (
+            MenuButton::JoinArenaMatchmakingQueue,
+            "Join Arena Matchmaking Queue",
+        ),
     ];
     let button_text_style = TextStyle {
         font: font_assets.fira_sans.clone(),
@@ -115,13 +120,16 @@ fn button_clicked(
                     state.set(GameState::Playing);
                 }
                 MenuButton::InitializeRealm => {
-                    hologam_server.default_initialize_realm(commands.borrow_mut());
+                    hologam_server.fire_default_initialize_realm_task(commands.borrow_mut());
                 }
                 MenuButton::CreateUserAccount => {
-                    hologam_server.default_create_user_account(commands.borrow_mut());
+                    hologam_server.fire_default_create_user_account_task(commands.borrow_mut());
                 }
                 MenuButton::CreateSpaceship => {
-                    hologam_server.default_create_spaceship(commands.borrow_mut());
+                    hologam_server.fire_default_create_spaceship_task(commands.borrow_mut());
+                }
+                MenuButton::JoinArenaMatchmakingQueue => {
+                    // hologam_server.fire_arena_matchmaking_task(commands.borrow_mut());
                 }
             },
             Interaction::Hovered => {
