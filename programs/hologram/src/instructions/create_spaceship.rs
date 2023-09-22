@@ -84,7 +84,7 @@ pub struct CreateSpaceship<'info> {
     /// CHECK: validated by Switchboard CPI
     #[account(
         mut, 
-        // validate that we use the realm custom switchboard function for spaceship seed generation
+        // validate that we use the realm custom switchboard function for arena match making
         constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key() && !arena_matchmaking_function.load()?.requests_disabled
     )]
     pub arena_matchmaking_function: AccountLoader<'info, FunctionAccountData>,
@@ -227,17 +227,15 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         );
         request_init_ctx.invoke(
             ctx.accounts.switchboard_program.clone(),
-            &FunctionRequestInitParams {
                 // max_container_params_len - the length of the vec containing the container params
                 // default: 256 bytes
-                max_container_params_len: Some(512),
+                Some(512),
                 // container_params - the container params
                 // default: empty vec
-                container_params: request_params.into_bytes(),
+                 Some(request_params.into_bytes()),
                 // garbage_collection_slot - the slot when the request can be closed by anyone and is considered dead
                 // default: None, only authority can close the request
-                garbage_collection_slot: None,
-            },
+                None,
         )?;
     }
 
@@ -265,7 +263,9 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
 
         let request_init_and_trigger_ctx = FunctionRequestInitAndTrigger {
             request: ctx.accounts.switchboard_ssgf_request.clone(),
+            authority: ctx.accounts.admin.to_account_info(),
             function: ctx.accounts.spaceship_seed_generation_function.to_account_info(),
+            function_authority: None, // only needed if switchboard_function.requests_require_authorization is enabled
             escrow: ctx.accounts.switchboard_ssgf_request_escrow.to_account_info(),
             mint: ctx.accounts.switchboard_mint.to_account_info(),
             state: ctx.accounts.switchboard_state.to_account_info(),

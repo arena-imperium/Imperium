@@ -27,7 +27,7 @@ solana-program = "1.16.12"
 solana-security-txt = "1.1.1"
 num-traits = "0.2.16"
 num = "0.4.1"
-switchboard-solana = "0.28.17"
+switchboard-solana = "0.28.21"
 
 [dev-dependencies]
 proptest = "1.2.0"

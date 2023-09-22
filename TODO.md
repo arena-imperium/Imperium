@@ -2,10 +2,6 @@
 
 ## Smart Contract
 
-- add a button for the matchmaking, and support for the call in solana.rs
-
--- ADD method to fetch the accounts in solana.rs
-    --  user_account, spaceship
 -- add a way to monitor anchor events
 
 - redeploy a new stack, create multiple accounts and register them

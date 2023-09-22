@@ -8,7 +8,7 @@ use {anchor_lang::prelude::*, instructions::*};
 #[cfg(feature = "localnet")]
 declare_id!("AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u");
 #[cfg(feature = "devnet")]
-declare_id!("6am7oEqc9zNvfn7ufNTmgu3E5CD4qfwsDBhGTkUjdoPH");
+declare_id!("GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet");
 #[cfg(feature = "mainnet-beta")]
 declare_id!("Hologram1111");
 

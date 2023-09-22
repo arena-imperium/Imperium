@@ -28,15 +28,25 @@ pub struct InitializeRealm<'info> {
     )]
     pub realm: Account<'info, Realm>,
 
-    // Randomness generator function from Switchboard (custom)
+    // spaceship seed generation function
     #[account(
         constraint =
             // Ensure our authority owns this function
-            switchboard_function.load()?.authority == *admin.key &&
+            spaceship_seed_generation_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
-            !switchboard_function.load()?.requests_disabled
+            !spaceship_seed_generation_function.load()?.requests_disabled
     )]
-    pub switchboard_function: AccountLoader<'info, FunctionAccountData>,
+    pub spaceship_seed_generation_function: AccountLoader<'info, FunctionAccountData>,
+
+    /// arena matchmaking function
+    #[account(
+        constraint = 
+            // Ensure our authority owns this function
+            arena_matchmaking_function.load()?.authority == *admin.key &&
+            // Ensure custom requests are allowed
+            !arena_matchmaking_function.load()?.requests_disabled
+    )]
+    pub arena_matchmaking_function: AccountLoader<'info, FunctionAccountData>,
 
     pub system_program: Program<'info, System>,
 }
@@ -59,7 +69,11 @@ pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<(
         ctx.accounts
             .realm
             .switchboard_info
-            .spaceship_seed_generation_function = ctx.accounts.switchboard_function.key();
+            .spaceship_seed_generation_function = ctx.accounts.spaceship_seed_generation_function.key();
+        ctx.accounts
+            .realm
+            .switchboard_info
+            .arena_matchmaking_function = ctx.accounts.arena_matchmaking_function.key();
         ctx.accounts.realm.switchboard_info.authority = ctx.accounts.admin.key();
     }
 
