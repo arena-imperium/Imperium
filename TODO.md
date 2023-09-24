@@ -7,6 +7,7 @@
 - redeploy a new stack, create multiple accounts and register them
 - verify the arena match get triggered at 6 participants
 - (?) start looking into trdelnik for integration testing on devnet?
+    - issues... Probably better to write a CLI
 
 - implement fight engine logic
 - think about replayability of fight (check tg chat with Aleph.im)

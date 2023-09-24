@@ -106,14 +106,14 @@ then run client
 
 `cargo run`
 
-# Devnet
+## Developent on devnet for Hologram program and Imperium bin
 
 spaceship_seed_generation_function
 <https://app.switchboard.xyz/solana/devnet/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5>
 <https://github.com/acamill/spaceship_seed_generation_function>
 
 arena_matchmaking_function
-<https://app.switchboard.xyz/solana/devnet/function/TODO>
+<https://app.switchboard.xyz/solana/devnet/function/HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog>
 <https://github.com/acamill/arena_matchmaking_function>
 
 Generate new keypair (to get a fresh program instance)
@@ -134,3 +134,7 @@ Upload IDL for having deserialized accounts on Solana Explorer
 `anchor idl init <program_id> -f target/idl/hologram.json --provider.cluster devnet`
 then
 `anchor idl upgrade <program_id> -f target/idl/hologram.json --provider.cluster devnet`
+
+### hologram-cli
+
+There is a cli to help you interact with non user facing instructions of the program (and easily create more users for testing for instance)
