@@ -6,9 +6,9 @@ pub mod utils;
 use {anchor_lang::prelude::*, instructions::*};
 
 #[cfg(feature = "localnet")]
-declare_id!("AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u");
-#[cfg(feature = "devnet")]
 declare_id!("GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet");
+#[cfg(feature = "devnet")]
+declare_id!("6AcueCreDhJBa7RaRC7zQyZDU1ofYNqrKpW9NvdXy9jY");
 #[cfg(feature = "mainnet-beta")]
 declare_id!("Hologram1111");
 
