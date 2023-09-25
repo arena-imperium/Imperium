@@ -27,21 +27,16 @@ pub struct ArenaMatchmaking<'info> {
     pub admin: AccountInfo<'info>,
 
     #[account(
-        mut,
-        realloc = UserAccount::LEN + std::mem::size_of::<SpaceShipLite>() * user_account.spaceships.len(),
-        realloc::payer = user,
-        realloc::zero = false,
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
         bump = user_account.bump,
     )]
-    pub user_account: Box<Account<'info, UserAccount>>,
+    pub user_account: Account<'info, UserAccount>,
 
     #[account(
-        init,
-        payer=user,
+        mut,
         seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
-        bump,
-        space = SpaceShip::LEN
+        bump = spaceship.bump,
+        constraint = spaceship.randomness.switchboard_request_info.account == switchboard_request.key(),
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
