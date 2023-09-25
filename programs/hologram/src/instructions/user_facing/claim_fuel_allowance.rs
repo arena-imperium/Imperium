@@ -1,9 +1,11 @@
 use {
     crate::{
         error::HologramError,
-        state::{Realm, SpaceShip, UserAccount},
+        state::{Fuel, Realm, SpaceShip, UserAccount},
+        DAILY_FUEL_ALLOWANCE, FUEL_ALLOWANCE_COOLDOWN,
     },
     anchor_lang::prelude::*,
+    std::cmp::min,
     switchboard_solana::prelude::*,
 };
 
@@ -38,4 +40,31 @@ pub fn claim_fuel_allowance(ctx: Context<ClaimFuelAllowance>) -> Result<()> {
     ctx.accounts.spaceship.claim_fuel_allowance(current_time)?;
 
     Ok(())
+}
+
+impl SpaceShip {
+    pub fn claim_fuel_allowance(&mut self, current_time: i64) -> Result<()> {
+        require!(
+            self.fuel.fuel_allowance_is_available(current_time)?,
+            HologramError::FuelAllowanceOnCooldown
+        );
+        self.fuel.current = min(
+            self.fuel.max,
+            self.fuel
+                .current
+                .checked_add(DAILY_FUEL_ALLOWANCE)
+                .ok_or(HologramError::Overflow)?,
+        );
+        self.fuel.daily_allowance_last_collection = current_time;
+        Ok(())
+    }
+}
+
+impl Fuel {
+    fn fuel_allowance_is_available(&self, current_time: i64) -> Result<bool> {
+        let cooldown = current_time
+            .checked_sub(FUEL_ALLOWANCE_COOLDOWN)
+            .ok_or(HologramError::Overflow)?;
+        Ok(self.daily_allowance_last_collection < cooldown)
+    }
 }

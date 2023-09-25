@@ -13,7 +13,7 @@ use {
     borsh::BorshDeserialize,
     hologram::{
         self,
-        state::{user_account, SpaceShip, UserAccount},
+        state::{user_account, SpaceShip, StatsType, UserAccount},
     },
     solana_cli_output::display::println_transaction,
     solana_client::{rpc_config::RpcTransactionConfig, rpc_filter::RpcFilterType},
@@ -435,12 +435,57 @@ impl HologramServer {
                 accounts,
                 payer,
                 vec![],
-                450_000,
+                50_000,
             )
         });
 
         commands.spawn(SolanaTransactionTask {
             description: "claim_fuel_allowance".to_string(),
+            task,
+        });
+    }
+
+    pub fn fire_allocate_stat_point_task(
+        &self,
+        commands: &mut Commands,
+        spaceship_pda: &Pubkey,
+        user: &Pubkey,
+        stat_type: StatsType,
+    ) {
+        let thread_pool = IoTaskPool::get();
+        let client = Arc::clone(&self.solana_client);
+        let realm_name = self.realm_name.clone();
+        let user = user.clone();
+        let payer = client.payer().clone();
+        let spaceship_pda = spaceship_pda.clone();
+
+        let task = thread_pool.spawn(async move {
+            log::info!("<Solana> Sending allocate_stat_point IX");
+
+            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
+            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+            let instruction = hologram::instruction::AllocateStatPoint { stat_type };
+
+            let accounts = hologram::accounts::AllocateStatPoint {
+                user,
+                realm: realm_pda,
+                user_account: user_account_pda,
+                spaceship: spaceship_pda,
+            };
+
+            Self::send_and_confirm_instruction_blocking(
+                client,
+                hologram::id(),
+                instruction,
+                accounts,
+                payer,
+                vec![],
+                50_000,
+            )
+        });
+
+        commands.spawn(SolanaTransactionTask {
+            description: "allocate_stat_point".to_string(),
             task,
         });
     }

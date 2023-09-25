@@ -118,14 +118,18 @@ pub mod hologram {
         instructions::arena_matchmaking_settle(ctx, generated_seed)
     }
 
-    // once per FUEL_ALLOWANCE_COOLDOWN players can claim free Fuel for each of their spaceships
+    // Once per FUEL_ALLOWANCE_COOLDOWN players can claim free Fuel for each of their spaceships
     pub fn claim_fuel_allowance(ctx: Context<ClaimFuelAllowance>) -> Result<()> {
         instructions::claim_fuel_allowance(ctx)
     }
 
-    // pub fn pick_stat(ctx: Context<pick_stat>, stat: Stat) -> Result<()> {
-    //     instructions::spend_stat_points(ctx, stat, amount)
-    // }
+    // Allocates available stat point if any
+    pub fn allocate_stat_point(
+        ctx: Context<AllocateStatPoint>,
+        stat_type: state::StatsType,
+    ) -> Result<()> {
+        instructions::allocate_stat_point(ctx, stat_type)
+    }
 
     // pub fn pick_power_up(ctx: Context<PickPowerUp>, type: PowerUpType) -> Result<()> {
     //     instructions::pick_power_up(ctx, power_up)

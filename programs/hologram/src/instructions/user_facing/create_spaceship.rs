@@ -171,7 +171,6 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         spaceship.name = LimitedString::new(name);
     }
 
-    // create SPACESHIP_RANDOMNESS_FUNCTION_FEE, if needed
     {
         // Only proceed if the user doesn't have enough lamports to pay for the function execution
         if ctx.accounts.user_wsol_token_account.amount < SPACESHIP_RANDOMNESS_FUNCTION_FEE {
