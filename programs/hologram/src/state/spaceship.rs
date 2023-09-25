@@ -2,14 +2,15 @@ use {
     crate::{
         error::HologramError, utils::LimitedString, ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL,
         BASE_ARMOR_HITPOINTS, BASE_CELERITY, BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS,
-        BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP,
-        DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO, HULL_HITPOINTS_PER_LEVEL,
-        JAMMING_NULLIFYING_CHANCE_CAP,
+        BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_HITPOINTS, DAILY_FUEL_ALLOWANCE,
+        DODGE_CHANCE_CAP, DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO, FUEL_ALLOWANCE_COOLDOWN,
+        HULL_HITPOINTS_PER_LEVEL, JAMMING_NULLIFYING_CHANCE_CAP,
         JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_LEVEL,
         MAX_XP_PER_LEVEL, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
         XP_REQUIERED_PER_LEVEL_MULT,
     },
     anchor_lang::prelude::*,
+    std::cmp::min,
 };
 
 #[account()]
@@ -72,11 +73,19 @@ pub struct Stats {
     pub manoeuvering: u8,
 }
 
+pub enum StatsType {
+    ArmorLayering,
+    ShieldSubsystems,
+    TurretRigging,
+    ElectronicSubsystems,
+    Manoeuvering,
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
 pub struct Fuel {
     pub max: u8,
     pub current: u8,
-    // Player can collect DAILY_FUEL_ALLOWANCE once a day, this is the timestamp of their last collection
+    // players can collect DAILY_FUEL_ALLOWANCE once per FUEL_ALLOWANCE_COOLDOWN period, this is the timestamp of their last collection
     pub daily_allowance_last_collection: i64,
 }
 
@@ -229,6 +238,44 @@ impl SpaceShip {
     // Untils these are spent, he is barred from entering the arena
     pub fn has_no_pending_stats_or_powerup(&self) -> bool {
         !(self.experience.available_stats_points || self.experience.available_power_up)
+    }
+
+    pub fn claim_fuel_allowance(&mut self, current_time: i64) -> Result<()> {
+        require!(
+            self.fuel_allowance_is_available(current_time)?,
+            HologramError::FuelAllowanceOnCooldown
+        );
+        self.fuel.current = min(
+            self.fuel.max,
+            self.fuel
+                .current
+                .checked_add(DAILY_FUEL_ALLOWANCE)
+                .ok_or(HologramError::Overflow)?,
+        );
+        self.fuel.daily_allowance_last_collection = current_time;
+        Ok(())
+    }
+    fn fuel_allowance_is_available(&self, current_time: i64) -> Result<bool> {
+        let cooldown = current_time
+            .checked_sub(FUEL_ALLOWANCE_COOLDOWN)
+            .ok_or(HologramError::Overflow)?;
+        Ok(self.fuel.daily_allowance_last_collection < cooldown)
+    }
+
+    pub fn increase_stat(&mut self, stat_type: StatsType) -> Result<()> {
+        require!(
+            self.experience.available_stats_points,
+            HologramError::NoAvailableStatsPoints
+        );
+        match stat_type {
+            StatsType::ArmorLayering => self.stats.armor_layering += 1,
+            StatsType::ShieldSubsystems => self.stats.shield_subsystems += 1,
+            StatsType::TurretRigging => self.stats.turret_rigging += 1,
+            StatsType::ElectronicSubsystems => self.stats.electronic_subsystems += 1,
+            StatsType::Manoeuvering => self.stats.manoeuvering += 1,
+        }
+        self.experience.available_stats_points = false;
+        Ok(())
     }
 
     // --- [Game engine code] ---

@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 #[error_code]
 pub enum HologramError {
     #[msg("Overflow in arithmetic operation")]
-    MathOverflow,
+    Overflow,
     #[msg("Limited String can store 64 chars at most")]
     LimitedStringLengthExceeded,
     #[msg("There cannot be more than 25 spaceships per user account")]
@@ -36,6 +36,10 @@ pub enum HologramError {
     PendingStatOrPowerup,
     #[msg("The queue is currently empty, please retry later")] // concurrency issue
     NoSpaceshipsInQueue,
+    #[msg("The spaceship fuel allowance is not available yet")]
+    FuelAllowanceOnCooldown,
+    #[msg("The spaceship has no available stats points to spend")]
+    NoAvailableStatsPoints,
     #[msg("The game state does not permit this action")]
     InvalidAction,
 }

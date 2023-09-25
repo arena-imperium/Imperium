@@ -24,6 +24,8 @@ pub const ARENA_MATCHMAKING_FUNCTION_FEE: u64 = 0;
 pub const BASE_MAX_FUEL: u8 = 5;
 // Amount of fuel that is provided per day per spaceship
 pub const DAILY_FUEL_ALLOWANCE: u8 = 3;
+// How often the fuel allowance is provided
+pub const FUEL_ALLOWANCE_COOLDOWN: i64 = 24 * 60 * 60; // 24 hours in seconds
 
 // Experience required for next level is equal to next_level * XP_REQUIERED_PER_LEVEL_MULT
 pub const XP_REQUIERED_PER_LEVEL_MULT: u8 = 5;
@@ -116,11 +118,16 @@ pub mod hologram {
         instructions::arena_matchmaking_settle(ctx, generated_seed)
     }
 
-    // pub fn spend_stat_points(ctx: Context<SpendStatPoints>, stat: Stat, amount: u8) -> Result<()> {
+    // once per FUEL_ALLOWANCE_COOLDOWN players can claim free Fuel for each of their spaceships
+    pub fn claim_fuel_allowance(ctx: Context<ClaimFuelAllowance>) -> Result<()> {
+        instructions::claim_fuel_allowance(ctx)
+    }
+
+    // pub fn pick_stat(ctx: Context<pick_stat>, stat: Stat) -> Result<()> {
     //     instructions::spend_stat_points(ctx, stat, amount)
     // }
 
-    // pub fn pick_power_up(ctx: Context<PickPowerUp>, power_up: PowerUp) -> Result<()> {
+    // pub fn pick_power_up(ctx: Context<PickPowerUp>, type: PowerUpType) -> Result<()> {
     //     instructions::pick_power_up(ctx, power_up)
     // }
 }

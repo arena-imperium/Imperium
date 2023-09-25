@@ -11,7 +11,10 @@ use {
         tasks::{IoTaskPool, Task},
     },
     borsh::BorshDeserialize,
-    hologram::{self, state::SpaceShip},
+    hologram::{
+        self,
+        state::{user_account, SpaceShip, UserAccount},
+    },
     solana_cli_output::display::println_transaction,
     solana_client::{rpc_config::RpcTransactionConfig, rpc_filter::RpcFilterType},
     solana_sdk::{
@@ -170,7 +173,6 @@ impl HologramServer {
             log::info!("<Solana> Sending initialize_realm IX");
             let (realm_pda, _) = Self::get_realm_pda(&realm_name);
 
-            let program_id = hologram::id();
             let instruction = hologram::instruction::InitializeRealm { name: realm_name };
             let accounts = hologram::accounts::InitializeRealm {
                 payer: payer.pubkey(),
@@ -183,7 +185,7 @@ impl HologramServer {
 
             Self::send_and_confirm_instruction_blocking(
                 client,
-                program_id,
+                hologram::id(),
                 instruction,
                 accounts,
                 payer.clone(),
@@ -214,7 +216,6 @@ impl HologramServer {
             let (realm_pda, _) = Self::get_realm_pda(&realm_name);
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
 
-            let program_id = hologram::id();
             let instruction = hologram::instruction::CreateUserAccount {};
             let accounts = hologram::accounts::CreateUserAccount {
                 user,
@@ -225,7 +226,7 @@ impl HologramServer {
 
             Self::send_and_confirm_instruction_blocking(
                 client,
-                program_id,
+                hologram::id(),
                 instruction,
                 accounts,
                 payer,
@@ -258,13 +259,17 @@ impl HologramServer {
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending create_spaceship IX");
-
-            // @HARDCODED: need to retrieve the user_account, and read the lenght of the spaceship vec.
-            // but that require somt async code
-            let spaceship_index = 0;
-
             let (realm_pda, _) = Self::get_realm_pda(&realm_name);
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+
+            // @TODO use cache
+            let user_account: UserAccount = client
+                .anchor_client
+                .program(hologram::id())?
+                .account(user_account_pda)?;
+            let new_spaceship_index = user_account.spaceships.len();
+            let spaceship_index = new_spaceship_index;
+
             let (spaceship_pda, _) = Self::get_spaceship_pda(&realm_pda, &user, spaceship_index);
             let user_wsol_token_account = get_associated_token_address(&user, &native_mint::ID);
             let (switchboard_state_pda, _) = Self::get_switchboard_state();
@@ -278,7 +283,6 @@ impl HologramServer {
                 &switchboard_amf_request_keypair.pubkey(),
                 &native_mint::ID,
             );
-            let program_id = hologram::id();
             let instruction = hologram::instruction::CreateSpaceship {
                 name: spaceship_name,
             };
@@ -310,7 +314,7 @@ impl HologramServer {
 
             Self::send_and_confirm_instruction_blocking(
                 client,
-                program_id,
+                hologram::id(),
                 instruction,
                 accounts,
                 payer,
@@ -359,7 +363,6 @@ impl HologramServer {
                 spaceship.arena_matchmaking.switchboard_request_info.account;
             let switchboard_amf_request_escrow =
                 get_associated_token_address(&switchboard_amf_request, &native_mint::ID);
-            let program_id = hologram::id();
             let instruction = hologram::instruction::ArenaMatchmaking {};
 
             let accounts = hologram::accounts::ArenaMatchmaking {
@@ -383,7 +386,7 @@ impl HologramServer {
 
             Self::send_and_confirm_instruction_blocking(
                 client,
-                program_id,
+                hologram::id(),
                 instruction,
                 accounts,
                 payer,
@@ -393,7 +396,51 @@ impl HologramServer {
         });
 
         commands.spawn(SolanaTransactionTask {
-            description: "create_spaceship".to_string(),
+            description: "arena_matchmaking".to_string(),
+            task,
+        });
+    }
+
+    pub fn fire_claim_fuel_allowance_task(
+        &self,
+        commands: &mut Commands,
+        spaceship_pda: &Pubkey,
+        user: &Pubkey,
+    ) {
+        let thread_pool = IoTaskPool::get();
+        let client = Arc::clone(&self.solana_client);
+        let realm_name = self.realm_name.clone();
+        let user = user.clone();
+        let payer = client.payer().clone();
+        let spaceship_pda = spaceship_pda.clone();
+
+        let task = thread_pool.spawn(async move {
+            log::info!("<Solana> Sending claim_fuel_allowance IX");
+
+            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
+            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+            let instruction = hologram::instruction::ClaimFuelAllowance {};
+
+            let accounts = hologram::accounts::ClaimFuelAllowance {
+                user,
+                realm: realm_pda,
+                user_account: user_account_pda,
+                spaceship: spaceship_pda,
+            };
+
+            Self::send_and_confirm_instruction_blocking(
+                client,
+                hologram::id(),
+                instruction,
+                accounts,
+                payer,
+                vec![],
+                450_000,
+            )
+        });
+
+        commands.spawn(SolanaTransactionTask {
+            description: "claim_fuel_allowance".to_string(),
             task,
         });
     }
@@ -447,7 +494,7 @@ impl HologramServer {
         });
 
         commands.spawn(SolanaFetchAccountsTask {
-            description: "fetch_account".to_string(),
+            description: "fetch_accounts_with_filter".to_string(),
             task,
         });
     }
