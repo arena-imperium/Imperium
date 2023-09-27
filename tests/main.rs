@@ -25,6 +25,7 @@ const REALM_NAME: &str = "HoloRealm";
 const SWITCHBOARD_ATTESTATION_QUEUE: &str = "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE";
 const IMPERIUM_SSGF: &str = "CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5";
 const IMPERIUM_AMF: &str = "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog";
+const IMPERIUM_CPF: &str = "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG";
 
 #[tokio::test]
 pub async fn test_integration() {
@@ -78,8 +79,9 @@ pub async fn test_integration() {
     // adapted to rust. Asking on discord.
 
     // [1] --------------------------------- INITIALIZE REALM ------------------------------------
-    let ssgf = Pubkey::from_str("CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5").unwrap();
-    let amf = Pubkey::from_str("HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog").unwrap();
+    let ssgf = Pubkey::from_str(IMPERIUM_SSGF).unwrap();
+    let amf = Pubkey::from_str(IMPERIUM_AMF).unwrap();
+    let cpf = Pubkey::from_str("HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog").unwrap();
 
     instructions::initialize_realm(
         &program_test_ctx,
@@ -88,6 +90,7 @@ pub async fn test_integration() {
         &REALM_NAME.to_string(),
         &ssgf,
         &amf,
+        &cpf,
     )
     .await
     .unwrap();

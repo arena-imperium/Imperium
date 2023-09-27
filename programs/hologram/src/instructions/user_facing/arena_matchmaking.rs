@@ -1,4 +1,4 @@
-use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}};
+use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
 
 use {
     crate::{
@@ -88,24 +88,33 @@ pub struct ArenaMatchmakingQueueJoined {
 }
 
 pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
+    // cancel pending switchboard function request if stale
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        let current_slot = Realm::get_slot()?;
+        if spaceship.arena_matchmaking.switchboard_request_info.request_is_expired(current_slot) {
+            spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Expired { slot: current_slot  };
+        }
+    }
+    
     // Validations
     {
         // verify that the user has spend his level up upgrades yet
         require!(
-            ctx.accounts.spaceship.has_no_pending_stats_or_powerup(),
+            ctx.accounts.spaceship.has_no_pending_stats_or_crate(),
             HologramError::PendingStatOrPowerup
         );
 
-        // verify that the user has not registered for the arena yet
+        // verify that the user is not in the process of registering for the arena already
         require!(
-            !matches!(ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.status, SwitchboardFunctionRequestStatus::Requested(_)),
+            !ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.is_requested(),
             HologramError::ArenaMatchmakingAlreadyRequested
         );
 
         // verify that the user is not already in the queue
         require!(
             matches!(ctx.accounts.spaceship.arena_matchmaking.matchmaking_status, MatchMakingStatus::None),
-            HologramError::MatchmakingAlreadyInQueue
+            HologramError::ArenaMatchmakingAlreadyInQueue
         );
 
     }
@@ -212,7 +221,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
                     // slots_until_expiration - optional max number of slots the request can be processed in
                     // default: 2250 slots, ~ 15 min at 400 ms/slot
                     // minimum: 150 slots, ~ 1 min at 400 ms/slot
-                    None,
+                    Some(SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64),
                     // valid_after_slot - schedule a request to execute in N slots
                     // default: 0 slots, valid immediately for oracles to process
                     None,
@@ -223,7 +232,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
             // update arena_matchmaking status
             {
                 let spaceship = &mut ctx.accounts.spaceship;
-                spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested(Realm::get_time()?);
+                spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested { slot: Realm::get_slot()? };
             }
         } else {
             // insert spaceship in the first available slot

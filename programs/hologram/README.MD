@@ -40,7 +40,7 @@ Play
 After an encounter, the player seed is updated using the opponent seed
 
 `spaceship_seed_generation_function`: It serves for generating the initial seed of each spaceship.
-Devnet: <https://app.switchboard.xyz/solana/devnet/user/A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU#2>
+Devnet: <https://app.switchboard.xyz/build/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5>
 Mainnet:
 Github: <https://github.com/arena-imperium/spaceship_seed_generation_function>
 
@@ -48,5 +48,10 @@ Github: <https://github.com/arena-imperium/spaceship_seed_generation_function>
 Devnet: <https://app.switchboard.xyz/build/function/HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog>
 Mainnet:
 Github: <https://github.com/arena-imperium/arena_matchmaking_function>
+
+`crate_picking_function`: It seeds the crate drops
+Devnet: <https://app.switchboard.xyz/build/function/EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG>
+Mainnet:
+Github: <https://github.com/arena-imperium/crate-picking-function>
 
 Game design document : <https://www.notion.so/acammm/Imperium-GDD-09b55d9149f04f8b87c25b7d57ade3d8#91f408a6f189429d8632abdff4e1e4b9>

@@ -12,6 +12,8 @@ declare_id!("6AcueCreDhJBa7RaRC7zQyZDU1ofYNqrKpW9NvdXy9jY");
 #[cfg(feature = "mainnet-beta")]
 declare_id!("Hologram1111");
 
+pub const SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION: u8 = 75;
+
 pub const SHORT_LIMITED_STRING_MAX_LENGTH: usize = 64;
 pub const LONG_LIMITED_STRING_MAX_LENGTH: usize = 256;
 
@@ -124,10 +126,7 @@ pub mod hologram {
     }
 
     // Allocates available stat point if any
-    pub fn allocate_stat_point(
-        ctx: Context<AllocateStatPoint>,
-        stat_type: state::StatsType,
-    ) -> Result<()> {
+    pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatType) -> Result<()> {
         instructions::allocate_stat_point(ctx, stat_type)
     }
 

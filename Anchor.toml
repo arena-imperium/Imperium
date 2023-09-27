@@ -41,3 +41,6 @@ address = "CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5"
 
 [[test.validator.clone]] # devnet amf
 address = "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog"
+
+[[test.validator.clone]] # devnet amf
+address = "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG"

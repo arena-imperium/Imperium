@@ -1,13 +1,14 @@
 use {
     crate::{
-        error::HologramError, utils::LimitedString, ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL,
-        BASE_ARMOR_HITPOINTS, BASE_CELERITY, BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS,
-        BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP,
-        DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO, HULL_HITPOINTS_PER_LEVEL,
-        JAMMING_NULLIFYING_CHANCE_CAP,
+        error::HologramError,
+        utils::{LimitedString, RandomNumberGenerator},
+        ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL, BASE_ARMOR_HITPOINTS, BASE_CELERITY,
+        BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE,
+        BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP, DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO,
+        HULL_HITPOINTS_PER_LEVEL, JAMMING_NULLIFYING_CHANCE_CAP,
         JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_LEVEL,
         MAX_XP_PER_LEVEL, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
-        XP_REQUIERED_PER_LEVEL_MULT,
+        SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION, XP_REQUIERED_PER_LEVEL_MULT,
     },
     anchor_lang::prelude::*,
 };
@@ -19,8 +20,10 @@ pub struct SpaceShip {
     pub owner: Pubkey,
     pub name: LimitedString,
     pub analytics: SpaceShipAnalytics,
+    //
     pub randomness: Randomness,
     pub arena_matchmaking: ArenaMatchmaking,
+    pub crate_picking: CratePicking,
     // The base skin of the Ship
     pub hull: Hull,
     // The statistics of the Ship (RPG like, like Strengh, Agility, etc.)
@@ -72,15 +75,6 @@ pub struct Stats {
     pub manoeuvering: u8,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum StatsType {
-    ArmorLayering,
-    ShieldSubsystems,
-    TurretRigging,
-    ElectronicSubsystems,
-    Manoeuvering,
-}
-
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
 pub struct Fuel {
     pub max: u8,
@@ -103,7 +97,7 @@ pub struct Experience {
     pub current_exp: u16,
     pub exp_to_next_level: u16,
     pub available_stats_points: bool,
-    pub available_power_up: bool,
+    pub available_crate: bool,
 }
 
 impl Experience {
@@ -122,7 +116,7 @@ impl Experience {
         self.current_exp -= self.exp_to_next_level;
         self.exp_to_next_level = self.experience_to_next_level();
         self.available_stats_points = true;
-        self.available_power_up = true;
+        self.available_crate = true;
     }
 
     pub fn experience_to_next_level(&self) -> u16 {
@@ -145,8 +139,15 @@ pub struct Randomness {
     pub iteration: u64,
 }
 
+impl Randomness {
+    pub fn advance_seed(&mut self) {
+        let mut rng = RandomNumberGenerator::new(self.current_seed);
+        self.current_seed = rng.next();
+        self.iteration += 1;
+    }
+}
+
 // Arena matchmaking is handled by a Switchboard Function (custom).
-// It is then iterated over using Xorshift.
 // github: https://github.com/acamill/@TODO
 // devnet: https://app.switchboard.xyz/solana/devnet/function/@TODO
 // mainet: @TODO
@@ -154,6 +155,40 @@ pub struct Randomness {
 pub struct ArenaMatchmaking {
     pub switchboard_request_info: SwitchboardRequestInfo,
     pub matchmaking_status: MatchMakingStatus,
+}
+
+impl SwitchboardRequestInfo {
+    pub fn is_requested(&self) -> bool {
+        match self.status {
+            SwitchboardFunctionRequestStatus::Requested { slot: _ } => true,
+            _ => false,
+        }
+    }
+
+    pub fn request_is_expired(&self, current_slot: u64) -> bool {
+        match self.status {
+            SwitchboardFunctionRequestStatus::Requested {
+                slot: requested_slot,
+            } => {
+                if current_slot > requested_slot + SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64
+                {
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+}
+
+// Crate picking is handled by a Switchboard Function (custom).
+// github: https://github.com/acamill/@TODO
+// devnet: https://app.switchboard.xyz/solana/devnet/function/@TODO
+// mainet: @TODO
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct CratePicking {
+    pub switchboard_request_info: SwitchboardRequestInfo,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -175,40 +210,8 @@ pub struct Module {
     pub name: LimitedString,
     // pub description: LongLimitedString,
     pub rarity: Rarity,
-    pub tier: TechTier,
     pub class: ModuleClass,
 }
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum SwitchboardFunctionRequestStatus {
-    // No request has been made yet
-    None,
-    // The request has been made but the callback has not been called by the Function yet
-    Requested(i64),
-    // The request has been settled. the callback has been made
-    Settled(i64),
-}
-
-// Ignore specific timestamp
-impl PartialEq for SwitchboardFunctionRequestStatus {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (SwitchboardFunctionRequestStatus::None, SwitchboardFunctionRequestStatus::None) => {
-                true
-            }
-            (
-                SwitchboardFunctionRequestStatus::Requested(_),
-                SwitchboardFunctionRequestStatus::Requested(_),
-            ) => true,
-            (
-                SwitchboardFunctionRequestStatus::Settled(_),
-                SwitchboardFunctionRequestStatus::Settled(_),
-            ) => true,
-            _ => false,
-        }
-    }
-}
-
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct Drone {
     pub name: LimitedString,
@@ -223,21 +226,53 @@ pub struct Mutation {
     pub rarity: Rarity,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum SwitchboardFunctionRequestStatus {
+    // No request has been made yet
+    None,
+    // The request has been made but the callback has not been called by the Function yet
+    Requested { slot: u64 },
+    // The request has been settled. the callback has been made
+    Settled { slot: u64 },
+    // The request has expired and was not settled
+    Expired { slot: u64 },
+}
+
+// Ignore specific timestamp
+impl PartialEq for SwitchboardFunctionRequestStatus {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (SwitchboardFunctionRequestStatus::None, SwitchboardFunctionRequestStatus::None) => {
+                true
+            }
+            (
+                SwitchboardFunctionRequestStatus::Requested { slot: _ },
+                SwitchboardFunctionRequestStatus::Requested { slot: _ },
+            ) => true,
+            (
+                SwitchboardFunctionRequestStatus::Settled { slot: _ },
+                SwitchboardFunctionRequestStatus::Settled { slot: _ },
+            ) => true,
+            _ => false,
+        }
+    }
+}
+
 impl SpaceShip {
     pub const LEN: usize = 8 + std::mem::size_of::<SpaceShip>();
 
     // the account has finished the initialization process
     pub fn is_initialized(&self) -> bool {
         match self.randomness.switchboard_request_info.status {
-            SwitchboardFunctionRequestStatus::Settled(_) => true,
+            SwitchboardFunctionRequestStatus::Settled { slot: _ } => true,
             _ => false,
         }
     }
 
-    // informs wether the spaceship has available stat or module point to spend.
+    // informs wether the spaceship has available stat or crate point to spend.
     // Untils these are spent, he is barred from entering the arena
-    pub fn has_no_pending_stats_or_powerup(&self) -> bool {
-        !(self.experience.available_stats_points || self.experience.available_power_up)
+    pub fn has_no_pending_stats_or_crate(&self) -> bool {
+        !(self.experience.available_stats_points || self.experience.available_crate)
     }
 
     // --- [Game engine code] ---
@@ -271,36 +306,6 @@ impl SpaceShip {
         let shield_hitpoints = BASE_SHIELD_HITPOINTS
             + self.stats.shield_subsystems as u16 * SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL;
         HitPoints::init(shield_hitpoints)
-    }
-
-    // return the Hull resistance profile for a ship - Value are prefight, they will be modified by the fight engine
-    pub fn get_hull_resistance_profile(&self) -> ResistanceProfile {
-        ResistanceProfile {
-            em: 33,
-            thermal: 33,
-            kinetic: 33,
-            explosive: 33,
-        }
-    }
-
-    // return the Armor resistance profile for a ship - Value are prefight, they will be modified by the fight engine
-    pub fn get_armor_resistance_profile(&self) -> ResistanceProfile {
-        ResistanceProfile {
-            em: 60,
-            thermal: 35,
-            kinetic: 25,
-            explosive: 10,
-        }
-    }
-
-    // return the Shield resistance profile for a ship - Value are prefight, they will be modified by the fight engine
-    pub fn get_shield_resistance_profile(&self) -> ResistanceProfile {
-        ResistanceProfile {
-            em: 0,
-            thermal: 20,
-            kinetic: 40,
-            explosive: 50,
-        }
     }
 
     // return turret_charge_time modifier for a ship - Value are prefight, they will be modified by the fight engine
@@ -388,18 +393,14 @@ impl HitPoints {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct ResistanceProfile {
-    pub em: u8,
-    pub thermal: u8,
-    pub kinetic: u8,
-    pub explosive: u8,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct DamageProfile {
+    // 200% damage to shield, 25% damage to armor
     pub em: u8,
+    // 200% damage to armor
     pub thermal: u8,
+    // standard damage
     pub kinetic: u8,
+    // 200% damage to hull, 25% damage to shield
     pub explosive: u8,
 }
 
@@ -407,20 +408,16 @@ pub struct DamageProfile {
 pub enum ModuleClass {
     // Weapons
     Turret(WeaponModuleStats),
-    ExoticWeapon(WeaponModuleStats),
+    Exotic(WeaponModuleStats),
     // Repairers
     ShieldBooster(RepairModuleStats),
     ArmorRepairer(RepairModuleStats),
     HullRepairer(RepairModuleStats),
-    // Resistances
-    ArmorPlating(ResistancesModuleStats),
-    ArmorHardener(ResistancesModuleStats),
-    DamageControl(ResistancesModuleStats),
-    // Bonuses
+    // Passives
     ShieldAmplifier,
+    NaniteCoating,
     TrackingComputer,
     Gyrostabilizer,
-    GaussianCoil,
     // Jammers
     TrackingDisruptor,
     SensorDampener,
@@ -430,9 +427,9 @@ pub enum ModuleClass {
 pub struct WeaponModuleStats {
     pub class: WeaponClass,
     pub damage_profile: DamageProfile,
+    pub shots: u8,
     pub charge_time: u8,
     pub projectile_speed: u8,
-    pub shots: u8,
     // pub range: u8,
     // pub accuracy: u8,
     // pub tracking_speed: u8,
@@ -444,13 +441,6 @@ pub struct WeaponModuleStats {
 pub struct RepairModuleStats {
     pub repair_amount: u8,
     pub cycle_time: u8,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct ResistancesModuleStats {
-    // additional resistances provided
-    pub resistance_profile: ResistanceProfile,
-    pub layer: HitpointLayer,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]

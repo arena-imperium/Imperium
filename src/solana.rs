@@ -13,7 +13,8 @@ use {
     borsh::BorshDeserialize,
     hologram::{
         self,
-        state::{user_account, SpaceShip, StatsType, UserAccount},
+        instructions::StatType,
+        state::{user_account, SpaceShip, UserAccount},
     },
     solana_cli_output::display::println_transaction,
     solana_client::{rpc_config::RpcTransactionConfig, rpc_filter::RpcFilterType},
@@ -80,6 +81,7 @@ pub struct HologramServer {
     // Custom Switchboard functions
     pub spaceship_seed_generation_function: Pubkey,
     pub arena_matchmaking_function: Pubkey,
+    pub crate_picking_function: Pubkey,
 }
 
 impl Default for HologramServer {
@@ -114,14 +116,20 @@ impl Default for HologramServer {
                 "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog",
             )
             .unwrap(), // @HARDCODED
+            crate_picking_function: Pubkey::from_str(
+                "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG",
+            )
+            .unwrap(), // @HARDCODED
         }
     }
 }
 
 // DEVNET test spaceship seed generation function CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
 // DEVNET test arena matchmaking function HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
+// DEVNET test crate picking function EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 // https://app.switchboard.xyz/build/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
 // https://app.switchboard.xyz/build/function/HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
+// https://app.switchboard.xyz/build/function/EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 
 // See anchor client blocking sources https://github.com/coral-xyz/anchor/blob/cec9946111a1c651fd21235c2a554eda05c3ffa3/client/src/blocking.rs
 // and examples https://github.com/coral-xyz/anchor/blob/cec9946111a1c651fd21235c2a554eda05c3ffa3/client/example/src/blocking.rs
@@ -133,6 +141,7 @@ impl HologramServer {
             &self.realm_name,
             &self.spaceship_seed_generation_function,
             &self.arena_matchmaking_function,
+            &self.crate_picking_function,
             &self.solana_client.payer.pubkey(),
         );
     }
@@ -159,6 +168,7 @@ impl HologramServer {
         realm_name: &String,
         spaceship_seed_generation_function: &Pubkey,
         arena_matchmaking_function: &Pubkey,
+        crate_picking_function: &Pubkey,
         admin: &Pubkey, // Here should be a keypair, but it's just the payer. This IX is not really meant to be in this bevy app (as it's more of an admin IX), just temporary for dev
     ) {
         let thread_pool = IoTaskPool::get();
@@ -168,6 +178,7 @@ impl HologramServer {
         let realm_name = realm_name.clone();
         let spaceship_seed_generation_function = spaceship_seed_generation_function.clone();
         let arena_matchmaking_function = arena_matchmaking_function.clone();
+        let crate_picking_function = crate_picking_function.clone();
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending initialize_realm IX");
@@ -181,6 +192,7 @@ impl HologramServer {
                 spaceship_seed_generation_function,
                 arena_matchmaking_function,
                 system_program: solana_program::system_program::id(),
+                crate_picking_function,
             };
 
             Self::send_and_confirm_instruction_blocking(
@@ -254,6 +266,7 @@ impl HologramServer {
         let user = user.clone();
         let spaceship_seed_generation_function = self.spaceship_seed_generation_function;
         let arena_matchmaking_function = self.arena_matchmaking_function;
+        let crate_picking_function = self.crate_picking_function;
         let spaceship_name = spaceship_name.clone();
         let payer = client.payer().clone();
 
@@ -283,6 +296,11 @@ impl HologramServer {
                 &switchboard_amf_request_keypair.pubkey(),
                 &native_mint::ID,
             );
+            let switchboard_cpf_request_keypair = Keypair::new();
+            let switchboard_cpf_request_escrow = get_associated_token_address(
+                &switchboard_cpf_request_keypair.pubkey(),
+                &native_mint::ID,
+            );
             let instruction = hologram::instruction::CreateSpaceship {
                 name: spaceship_name,
             };
@@ -304,6 +322,9 @@ impl HologramServer {
                 arena_matchmaking_function,
                 switchboard_amf_request: switchboard_amf_request_keypair.pubkey(),
                 switchboard_amf_request_escrow,
+                crate_picking_function,
+                switchboard_cpf_request: switchboard_cpf_request_keypair.pubkey(),
+                switchboard_cpf_request_escrow,
                 user_wsol_token_account,
                 switchboard_mint: native_mint::ID,
                 system_program: solana_program::system_program::id(),
@@ -450,7 +471,7 @@ impl HologramServer {
         commands: &mut Commands,
         spaceship_pda: &Pubkey,
         user: &Pubkey,
-        stat_type: StatsType,
+        stat_type: StatType,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);

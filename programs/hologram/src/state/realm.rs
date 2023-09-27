@@ -28,6 +28,7 @@ pub struct SwitchboardInfo {
     pub authority: Pubkey,
     pub spaceship_seed_generation_function: Pubkey,
     pub arena_matchmaking_function: Pubkey,
+    pub crate_picking_function: Pubkey,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
@@ -60,6 +61,15 @@ impl Realm {
         let time = solana_program::sysvar::clock::Clock::get()?.unix_timestamp;
         if time > 0 {
             Ok(time)
+        } else {
+            Err(ProgramError::InvalidAccountData.into())
+        }
+    }
+
+    pub fn get_slot() -> Result<u64> {
+        let slot = solana_program::sysvar::clock::Clock::get()?.slot;
+        if slot > 0 {
+            Ok(slot)
         } else {
             Err(ProgramError::InvalidAccountData.into())
         }

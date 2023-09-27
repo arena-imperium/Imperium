@@ -7,7 +7,7 @@ pub fn xorshift64(seed: u64) -> u64 {
 }
 
 pub struct RandomNumberGenerator {
-    seed: u64,
+    pub seed: u64,
 }
 
 impl RandomNumberGenerator {
