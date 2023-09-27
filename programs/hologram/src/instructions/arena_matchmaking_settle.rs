@@ -1,4 +1,5 @@
 use spaceship::{SwitchboardFunctionRequestStatus, MatchMakingStatus};
+use switchboard_solana::{FunctionAccountData, FunctionRequestAccountData};
 
 use crate::{utils::RandomNumberGenerator, ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE};
 
@@ -8,7 +9,7 @@ use {
         state::{spaceship, Realm, SpaceShip, SpaceShipLite, UserAccount},
     },
     anchor_lang::prelude::*,
-    switchboard_solana::prelude::*,
+    switchboard_solana,
 };
 
 use solana_program::log::sol_log_compute_units;

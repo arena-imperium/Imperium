@@ -9,7 +9,7 @@ use {
     solana_program_test::{BanksClientError, ProgramTest, ProgramTestContext},
     solana_sdk::{
         account::Account, commitment_config::CommitmentConfig,
-        compute_budget::ComputeBudgetInstruction, signers::Signers,
+        compute_budget::ComputeBudgetInstruction, pubkey::Pubkey, signers::Signers,
     },
     tokio::sync::RwLock,
 };

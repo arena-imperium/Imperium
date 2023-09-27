@@ -1,5 +1,8 @@
+use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, Token, SWITCHBOARD_ATTESTATION_PROGRAM_ID, FunctionRequestInit, FunctionRequestInitAndTrigger};
+
 use crate::{BASE_MAX_FUEL, state::SwitchboardFunctionRequestStatus, instructions::CrateType, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
 
+use anchor_spl::associated_token::AssociatedToken;
 use {
     crate::{
         error::HologramError,
@@ -7,7 +10,8 @@ use {
         utils::LimitedString,
         MAX_SPACESHIPS_PER_USER_ACCOUNT, SPACESHIP_RANDOMNESS_FUNCTION_FEE,
     },
-    switchboard_solana::prelude::*,
+    anchor_lang::prelude::*,
+    switchboard_solana,
 };
 
 // @TODO: Create a transfer/close spaceship IX (remember to handle the switchboard_request account, holds rent)
@@ -144,11 +148,11 @@ pub struct CreateSpaceship<'info> {
       associated_token::mint = switchboard_mint,
       associated_token::authority = user,
     )]
-    pub user_wsol_token_account: Box<Account<'info, TokenAccount>>,
+    pub user_wsol_token_account: Box<Account<'info, switchboard_solana::TokenAccount>>,
 
     // WSOL Mint, and function related accounts used to pay for the switchboard function execution
     #[account(address = anchor_spl::token::spl_token::native_mint::ID)]
-    pub switchboard_mint: Box<Account<'info, Mint>>,
+    pub switchboard_mint: Box<Account<'info, switchboard_solana::Mint>>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,

@@ -1,4 +1,5 @@
 use spaceship::SwitchboardFunctionRequestStatus;
+use switchboard_solana::{FunctionAccountData, FunctionRequestAccountData};
 
 use {
     crate::{
@@ -8,7 +9,7 @@ use {
     },
     anchor_lang::prelude::*,
     spaceship::Hull,
-    switchboard_solana::prelude::*,
+    switchboard_solana,
 };
 
 #[derive(Accounts)]

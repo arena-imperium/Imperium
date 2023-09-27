@@ -13,7 +13,7 @@ use {
         WeaponClass, WeaponModuleStats,
     },
     std::borrow::BorrowMut,
-    switchboard_solana::prelude::*,
+    switchboard_solana,
 };
 
 // total of each category must be 100 (%)
