@@ -15,6 +15,7 @@ pub async fn initialize_realm(
     realm_name: &String,
     spaceship_seed_generation_function: &Pubkey,
     arena_matchmaking_function: &Pubkey,
+    crate_picking_function: &Pubkey,
 ) -> std::result::Result<(), BanksClientError> {
     // ==== WHEN ==============================================================
     let (realm_pda, realm_bump) = pda::get_realm_pda(realm_name);
@@ -26,6 +27,7 @@ pub async fn initialize_realm(
             realm: realm_pda,
             spaceship_seed_generation_function: spaceship_seed_generation_function.clone(),
             arena_matchmaking_function: arena_matchmaking_function.clone(),
+            crate_picking_function: crate_picking_function.clone(),
             system_program: anchor_lang::system_program::ID,
         };
 

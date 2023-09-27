@@ -36,10 +36,13 @@ pub async fn create_spaceship(
     let (switchboard_state_pda, _) = utils::get_switchboard_state_pda();
     let switchboard_ssgf_request_keypair = Keypair::new();
     let switchboard_amf_request_keypair = Keypair::new();
+    let switchboard_cpf_request_keypair = Keypair::new();
     let switchboard_ssgf_request_escrow =
         get_associated_token_address(&switchboard_ssgf_request_keypair.pubkey(), &native_mint::ID);
     let switchboard_amf_request_escrow =
         get_associated_token_address(&switchboard_amf_request_keypair.pubkey(), &native_mint::ID);
+    let switchboard_cpf_request_escrow =
+        get_associated_token_address(&switchboard_cpf_request_keypair.pubkey(), &native_mint::ID);
     let user_wsol_token_account = get_associated_token_address(&user.pubkey(), &native_mint::ID);
 
     let accounts_meta = {
@@ -57,6 +60,9 @@ pub async fn create_spaceship(
             arena_matchmaking_function: Pubkey::from_str(IMPERIUM_AMF).unwrap(),
             switchboard_amf_request: switchboard_amf_request_keypair.pubkey(),
             switchboard_amf_request_escrow,
+            crate_picking_function: Pubkey::from_str(IMPERIUM_AMF).unwrap(),
+            switchboard_cpf_request: switchboard_amf_request_keypair.pubkey(),
+            switchboard_cpf_request_escrow,
             user_wsol_token_account,
             switchboard_mint: native_mint::ID,
             system_program: solana_program::system_program::id(),
@@ -109,7 +115,7 @@ pub async fn create_spaceship(
     );
     assert!(matches!(
         spaceship.randomness.switchboard_request_info.status,
-        SwitchboardFunctionRequestStatus::Requested(_)
+        SwitchboardFunctionRequestStatus::Requested { slot: _ }
     ));
 
     assert_eq!(spaceship.fuel.max, BASE_MAX_FUEL);

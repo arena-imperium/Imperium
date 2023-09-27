@@ -94,10 +94,11 @@ pub fn arena_matchmaking_settle(
 ) -> Result<()> {
     // Validations
     {
+
         // verify that the request is pending settlement
         require!(
-            matches!(ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.status, SwitchboardFunctionRequestStatus::Requested(_)),
-            HologramError::SpaceshipRandomnessAlreadySettled
+            ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.is_requested(),
+            HologramError::ArenaMatchmakingAlreadySettled
         );
 
         // // verify that the switchboard request was successful
@@ -110,7 +111,7 @@ pub fn arena_matchmaking_settle(
     // update caller arena_matchmaking status
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Settled(Realm::get_time()?);
+        spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Settled { slot: Realm::get_slot()? };
         ctx.accounts.spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::None;
     }
 
@@ -169,6 +170,12 @@ pub fn arena_matchmaking_settle(
     // distribute experience to participants
     {
         Realm::distribute_arena_experience(winner, looser);
+    }
+
+    // advance seeds
+    {
+        winner.randomness.advance_seed();
+        looser.randomness.advance_seed();
     }
 
     // analytics

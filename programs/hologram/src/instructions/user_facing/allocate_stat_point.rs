@@ -1,11 +1,20 @@
 use {
     crate::{
         error::HologramError,
-        state::{Realm, SpaceShip, StatsType, UserAccount},
+        state::{Realm, SpaceShip, UserAccount},
     },
     anchor_lang::prelude::*,
     switchboard_solana::prelude::*,
 };
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum StatType {
+    ArmorLayering,
+    ShieldSubsystems,
+    TurretRigging,
+    ElectronicSubsystems,
+    Manoeuvering,
+}
 
 #[derive(Accounts)]
 pub struct AllocateStatPoint<'info> {
@@ -32,23 +41,23 @@ pub struct AllocateStatPoint<'info> {
     pub spaceship: Account<'info, SpaceShip>,
 }
 
-pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatsType) -> Result<()> {
+pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatType) -> Result<()> {
     ctx.accounts.spaceship.increase_stat(stat_type)?;
     Ok(())
 }
 
 impl SpaceShip {
-    pub fn increase_stat(&mut self, stat_type: StatsType) -> Result<()> {
+    pub fn increase_stat(&mut self, stat_type: StatType) -> Result<()> {
         require!(
             self.experience.available_stats_points,
             HologramError::NoAvailableStatsPoints
         );
         match stat_type {
-            StatsType::ArmorLayering => self.stats.armor_layering += 1,
-            StatsType::ShieldSubsystems => self.stats.shield_subsystems += 1,
-            StatsType::TurretRigging => self.stats.turret_rigging += 1,
-            StatsType::ElectronicSubsystems => self.stats.electronic_subsystems += 1,
-            StatsType::Manoeuvering => self.stats.manoeuvering += 1,
+            StatType::ArmorLayering => self.stats.armor_layering += 1,
+            StatType::ShieldSubsystems => self.stats.shield_subsystems += 1,
+            StatType::TurretRigging => self.stats.turret_rigging += 1,
+            StatType::ElectronicSubsystems => self.stats.electronic_subsystems += 1,
+            StatType::Manoeuvering => self.stats.manoeuvering += 1,
         }
         self.experience.available_stats_points = false;
         Ok(())

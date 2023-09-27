@@ -1,4 +1,4 @@
-use crate::{BASE_MAX_FUEL, state::SwitchboardFunctionRequestStatus};
+use crate::{BASE_MAX_FUEL, state::SwitchboardFunctionRequestStatus, instructions::CrateType, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
 
 use {
     crate::{
@@ -10,7 +10,6 @@ use {
     switchboard_solana::prelude::*,
 };
 
-// @TODO: Handle fail switchboard request eventually
 // @TODO: Create a transfer/close spaceship IX (remember to handle the switchboard_request account, holds rent)
 
 #[derive(Accounts)]
@@ -108,6 +107,36 @@ pub struct CreateSpaceship<'info> {
       )]
     pub switchboard_amf_request_escrow: AccountInfo<'info>,
 
+    /// CHECK: validated by Switchboard CPI
+    #[account(
+        mut, 
+        // validate that we use the realm custom switchboard function for arena match making
+        constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key() && !arena_matchmaking_function.load()?.requests_disabled
+    )]
+    pub crate_picking_function: AccountLoader<'info, FunctionAccountData>,
+
+    // The Switchboard Function Request account we will create with a CPI.
+    // Should be an empty keypair with no lamports or data.
+    /// CHECK: validated by Switchboard CPI
+    #[account(
+        mut,
+        signer,
+        owner = system_program.key(),
+        constraint = switchboard_amf_request.data_len() == 0 && switchboard_amf_request.lamports() == 0
+      )]
+    pub switchboard_cpf_request: AccountInfo<'info>,
+
+    /// CHECK:
+    #[account(
+        mut,
+        owner = system_program.key(),
+        constraint = switchboard_amf_request_escrow.data_len() == 0 && switchboard_amf_request_escrow.lamports() == 0
+      )]
+    pub switchboard_cpf_request_escrow: AccountInfo<'info>,
+
+    // ADD INIT FOR THIS NEW SWITCHBOARD FUNCTION, WRITE THE SWITCHBOARD FUNCTION, MAKE A REPO FOR IT
+    // Possibly remove the randomness in the spaceship state and just do random with whatver the switchboard functions return (since the game has paths now)
+
     // User WSOL token account to pay for the function execution
     #[account(
       init_if_needed,
@@ -130,6 +159,15 @@ pub struct CreateSpaceship<'info> {
 }
 
 pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<()> {
+        // cancel pending switchboard function request if stale
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        let current_slot = Realm::get_slot()?;
+        if spaceship.randomness.switchboard_request_info.request_is_expired(current_slot) {
+            spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Expired { slot: current_slot  };
+        }
+    }
+
     // Validations
     {
         // has not reached max spaceships per user_account
@@ -228,7 +266,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             ctx.accounts.switchboard_program.clone(),
                 // max_container_params_len - the length of the vec containing the container params
                 // default: 256 bytes
-                Some(512),
+                Some(400),
                 // container_params - the container params
                 // default: empty vec
                  Some(request_params.into_bytes()),
@@ -243,6 +281,54 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         let spaceship = &mut ctx.accounts.spaceship;
         spaceship.arena_matchmaking.switchboard_request_info.account = ctx.accounts.switchboard_amf_request.key();
         spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::None;
+    }
+
+    // init the request account for the crate_picking_function. Not used in this context, but
+    // will be ready for future calls to pick_crate IX.
+    {
+        // Create the Switchboard request account.
+        let request_init_ctx = FunctionRequestInit {
+            request: ctx.accounts.switchboard_cpf_request.clone(),
+            authority: ctx.accounts.user_account.to_account_info(),
+            function: ctx.accounts.crate_picking_function.to_account_info(), 
+            function_authority: None, // only needed if switchboard_function.requests_require_authorization is enabled
+            escrow: ctx.accounts.switchboard_cpf_request_escrow.to_account_info(),
+            mint: ctx.accounts.switchboard_mint.to_account_info(),
+            state: ctx.accounts.switchboard_state.to_account_info(),
+            attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
+            payer: ctx.accounts.user.to_account_info(),
+            system_program: ctx.accounts.system_program.to_account_info(),
+            token_program: ctx.accounts.token_program.to_account_info(),
+            associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
+        };
+        let request_params = format!(
+            "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},CRATE_TYPE{}",
+            crate::id(),
+            ctx.accounts.user.key(),
+            ctx.accounts.realm.key(),
+            ctx.accounts.user_account.key(),
+            ctx.accounts.spaceship.key(),
+            CrateType::NavyIssue as u8,
+        );
+        request_init_ctx.invoke(
+            ctx.accounts.switchboard_program.clone(),
+                // max_container_params_len - the length of the vec containing the container params
+                // default: 256 bytes
+                Some(180),
+                // container_params - the container params
+                // default: empty vec
+                 Some(request_params.into_bytes()),
+                // garbage_collection_slot - the slot when the request can be closed by anyone and is considered dead
+                // default: None, only authority can close the request
+                None,
+        )?;
+    }
+
+    // update the spaceship crate_picking state
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        spaceship.crate_picking.switchboard_request_info.account = ctx.accounts.switchboard_cpf_request.key();
+        spaceship.crate_picking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::None;
     }
 
     // Init and Trigger the request account for the spaceship_seed_generation_function
@@ -282,10 +368,10 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             // slots_until_expiration - optional max number of slots the request can be processed in
             // default: 2250 slots, ~ 15 min at 400 ms/slot
             // minimum: 150 slots, ~ 1 min at 400 ms/slot
-            None,
+            Some(SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64),
             // max_container_params_len - the length of the vec containing the container params
             // default: 256 bytes
-            Some(512),
+            Some(160),
             // container_params - the container params
             // default: empty vec
             Some(request_params.into_bytes()),
@@ -302,7 +388,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     {
         let spaceship = &mut ctx.accounts.spaceship;
         spaceship.randomness.switchboard_request_info.account = ctx.accounts.switchboard_ssgf_request.key();
-        spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested(Realm::get_time()?);
+        spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested { slot: Realm::get_slot()? };
         // randomness fields defaulted to 0 for now, soon updated in the settle callback
     }
 

@@ -49,10 +49,11 @@ impl Default for LimitedString {
 impl LimitedString {
     pub const MAX_LENGTH: usize = 64;
 
-    pub fn new(input: String) -> Self {
-        let length = input.len() as u8;
+    pub fn new<S: AsRef<str>>(input: S) -> Self {
+        let input_str = input.as_ref();
+        let length = input_str.len() as u8;
         let mut array = [0; Self::MAX_LENGTH];
-        let bytes = input.into_bytes();
+        let bytes = input_str.as_bytes();
         for (index, byte) in bytes.iter().enumerate() {
             if index >= Self::MAX_LENGTH {
                 break;
