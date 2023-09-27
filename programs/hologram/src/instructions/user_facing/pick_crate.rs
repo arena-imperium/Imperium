@@ -1,3 +1,5 @@
+use switchboard_solana::{AttestationQueueAccountData, AttestationProgramState, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID, FunctionRequestSetConfig, FunctionRequestTrigger};
+
 use crate::{error::HologramError, state::spaceship::SwitchboardFunctionRequestStatus, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
 
 use {
@@ -8,7 +10,7 @@ use {
         },
     },
     anchor_lang::prelude::*,
-    switchboard_solana::prelude::*,
+    switchboard_solana,
 };
 
 #[derive(Accounts)]
@@ -74,7 +76,7 @@ pub struct PickCrate<'info> {
     pub switchboard_request_escrow: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Program<'info, anchor_spl::token::Token>,
     /// CHECK: SWITCHBOARD_ATTESTATION_PROGRAM
     #[account(executable, address = SWITCHBOARD_ATTESTATION_PROGRAM_ID)]
     pub switchboard_program: AccountInfo<'info>,

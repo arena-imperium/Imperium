@@ -6,7 +6,6 @@ use {
     },
     anchor_lang::prelude::*,
     std::cmp::min,
-    switchboard_solana::prelude::*,
 };
 
 #[derive(Accounts)]

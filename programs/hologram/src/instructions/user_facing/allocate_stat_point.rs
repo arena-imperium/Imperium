@@ -4,7 +4,6 @@ use {
         state::{Realm, SpaceShip, UserAccount},
     },
     anchor_lang::prelude::*,
-    switchboard_solana::prelude::*,
 };
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]

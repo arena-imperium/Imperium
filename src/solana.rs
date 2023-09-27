@@ -5,16 +5,14 @@ use {
         ClientError, Cluster, Program,
     },
     bevy::{
-        ecs::component::Component,
         log,
         prelude::*,
         tasks::{IoTaskPool, Task},
     },
-    borsh::BorshDeserialize,
     hologram::{
         self,
         instructions::StatType,
-        state::{user_account, SpaceShip, UserAccount},
+        state::{SpaceShip, UserAccount},
     },
     solana_cli_output::display::println_transaction,
     solana_client::{rpc_config::RpcTransactionConfig, rpc_filter::RpcFilterType},
@@ -27,8 +25,7 @@ use {
     spl_associated_token_account::get_associated_token_address,
     std::{any::type_name, env, fmt, str::FromStr, sync::Arc},
     switchboard_solana::{
-        anchor_spl::token::spl_token::native_mint, AccountDeserialize, AnchorDeserialize,
-        AnchorSerialize, Discriminator,
+        anchor_spl::token::spl_token::native_mint, AccountDeserialize, Discriminator,
     },
 };
 #[derive(Component)]
@@ -342,6 +339,7 @@ impl HologramServer {
                 vec![
                     switchboard_ssgf_request_keypair,
                     switchboard_amf_request_keypair,
+                    switchboard_cpf_request_keypair,
                 ],
                 450_000,
             )

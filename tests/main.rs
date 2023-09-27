@@ -77,6 +77,7 @@ pub async fn test_integration() {
     // THE CODE WON"T work until we write the necessary
     // https://github.com/switchboard-xyz/solana-sdk/blob/main/javascript/solana.js/src/accounts/attestationQueueAccount.ts#L399
     // adapted to rust. Asking on discord.
+    
 
     // [1] --------------------------------- INITIALIZE REALM ------------------------------------
     let ssgf = Pubkey::from_str(IMPERIUM_SSGF).unwrap();

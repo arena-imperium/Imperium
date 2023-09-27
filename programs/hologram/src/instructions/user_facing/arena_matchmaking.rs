@@ -1,3 +1,5 @@
+use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID, FunctionRequestSetConfig, FunctionRequestTrigger};
+
 use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
 
 use {
@@ -6,7 +8,6 @@ use {
         state::{Realm, SpaceShip, SpaceShipLite, UserAccount},
     },
     anchor_lang::prelude::*,
-    switchboard_solana::prelude::*,
 };
 
 
@@ -74,7 +75,7 @@ pub struct ArenaMatchmaking<'info> {
     pub switchboard_request_escrow: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Program<'info, anchor_spl::token::Token>,
     /// CHECK: SWITCHBOARD_ATTESTATION_PROGRAM
     #[account(executable, address = SWITCHBOARD_ATTESTATION_PROGRAM_ID)]
     pub switchboard_program: AccountInfo<'info>,
