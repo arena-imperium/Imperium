@@ -43,7 +43,7 @@ pub async fn create_user_account(
     .await?;
 
     // ==== THEN ==============================================================
-    let user_account = utils::get_account::<UserAccount>(program_test_ctx, user_account_pda).await;
+    let user_account = utils::get_account::<UserAccount>(program_test_ctx, &user_account_pda).await;
 
     assert_eq!(user_account.bump, user_account_bump);
     assert_eq!(user_account.user, user.pubkey());

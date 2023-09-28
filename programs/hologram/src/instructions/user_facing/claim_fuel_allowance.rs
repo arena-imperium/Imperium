@@ -27,8 +27,9 @@ pub struct ClaimFuelAllowance<'info> {
 
     #[account(
         mut,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
-        bump = spaceship.bump,
+        // seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
+        // bump = spaceship.bump,
+        constraint = user_account.spaceships.iter().map(|s|{s.spaceship}).collect::<Vec<_>>().contains(&spaceship.key()),
     )]
     pub spaceship: Account<'info, SpaceShip>,
 }

@@ -50,6 +50,8 @@ pub enum HologramError {
     NoAvailableStatsPoints,
     #[msg("The spaceship has no available crate to pick at this moment")]
     NoCrateAvailable,
+    #[msg("The switchboard function wasn't signed by the enclave")]
+    FunctionValidationFailed,
     #[msg("The game state does not permit this action")]
     InvalidAction,
 }

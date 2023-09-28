@@ -89,6 +89,11 @@ impl Fuel {
         self.current -= amount;
         Ok(())
     }
+
+    pub fn refill(&mut self, amount: u8) -> Result<()> {
+        self.current = std::cmp::min(self.current + amount, self.max);
+        Ok(())
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
@@ -128,7 +133,7 @@ impl Experience {
 // Randomness is initially seeded using a Switchboard Function (custom).
 // The function is called once only. Randomness is then iterated over using Xorshift.
 // github: https://github.com/acamill/spaceship_seed_generation_function
-// devnet: https://app.switchboard.xyz/solana/devnet/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
+// devnet: https://app.switchboard.xyz/solana/devnet/function/5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe
 // mainet: @TODO
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct Randomness {
@@ -202,7 +207,7 @@ pub enum MatchMakingStatus {
     // the user is not in the queue
     None,
     // the user is queued and waiting for a match
-    InQueue(i64),
+    InQueue { slot: u64 },
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]

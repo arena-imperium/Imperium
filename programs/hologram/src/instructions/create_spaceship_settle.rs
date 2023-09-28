@@ -29,6 +29,7 @@ pub struct CreateSpaceshipSettle<'info> {
     pub realm: Account<'info, Realm>,
 
     #[account(
+        mut,
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
         bump = user_account.bump,
     )]
@@ -48,13 +49,14 @@ pub struct CreateSpaceshipSettle<'info> {
     )]
     pub spaceship_seed_generation_function: AccountLoader<'info, FunctionAccountData>,
 
+    #[cfg(not(any(test, feature = "testing")))]
     #[account(
-      constraint = switchboard_request.validate_signer(
-          &spaceship_seed_generation_function.to_account_info(),
-          &enclave_signer.to_account_info()
-        )? @ HologramError::SwitchboardFunctionValidationFailed,
+        // validation of the signer is done in the IX code
     )]
     pub switchboard_request: Box<Account<'info, FunctionRequestAccountData>>,
+    #[cfg(any(test, feature = "testing"))]
+    /// CHECK: test target only
+    pub switchboard_request: AccountInfo<'info>,
 }
 
 #[event]
@@ -70,6 +72,14 @@ pub fn create_spaceship_settle(
 ) -> Result<()> {
     // Validations
     {
+        // verify that the call was made by the container
+        // Disabled during tests
+        #[cfg(not(any(test, feature = "testing")))]
+        require!(
+            ctx.accounts.switchboard_request.validate_signer(&ctx.accounts.spaceship_seed_generation_function.to_account_info(), &ctx.accounts.enclave_signer.to_account_info()) == Ok(true),
+            HologramError::FunctionValidationFailed
+        );
+
         // verify that the request is pending settlement
         require!(
             ctx.accounts.spaceship.randomness.switchboard_request_info.is_requested(),
@@ -77,6 +87,7 @@ pub fn create_spaceship_settle(
         );
 
         // // verify that the switchboard request was successful
+        // #[cfg(not(any(test, feature = "testing")))]
         // require!(
         //     ctx.accounts.switchboard_request.active_request.status == RequestStatus::RequestSuccess,
         //     HologramError::SwitchboardRequestNotSuccessful
@@ -109,6 +120,17 @@ pub fn create_spaceship_settle(
             _ => panic!("Invalid dice roll"),
         };
     }
+    let spaceship_lite =  SpaceShipLite {
+        name: ctx.accounts.spaceship.name,
+        hull: ctx.accounts.spaceship.hull.clone(),
+        spaceship: *ctx.accounts.spaceship.to_account_info().key,
+    };
+
+    // Create spaceship reference in user_account
+    {
+        let user_account = &mut ctx.accounts.user_account;
+        user_account.spaceships.push(spaceship_lite.clone());
+    }
 
     // Update realm analytics
     {
@@ -118,11 +140,7 @@ pub fn create_spaceship_settle(
     emit!(SpaceshipCreated {
         realm_name: ctx.accounts.realm.name.to_string(),
         user: ctx.accounts.user.key(),
-        spaceship: SpaceShipLite {
-            name: ctx.accounts.spaceship.name,
-            hull: ctx.accounts.spaceship.hull.clone(),
-            spaceship: *ctx.accounts.spaceship.to_account_info().key,
-        },
+        spaceship: spaceship_lite,
     });
     Ok(())
 }

@@ -40,7 +40,7 @@ Play
 After an encounter, the player seed is updated using the opponent seed
 
 `spaceship_seed_generation_function`: It serves for generating the initial seed of each spaceship.
-Devnet: <https://app.switchboard.xyz/build/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5>
+Devnet: <https://app.switchboard.xyz/build/function/5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe>
 Mainnet:
 Github: <https://github.com/arena-imperium/spaceship_seed_generation_function>
 

@@ -17,6 +17,7 @@ pub struct ArenaMatchmaking<'info> {
     pub user: Signer<'info>,
 
     #[account(
+        mut,
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
         has_one = admin,
@@ -35,9 +36,11 @@ pub struct ArenaMatchmaking<'info> {
 
     #[account(
         mut,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
-        bump = spaceship.bump,
-        constraint = spaceship.randomness.switchboard_request_info.account == switchboard_request.key(),
+        // seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), index_unknown here],
+        // bump = spaceship.bump,
+        constraint = spaceship.arena_matchmaking.switchboard_request_info.account == switchboard_request.key(),
+        constraint = spaceship.owner == *user.key,
+        constraint = user_account.spaceships.iter().map(|s|{s.spaceship}).collect::<Vec<_>>().contains(&spaceship.key()),
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
@@ -55,23 +58,11 @@ pub struct ArenaMatchmaking<'info> {
     )]
     pub arena_matchmaking_function: AccountLoader<'info, FunctionAccountData>,
 
-    // The Switchboard Function Request account we will create with a CPI.
-    // Should be an empty keypair with no lamports or data.
-    /// CHECK: validated by Switchboard CPI
-    #[account(
-        mut,
-        signer,
-        owner = system_program.key(),
-        constraint = switchboard_request.data_len() == 0 && switchboard_request.lamports() == 0
-      )]
+    #[account(mut)]
     pub switchboard_request: AccountInfo<'info>,
 
     /// CHECK:
-    #[account(
-        mut,
-        owner = system_program.key(),
-        constraint = switchboard_request_escrow.data_len() == 0 && switchboard_request_escrow.lamports() == 0
-      )]
+    #[account(mut)]
     pub switchboard_request_escrow: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
@@ -95,6 +86,10 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
         let current_slot = Realm::get_slot()?;
         if spaceship.arena_matchmaking.switchboard_request_info.request_is_expired(current_slot) {
             spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Expired { slot: current_slot  };
+            // update matchmaking status 
+            spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::None;
+            // refund fuel cost
+            spaceship.fuel.refill(ARENA_MATCHMAKING_FUEL_COST)?;
         }
     }
     
@@ -120,14 +115,14 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
 
     }
 
-    // pay fuel entry price + update matchmaking status 
+    // pay fuel entry price
     {
         let spaceship = &mut ctx.accounts.spaceship;
         spaceship.fuel.consume(ARENA_MATCHMAKING_FUEL_COST)?;
     }
 
     // Matchmaking logic, two paths:
-    // - the queue is filled, trigger match the caller and a participant
+    // - the queue is filled, trigger match between the caller and a queue member
     // - the queue isn't filled, place the caller in the queue 
 
     // @TODO: Will roll with this for now cause probably premature optimization, but there is a problem: If multiple users call this instruction and the queue is filled,
@@ -156,7 +151,6 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     //              
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        let realm_key = ctx.accounts.realm.key();
         let realm = &mut ctx.accounts.realm;
 
         // find the queue matching spaceship level
@@ -169,66 +163,74 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
 
         // is the queue filled? Yes? -> matchmake, No? -> insert spaceship in the first available slot
         if queue.is_filled() {
+            msg!("Matchmaking queue is filled, matching participants");
             // increase request awaiting settlement counter
             queue.matchmaking_request_count += 1;
 
-            let user_account_seed = &[
-                b"user_account",
-                realm_key.as_ref(), ctx.accounts.user.key.as_ref(),
-                &[ctx.accounts.user_account.bump],
-            ];
-
-            // Update the switchboard function parameters to include the queued spaceships
+            // Switchboard function bloc
+            #[cfg(not(any(test, feature = "testing")))]
             {
-                let request_set_config_ctx = FunctionRequestSetConfig { request: ctx.accounts.switchboard_request.clone(), authority: ctx.accounts.admin.clone() };
-                let request_params = format!(
-                    "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},OS_1_PDA={},OS_2_PDA={},OS_3_PDA={},OS_4_PDA={},OS_5_PDA={}",
-                    crate::id(),
-                    ctx.accounts.user.key(),
-                    realm_key,
-                    ctx.accounts.user_account.key(),
-                    ctx.accounts.spaceship.key(),
-                    queue.spaceships[0].unwrap(),
-                    queue.spaceships[1].unwrap(),
-                    queue.spaceships[2].unwrap(),
-                    queue.spaceships[3].unwrap(),
-                    queue.spaceships[4].unwrap(),
-                );
+                let realm_key = realm.key();
+                let user_account_seed = &[
+                    b"user_account",
+                    realm_key.as_ref(), ctx.accounts.user.key.as_ref(),
+                    &[ctx.accounts.user_account.bump],
+                ];
 
-                request_set_config_ctx.invoke_signed(ctx.accounts.switchboard_program.clone(), request_params.into_bytes(), false, &[user_account_seed])?;
-            }
+                // Update the switchboard function parameters to include the queued spaceships
+    
+                {
+                    let request_set_config_ctx = FunctionRequestSetConfig { request: ctx.accounts.switchboard_request.clone(), authority: ctx.accounts.admin.clone() };
+                    let request_params = format!(
+                        "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},OS_1_PDA={},OS_2_PDA={},OS_3_PDA={},OS_4_PDA={},OS_5_PDA={}",
+                        crate::id(),
+                        ctx.accounts.user.key(),
+                        realm_key,
+                        ctx.accounts.user_account.key(),
+                        ctx.accounts.spaceship.key(),
+                        queue.spaceships[0].unwrap(),
+                        queue.spaceships[1].unwrap(),
+                        queue.spaceships[2].unwrap(),
+                        queue.spaceships[3].unwrap(),
+                        queue.spaceships[4].unwrap(),
+                    );
 
-            // Trigger the request account for the arena_matchmaking_function
-            // This will instruct the off-chain oracles to execute the docker container and relay
-            // the result back to our program via the 'arena_matchmaking_settle' instruction.
-            {
-                let request_trigger_ctx = FunctionRequestTrigger {
-                    request: ctx.accounts.switchboard_request.clone(),
-                    authority: ctx.accounts.admin.clone(),
-                    escrow: ctx.accounts.switchboard_request_escrow.to_account_info(),
-                    function: ctx.accounts.arena_matchmaking_function.to_account_info(),
-                    state: ctx.accounts.switchboard_state.to_account_info(),
-                    attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
-                    payer: ctx.accounts.user.to_account_info(),
-                    system_program: ctx.accounts.system_program.to_account_info(),
-                    token_program: ctx.accounts.token_program.to_account_info(),
-                };
+                    request_set_config_ctx.invoke_signed(ctx.accounts.switchboard_program.clone(), request_params.into_bytes(), false, &[user_account_seed])?;
+                }
 
-                request_trigger_ctx.invoke_signed(
-                    ctx.accounts.switchboard_program.clone(),
-                    // bounty - optional fee to reward oracles for priority processing
-                    // default: 0 lamports
-                    None,
-                    // slots_until_expiration - optional max number of slots the request can be processed in
-                    // default: 2250 slots, ~ 15 min at 400 ms/slot
-                    // minimum: 150 slots, ~ 1 min at 400 ms/slot
-                    Some(SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64),
-                    // valid_after_slot - schedule a request to execute in N slots
-                    // default: 0 slots, valid immediately for oracles to process
-                    None,
-                    &[user_account_seed],
-                )?;
-            }
+                // Trigger the request account for the arena_matchmaking_function
+                // This will instruct the off-chain oracles to execute the docker container and relay
+                // the result back to our program via the 'arena_matchmaking_settle' instruction.
+                #[cfg(not(any(test, feature = "testing")))]
+                {
+                    let request_trigger_ctx = FunctionRequestTrigger {
+                        request: ctx.accounts.switchboard_request.clone(),
+                        authority: ctx.accounts.admin.clone(),
+                        escrow: ctx.accounts.switchboard_request_escrow.to_account_info(),
+                        function: ctx.accounts.arena_matchmaking_function.to_account_info(),
+                        state: ctx.accounts.switchboard_state.to_account_info(),
+                        attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
+                        payer: ctx.accounts.user.to_account_info(),
+                        system_program: ctx.accounts.system_program.to_account_info(),
+                        token_program: ctx.accounts.token_program.to_account_info(),
+                    };
+
+                    request_trigger_ctx.invoke_signed(
+                        ctx.accounts.switchboard_program.clone(),
+                        // bounty - optional fee to reward oracles for priority processing
+                        // default: 0 lamports
+                        None,
+                        // slots_until_expiration - optional max number of slots the request can be processed in
+                        // default: 2250 slots, ~ 15 min at 400 ms/slot
+                        // minimum: 150 slots, ~ 1 min at 400 ms/slot
+                        Some(SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64),
+                        // valid_after_slot - schedule a request to execute in N slots
+                        // default: 0 slots, valid immediately for oracles to process
+                        None,
+                        &[user_account_seed],
+                    )?;
+                }
+            }   
 
             // update arena_matchmaking status
             {
@@ -236,6 +238,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
                 spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested { slot: Realm::get_slot()? };
             }
         } else {
+            msg!("Matchmaking queue is not filled, adding spaceship to queue");
             // insert spaceship in the first available slot
             let empty_slot = queue.spaceships.iter_mut().find(|slot| slot.is_none());
             if let Some(slot) = empty_slot {
@@ -247,7 +250,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     }
 
     // update matchmaking status 
-    ctx.accounts.spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::InQueue(Realm::get_time()?);
+    ctx.accounts.spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::InQueue { slot: Realm::get_slot()? };
 
     emit!(ArenaMatchmakingQueueJoined {
         realm_name: ctx.accounts.realm.name.to_string(),

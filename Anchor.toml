@@ -37,7 +37,7 @@ address = "5ExuoQR69trmKQfB95fDsUGsUrrChbGq9PFgt8qouncz"
 address = "5MFs7RGTjLi1wtKNBFRtuLipCkkjs4YQwRRU9sjnbQbS"
 
 [[test.validator.clone]] # devnet ssgf
-address = "CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5"
+address = "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe"
 
 [[test.validator.clone]] # devnet amf
 address = "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog"

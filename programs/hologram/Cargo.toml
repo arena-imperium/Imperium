@@ -19,6 +19,7 @@ default = [
 mainnet-beta = []
 devnet = []
 localnet = []
+testing = []
 
 [dependencies]
 anchor-lang = { version = "0.28.0", features = ["init-if-needed"] }

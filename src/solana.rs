@@ -106,7 +106,7 @@ impl Default for HologramServer {
             realm_name: "Holorealm".to_string(), // @HARDCODED
             admin_pubkey: payer.pubkey().clone(),
             spaceship_seed_generation_function: Pubkey::from_str(
-                "CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5",
+                "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe",
             )
             .unwrap(), // @HARDCODED
             arena_matchmaking_function: Pubkey::from_str(
@@ -121,10 +121,10 @@ impl Default for HologramServer {
     }
 }
 
-// DEVNET test spaceship seed generation function CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
+// DEVNET test spaceship seed generation function 5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe
 // DEVNET test arena matchmaking function HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
 // DEVNET test crate picking function EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
-// https://app.switchboard.xyz/build/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
+// https://app.switchboard.xyz/build/function/5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe
 // https://app.switchboard.xyz/build/function/HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
 // https://app.switchboard.xyz/build/function/EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 
@@ -281,7 +281,6 @@ impl HologramServer {
             let spaceship_index = new_spaceship_index;
 
             let (spaceship_pda, _) = Self::get_spaceship_pda(&realm_pda, &user, spaceship_index);
-            let user_wsol_token_account = get_associated_token_address(&user, &native_mint::ID);
             let (switchboard_state_pda, _) = Self::get_switchboard_state();
             let switchboard_ssgf_request_keypair = Keypair::new();
             let switchboard_ssgf_request_escrow = get_associated_token_address(
@@ -322,7 +321,6 @@ impl HologramServer {
                 crate_picking_function,
                 switchboard_cpf_request: switchboard_cpf_request_keypair.pubkey(),
                 switchboard_cpf_request_escrow,
-                user_wsol_token_account,
                 switchboard_mint: native_mint::ID,
                 system_program: solana_program::system_program::id(),
                 token_program: switchboard_solana::anchor_spl::token::ID,
