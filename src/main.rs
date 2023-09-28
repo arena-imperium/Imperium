@@ -1,21 +1,15 @@
 // disable console on windows for release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+
 mod menu;
 mod solana;
 
-use bevy_tasks::{TaskPool, TaskPoolBuilder};
+use bevy_tasks::{IoTaskPool, TaskPool, TaskPoolBuilder};
 use comfy::*;
 use crate::menu::dev_menu;
+use crate::solana::{HologramServer, solana_transaction_task_handler};
 
-// Todo:
-// Delete almost everything else.
-// consolidate into one .rs file
-// Spin out new .rs files as needed to keep code easy to read.
-
-// This example shows an integration between comfy and blobs, a simple 2d physics engine. It's not
-// the most beautiful example, and maybe a bit verbose for what it does, but it tries to showcase
-// some more extensible ways of using comfy.
 comfy_game!(
     "Imperium",
     GameContext,
@@ -25,6 +19,19 @@ comfy_game!(
     update
 );
 
+/// Ie: what gamemode/scene are we currently in?
+#[derive(Default, Clone, Eq, PartialEq, Debug, Hash)]
+enum Scene {
+    #[default]
+    Loading,
+    // Starting scene, where the player can setup a connection with their wallet
+    Login,
+    // During this State the actual game logic is executed
+    Playing,
+    // Here the menu is drawn and waiting for player interaction
+    Menu,
+}
+
 pub struct GameState {
     /* structures for tracking sengine state should go here*/
     // Note this is different from GameContext in that game context
@@ -32,13 +39,17 @@ pub struct GameState {
     // actually located.
 
     tasks: TaskPool,
+    scene: Scene,
+    solana_server: HologramServer,
 }
 
 impl GameState {
     pub fn new(c: &mut EngineContext) -> Self {
         Self { tasks: TaskPoolBuilder::new()
             .thread_name("MainThreadPool".to_string())
-            .build()
+            .build(),
+            scene: Default::default(),
+            solana_server: Default::default(),
         }
     }
 }
@@ -52,6 +63,7 @@ pub struct GameContext<'a, 'b: 'a> {
     pub egui: &'a egui::Context,
     pub engine: &'a mut EngineContext<'b>,
     pub tasks: &'a mut TaskPool,
+    pub solana_server: &'a mut HologramServer,
 }
 
 fn make_context<'a, 'b: 'a>(
@@ -62,11 +74,13 @@ fn make_context<'a, 'b: 'a>(
         egui: engine.egui,
         engine,
         tasks: &mut state.tasks,
+        solana_server: &mut state.solana_server,
     }
 }
 
 // Setup initial state of the engine, load assets, etc.
 fn setup(c: &mut GameContext) {
+    IoTaskPool::init(||{TaskPoolBuilder::new().build()});
     // We'll need SFX for this
     c.engine.load_sound_from_bytes(
         // Every sound gets a string name later used to reference it.
@@ -77,6 +91,7 @@ fn setup(c: &mut GameContext) {
         )),
         StaticSoundSettings::default(),
     );
+    play_sound("comfy-flying");
 }
 
 fn update(c: &mut GameContext) {
@@ -89,7 +104,7 @@ fn update(c: &mut GameContext) {
     );*/
 
     draw_text(
-        "This is test ingame text.",
+        "Welcome to the Imperium galactic Arena!",
         Position::screen_percent(0.5, 0.85).to_world(),
         WHITE,
         TextAlign::Center,
@@ -100,6 +115,9 @@ fn update(c: &mut GameContext) {
         .show(c.egui, |ui| {
             dev_menu(ui, c);
         });
+
+    // Handles solana threads and such for us.
+    solana_transaction_task_handler(&mut c.engine.commands.borrow_mut(), &mut c.engine.world.borrow_mut());
 }
 
 

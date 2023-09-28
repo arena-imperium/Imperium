@@ -2,6 +2,7 @@ pub use anchor_client::Client as AnchorClient;
 use bevy_tasks::{IoTaskPool, Task};
 use comfy::{CommandBuffer, log};
 use comfy::hecs::*;
+use futures_lite::future;
 use {
     anchor_client::{
         anchor_lang::{prelude::System, Id},
@@ -28,6 +29,35 @@ use {
 pub struct SolanaTransactionTask {
     pub description: String,
     pub task: Task<Result<EncodedConfirmedTransactionWithStatusMeta, SolanaTransactionTaskError>>,
+}
+
+pub fn solana_transaction_task_handler(
+    mut commands: &mut CommandBuffer,
+    mut world: &mut World,
+) {
+    for (entity, (task, &flag)) in world.query_mut::<(&mut SolanaTransactionTask, &bool)>() {
+        match future::block_on(future::poll_once(&mut task.task)) {
+            Some(result) => {
+                let status = match result {
+                    Ok(confirmed_transaction) => {
+                        match confirmed_transaction.transaction.meta.unwrap().err {
+                            Some(error) => {
+                                format!("Transaction failed: {}", error)
+                            }
+                            None => "Transaction succeeded".to_string(),
+                        }
+                    }
+                    Err(error) => {
+                        format!("Transaction failed: {}", error)
+                    }
+                };
+                let message = format!("{}: {}", task.description, status);
+                log::info!("{}", message);
+                commands.despawn(entity);
+            }
+            None => {}
+        };
+    }
 }
 
 pub enum SolanaTransactionTaskError {
