@@ -1,3 +1,5 @@
+use switchboard_solana::{FunctionAccountData, FunctionRequestAccountData};
+
 use {
     crate::{
         error::HologramError,
@@ -13,7 +15,6 @@ use {
         WeaponClass, WeaponModuleStats,
     },
     std::borrow::BorrowMut,
-    switchboard_solana,
 };
 
 // total of each category must be 100 (%)
@@ -41,8 +42,13 @@ pub const AAC_EXOTIC_MODULE_ENABLED: bool = true;
 
 #[derive(Accounts)]
 pub struct PickCrateSettle<'info> {
+    /// CHECK: verified in the arena_matchmaking_function (to make sure it was called by the container)
+    #[account()]
+    pub enclave_signer: Signer<'info>,
+
     #[account(mut)]
-    pub user: Signer<'info>,
+    /// CHECK: forwarded from the create_spaceship IX (and validated by it)
+    pub user: AccountInfo<'info>,
 
     #[account(
         seeds=[b"realm", realm.name.to_bytes()],
@@ -62,6 +68,21 @@ pub struct PickCrateSettle<'info> {
         bump = spaceship.bump,
     )]
     pub spaceship: Account<'info, SpaceShip>,
+
+    #[account( 
+        // validate that we use the realm custom switchboard function
+        constraint = realm.switchboard_info.crate_picking_function == crate_picking_function.key(),
+    )]
+    pub crate_picking_function: AccountLoader<'info, FunctionAccountData>,
+
+    #[cfg(not(any(test, feature = "testing")))]
+    #[account(
+        // validation of the signer is done in the IX code
+    )]
+    pub switchboard_request: Box<Account<'info, FunctionRequestAccountData>>,
+    #[cfg(any(test, feature = "testing"))]
+    /// CHECK: test target only
+    pub switchboard_request: AccountInfo<'info>,
 }
 
 pub fn pick_crate_settle(
@@ -71,6 +92,14 @@ pub fn pick_crate_settle(
 ) -> Result<()> {
     // Validations
     {
+        // verify that the call was made by the container
+        // Disabled during tests
+        #[cfg(not(any(test, feature = "testing")))]
+        require!(
+            ctx.accounts.switchboard_request.validate_signer(&ctx.accounts.crate_picking_function.to_account_info(), &ctx.accounts.enclave_signer.to_account_info()) == Ok(true),
+            HologramError::FunctionValidationFailed
+        );
+
         // verify that the request is pending settlement
         require!(
             ctx.accounts
@@ -82,6 +111,7 @@ pub fn pick_crate_settle(
         );
 
         // // verify that the switchboard request was successful
+        // #[cfg(not(any(test, feature = "testing")))]
         // require!(
         //     ctx.accounts.switchboard_request.active_request.status == RequestStatus::RequestSuccess,
         //     HologramError::SwitchboardRequestNotSuccessful

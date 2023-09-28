@@ -32,9 +32,11 @@ pub struct CreateSpaceship<'info> {
     #[account(constraint = admin.key() == realm.admin)]
     pub admin: AccountInfo<'info>,
 
+    // Note: resize is made in the request rather than settle for simplicity
+    // this cannot backfire as the len is increased in the settle part.
     #[account(
         mut,
-        realloc = UserAccount::LEN + std::mem::size_of::<SpaceShipLite>() * user_account.spaceships.len(),
+        realloc = UserAccount::LEN + std::mem::size_of::<SpaceShipLite>() * (user_account.spaceships.len() + 1),
         realloc::payer = user,
         realloc::zero = false,
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
@@ -138,18 +140,6 @@ pub struct CreateSpaceship<'info> {
       )]
     pub switchboard_cpf_request_escrow: AccountInfo<'info>,
 
-    // ADD INIT FOR THIS NEW SWITCHBOARD FUNCTION, WRITE THE SWITCHBOARD FUNCTION, MAKE A REPO FOR IT
-    // Possibly remove the randomness in the spaceship state and just do random with whatver the switchboard functions return (since the game has paths now)
-
-    // User WSOL token account to pay for the function execution
-    #[account(
-      init_if_needed,
-      payer = user,
-      associated_token::mint = switchboard_mint,
-      associated_token::authority = user,
-    )]
-    pub user_wsol_token_account: Box<Account<'info, switchboard_solana::TokenAccount>>,
-
     // WSOL Mint, and function related accounts used to pay for the switchboard function execution
     #[account(address = anchor_spl::token::spl_token::native_mint::ID)]
     pub switchboard_mint: Box<Account<'info, switchboard_solana::Mint>>,
@@ -213,30 +203,9 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         spaceship.name = LimitedString::new(name);
     }
 
-    {
-        // Only proceed if the user doesn't have enough lamports to pay for the function execution
-        if ctx.accounts.user_wsol_token_account.amount < SPACESHIP_RANDOMNESS_FUNCTION_FEE {
-            switchboard_solana::wrap_native(
-                &ctx.accounts.system_program,
-                &ctx.accounts.token_program,
-                &ctx.accounts.user_wsol_token_account,
-                &ctx.accounts.user,
-                &[&[
-                    b"realm",
-                    ctx.accounts.realm.name.to_bytes(),
-                    &[ctx.accounts.realm.bump],
-                ]],
-                SPACESHIP_RANDOMNESS_FUNCTION_FEE
-                    .checked_sub(ctx.accounts.user_wsol_token_account.amount)
-                    .unwrap(),
-            )?;
-            // Reload the user wallet account to get the new amount
-            ctx.accounts.user_wsol_token_account.reload()?;
-        }
-    }
-
     // init the request account for the arena_matchmaking_function. Not used in this context, but
     // will be ready for future calls to arena_matchmaking IX.
+    #[cfg(not(any(test, feature = "testing")))]
     {
         // Create the Switchboard request account.
         let request_init_ctx = FunctionRequestInit {
@@ -273,7 +242,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
                 Some(400),
                 // container_params - the container params
                 // default: empty vec
-                 Some(request_params.into_bytes()),
+                Some(request_params.into_bytes()),
                 // garbage_collection_slot - the slot when the request can be closed by anyone and is considered dead
                 // default: None, only authority can close the request
                 None,
@@ -289,7 +258,8 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
 
     // init the request account for the crate_picking_function. Not used in this context, but
     // will be ready for future calls to pick_crate IX.
-    {
+    #[cfg(not(any(test, feature = "testing")))]
+    {    
         // Create the Switchboard request account.
         let request_init_ctx = FunctionRequestInit {
             request: ctx.accounts.switchboard_cpf_request.clone(),
@@ -338,6 +308,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     // Init and Trigger the request account for the spaceship_seed_generation_function
     // This will instruct the off-chain oracles to execute the docker container and relay
     // the result back to our program via the 'create_spaceship_settle' instruction.
+    #[cfg(not(any(test, feature = "testing")))]
     {
         let request_params = format!(
             "PID={},LOWER_BOUND={},UPPER_BOUND={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={}",
@@ -408,7 +379,6 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
 
         // experience fields defaulted to 0
         spaceship.experience.exp_to_next_level = spaceship.experience_to_next_level();
-
 
         // hull is rolled during settle callback
     }

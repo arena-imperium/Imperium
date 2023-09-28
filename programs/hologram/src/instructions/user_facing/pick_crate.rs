@@ -22,7 +22,6 @@ pub struct PickCrate<'info> {
     #[account(constraint = admin.key() == realm.admin)]
     pub admin: AccountInfo<'info>,
 
-
     #[account(
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
@@ -56,23 +55,12 @@ pub struct PickCrate<'info> {
     )]
     pub crate_picking_function: AccountLoader<'info, FunctionAccountData>,
 
-    // The Switchboard Function Request account we will create with a CPI.
-    // Should be an empty keypair with no lamports or data.
     /// CHECK: validated by Switchboard CPI
-    #[account(
-        mut,
-        signer,
-        owner = system_program.key(),
-        constraint = switchboard_request.data_len() == 0 && switchboard_request.lamports() == 0
-      )]
+    #[account(mut)]
     pub switchboard_request: AccountInfo<'info>,
 
-    /// CHECK:
-    #[account(
-        mut,
-        owner = system_program.key(),
-        constraint = switchboard_request_escrow.data_len() == 0 && switchboard_request_escrow.lamports() == 0
-      )]
+    /// CHECK:validated by Switchboard CPI
+    #[account(mut)]
     pub switchboard_request_escrow: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
@@ -107,17 +95,18 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
         );
     }
 
+    #[cfg(not(any(test, feature = "testing")))]
     {
         let realm_key = ctx.accounts.realm.key();
-
         let user_account_seed = &[
             b"user_account",
             realm_key.as_ref(), ctx.accounts.user.key.as_ref(),
             &[ctx.accounts.user_account.bump],
         ];
-
         // Update the switchboard function parameters
         {
+
+
             let request_set_config_ctx = FunctionRequestSetConfig { request: ctx.accounts.switchboard_request.clone(), authority: ctx.accounts.admin.clone() };
             let request_params = format!(
                 "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},CRATE_TYPE{}",

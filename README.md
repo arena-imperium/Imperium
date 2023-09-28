@@ -109,7 +109,7 @@ then run client
 # Devnet
 
 spaceship_seed_generation_function
-<https://app.switchboard.xyz/solana/devnet/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5>
+<https://app.switchboard.xyz/solana/devnet/function/5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe>
 <https://github.com/acamill/spaceship_seed_generation_function>
 
 arena_matchmaking_function
