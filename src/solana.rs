@@ -1,14 +1,11 @@
 pub use anchor_client::Client as AnchorClient;
+use bevy_tasks::{IoTaskPool, Task};
+use comfy::{CommandBuffer, log};
+use comfy::hecs::*;
 use {
     anchor_client::{
         anchor_lang::{prelude::System, Id},
         ClientError, Cluster, Program,
-    },
-    bevy::{
-        ecs::component::Component,
-        log,
-        prelude::*,
-        tasks::{IoTaskPool, Task},
     },
     borsh::BorshDeserialize,
     hologram::{self, state::SpaceShip},
@@ -27,7 +24,7 @@ use {
         AnchorSerialize, Discriminator,
     },
 };
-#[derive(Component)]
+
 pub struct SolanaTransactionTask {
     pub description: String,
     pub task: Task<Result<EncodedConfirmedTransactionWithStatusMeta, SolanaTransactionTaskError>>,
@@ -57,19 +54,16 @@ impl fmt::Display for SolanaTransactionTaskError {
     }
 }
 
-#[derive(Component)]
 pub struct SolanaFetchAccountTask<T> {
     pub description: String,
     pub task: Task<Result<T, ClientError>>,
 }
 
-#[derive(Component)]
 pub struct SolanaFetchAccountsTask<T> {
     pub description: String,
     pub task: Task<Result<Vec<(Pubkey, T)>, ClientError>>,
 }
 
-#[derive(Resource)]
 pub struct HologramServer {
     pub solana_client: Arc<SolanaClient>,
     pub realm_name: String,
@@ -124,7 +118,7 @@ impl Default for HologramServer {
 // and examples https://github.com/coral-xyz/anchor/blob/cec9946111a1c651fd21235c2a554eda05c3ffa3/client/example/src/blocking.rs
 
 impl HologramServer {
-    pub fn fire_default_initialize_realm_task(&self, commands: &mut Commands) {
+    pub fn fire_default_initialize_realm_task(&self, commands: &mut CommandBuffer) {
         self.fire_initialize_realm_task(
             commands,
             &self.realm_name,
@@ -134,7 +128,7 @@ impl HologramServer {
         );
     }
 
-    pub fn fire_default_create_user_account_task(&self, commands: &mut Commands) {
+    pub fn fire_default_create_user_account_task(&self, commands: &mut CommandBuffer) {
         self.fire_create_user_account_task(
             commands,
             self.realm_name.clone(),
@@ -142,7 +136,7 @@ impl HologramServer {
         );
     }
 
-    pub fn fire_default_create_spaceship_task(&self, commands: &mut Commands) {
+    pub fn fire_default_create_spaceship_task(&self, commands: &mut CommandBuffer) {
         self.fire_create_spaceship_task(
             commands,
             &"Nebuchadnezzar".to_string(),
@@ -152,7 +146,7 @@ impl HologramServer {
 
     pub fn fire_initialize_realm_task(
         &self,
-        commands: &mut Commands,
+        commands: &mut CommandBuffer,
         realm_name: &String,
         spaceship_seed_generation_function: &Pubkey,
         arena_matchmaking_function: &Pubkey,
@@ -192,15 +186,15 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(SolanaTransactionTask {
+        commands.spawn((SolanaTransactionTask {
             description: "initialize_realm".to_string(),
             task,
-        });
+        }, false));
     }
 
     pub fn fire_create_user_account_task(
         &self,
-        commands: &mut Commands,
+        commands: &mut CommandBuffer,
         realm_name: String,
         user: &Pubkey,
     ) {
@@ -234,15 +228,15 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(SolanaTransactionTask {
+        commands.spawn((SolanaTransactionTask {
             description: "create_user_account".to_string(),
             task,
-        });
+        }, false));
     }
 
     pub fn fire_create_spaceship_task(
         &self,
-        commands: &mut Commands,
+        commands: &mut CommandBuffer,
         spaceship_name: &String,
         user: &Pubkey,
     ) {
@@ -322,15 +316,15 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(SolanaTransactionTask {
+        commands.spawn((SolanaTransactionTask {
             description: "create_spaceship".to_string(),
             task,
-        });
+        }, false));
     }
 
     pub fn fire_arena_matchmaking_task(
         &self,
-        commands: &mut Commands,
+        commands: &mut CommandBuffer,
         user: &Pubkey,
         spaceship_pda: &Pubkey,
     ) {
@@ -392,16 +386,16 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(SolanaTransactionTask {
+        commands.spawn((SolanaTransactionTask {
             description: "create_spaceship".to_string(),
             task,
-        });
+        }, false));
     }
 
     /// Returns the account at the given address
     fn fire_fetch_account_task<T: 'static + AccountDeserialize + Send>(
         &self,
-        commands: &mut Commands,
+        commands: &mut CommandBuffer,
         account: &Pubkey,
     ) {
         let thread_pool = IoTaskPool::get();
@@ -417,10 +411,10 @@ impl HologramServer {
             Ok(account)
         });
 
-        commands.spawn(SolanaFetchAccountTask {
+        commands.spawn((SolanaFetchAccountTask {
             description: "fetch_account".to_string(),
             task,
-        });
+        }, false));
     }
 
     /// Returns all program accounts of the given type matching the given filters
@@ -428,7 +422,7 @@ impl HologramServer {
         T: 'static + AccountDeserialize + Discriminator + Send,
     >(
         &self,
-        commands: &mut Commands,
+        commands: &mut CommandBuffer,
         filters: Vec<RpcFilterType>,
     ) {
         let thread_pool = IoTaskPool::get();
@@ -446,10 +440,10 @@ impl HologramServer {
             Ok(account)
         });
 
-        commands.spawn(SolanaFetchAccountsTask {
+        commands.spawn((SolanaFetchAccountsTask {
             description: "fetch_account".to_string(),
             task,
-        });
+        }, false));
     }
 
     /// Sends and confirms an instruction to the Solana cluster

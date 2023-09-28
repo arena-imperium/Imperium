@@ -25,33 +25,11 @@ inherits = "release"
 lto = "thin"
 
 [features]
-dev = ["bevy/bevy_dylib"]
-
 [dependencies]
-bevy = { version = "0.11", default-features = false, features = [
-    "animation",
-    "bevy_asset",
-    "bevy_scene",
-    "bevy_winit",
-    "bevy_core_pipeline",
-    "bevy_pbr",
-    "bevy_gltf",
-    "bevy_render",
-    "bevy_sprite",
-    "bevy_text",
-    "bevy_ui",
-    "png",
-    "hdr",
-    "zstd",
-    "x11",
-    "ktx2",
-    "filesystem_watcher",
-    "tonemapping_luts",
-    "webgl2",
-] }
-bevy_kira_audio = { version = "0.17.0" }
-bevy_asset_loader = { version = "0.17" }
-bevy-inspector-egui = { version = "0.19.0" }
+# Game engine
+comfy = "0.1.2"
+# Use bevy tasks for async ops
+bevy_tasks = "0.11.2"
 
 hologram = { path = "programs/hologram", features = ["no-entrypoint"] }
 
@@ -84,8 +62,9 @@ switchboard-solana = "0.28.21"
 
 
 # keep the following in sync with Bevy's dependencies
-winit = { version = "0.28", default-features = false }
-image = { version = "0.24", default-features = false }
+# No longer using bevy
+# winit = { version = "0.28", default-features = false }
+# image = { version = "0.24", default-features = false }
 
 [build-dependencies]
 embed-resource = "1.4"

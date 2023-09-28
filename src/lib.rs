@@ -1,32 +1,14 @@
 #![allow(clippy::type_complexity)]
 
-mod actions;
-mod audio;
-mod loading;
-mod menu;
-mod player;
-mod solana;
-
-#[cfg(debug_assertions)]
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use {
-    crate::{
-        actions::ActionsPlugin, audio::InternalAudioPlugin, loading::LoadingPlugin,
-        menu::MenuPlugin, player::PlayerPlugin,
-    },
-    bevy::{app::App, log, prelude::*},
-    futures_lite::future,
-    solana::{HologramServer, SolanaTransactionTask},
-};
 
 // This example game uses States to separate logic
 // See https://bevy-cheatbook.github.io/programming/states.html
 // Or https://github.com/bevyengine/bevy/blob/main/examples/ecs/state.rs
-#[derive(States, Default, Clone, Eq, PartialEq, Debug, Hash)]
-enum GameState {
-    // During the loading State the LoadingPlugin will load our assets
+#[derive(Default, Clone, Eq, PartialEq, Debug, Hash)]
+enum Scene {
+    // Starting scene, where the player can setup a connection with their wallet
     #[default]
-    Loading,
+    Login,
     // During this State the actual game logic is executed
     Playing,
     // Here the menu is drawn and waiting for player interaction
@@ -35,27 +17,8 @@ enum GameState {
 
 pub struct GamePlugin;
 
-impl Plugin for GamePlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<HologramServer>()
-            .add_state::<GameState>()
-            .add_plugins((
-                LoadingPlugin,
-                MenuPlugin,
-                ActionsPlugin,
-                InternalAudioPlugin,
-                PlayerPlugin,
-            ))
-            .add_systems(Update, solana_transaction_task_handler);
-
-        #[cfg(debug_assertions)]
-        {
-            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
-        }
-    }
-}
-
-fn solana_transaction_task_handler(
+// Todo: use crossbeam to handle parallel tasks?
+/*fn solana_transaction_task_handler(
     mut commands: Commands,
     mut solana_transaction_tasks: Query<(Entity, &mut SolanaTransactionTask)>,
 ) {
@@ -82,4 +45,4 @@ fn solana_transaction_task_handler(
             None => {}
         };
     }
-}
+}*/
