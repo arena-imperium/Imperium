@@ -15,7 +15,6 @@ use {
 pub struct InitializeRealm<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-
     /// CHECK: any
     pub admin: AccountInfo<'info>,
 
@@ -32,7 +31,7 @@ pub struct InitializeRealm<'info> {
     #[account(
         constraint =
             // Ensure our authority owns this function
-            spaceship_seed_generation_function.load()?.authority == *admin.key &&
+            // spaceship_seed_generation_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
             !spaceship_seed_generation_function.load()?.requests_disabled
     )]
@@ -40,13 +39,23 @@ pub struct InitializeRealm<'info> {
 
     /// arena matchmaking function
     #[account(
-        constraint = 
+        constraint =
             // Ensure our authority owns this function
-            arena_matchmaking_function.load()?.authority == *admin.key &&
+            // arena_matchmaking_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
             !arena_matchmaking_function.load()?.requests_disabled
     )]
     pub arena_matchmaking_function: AccountLoader<'info, FunctionAccountData>,
+
+    /// crate picking function
+    #[account(
+        constraint =
+            // Ensure our authority owns this function
+            // arena_matchmaking_function.load()?.authority == *admin.key &&
+            // Ensure custom requests are allowed
+            !crate_picking_function.load()?.requests_disabled
+    )]
+    pub crate_picking_function: AccountLoader<'info, FunctionAccountData>,
 
     pub system_program: Program<'info, System>,
 }
@@ -69,11 +78,14 @@ pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<(
         ctx.accounts
             .realm
             .switchboard_info
-            .spaceship_seed_generation_function = ctx.accounts.spaceship_seed_generation_function.key();
+            .spaceship_seed_generation_function =
+            ctx.accounts.spaceship_seed_generation_function.key();
         ctx.accounts
             .realm
             .switchboard_info
             .arena_matchmaking_function = ctx.accounts.arena_matchmaking_function.key();
+        ctx.accounts.realm.switchboard_info.crate_picking_function =
+            ctx.accounts.crate_picking_function.key();
         ctx.accounts.realm.switchboard_info.authority = ctx.accounts.admin.key();
     }
 

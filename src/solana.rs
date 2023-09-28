@@ -1,15 +1,18 @@
 pub use anchor_client::Client as AnchorClient;
-use bevy_tasks::{IoTaskPool, Task};
-use comfy::{CommandBuffer, log};
-use comfy::hecs::*;
-use futures_lite::future;
 use {
     anchor_client::{
         anchor_lang::{prelude::System, Id},
         ClientError, Cluster, Program,
     },
+    bevy_tasks::{IoTaskPool, Task},
     borsh::BorshDeserialize,
-    hologram::{self, state::SpaceShip},
+    comfy::{hecs::*, log, CommandBuffer},
+    futures_lite::future,
+    hologram::{
+        self,
+        instructions::StatType,
+        state::{SpaceShip, UserAccount},
+    },
     solana_cli_output::display::println_transaction,
     solana_client::{rpc_config::RpcTransactionConfig, rpc_filter::RpcFilterType},
     solana_sdk::{
@@ -21,8 +24,7 @@ use {
     spl_associated_token_account::get_associated_token_address,
     std::{any::type_name, env, fmt, str::FromStr, sync::Arc},
     switchboard_solana::{
-        anchor_spl::token::spl_token::native_mint, AccountDeserialize, AnchorDeserialize,
-        AnchorSerialize, Discriminator,
+        anchor_spl::token::spl_token::native_mint, AccountDeserialize, Discriminator,
     },
 };
 
@@ -31,10 +33,7 @@ pub struct SolanaTransactionTask {
     pub task: Task<Result<EncodedConfirmedTransactionWithStatusMeta, SolanaTransactionTaskError>>,
 }
 
-pub fn solana_transaction_task_handler(
-    mut commands: &mut CommandBuffer,
-    mut world: &mut World,
-) {
+pub fn solana_transaction_task_handler(mut commands: &mut CommandBuffer, mut world: &mut World) {
     for (entity, (task, &flag)) in world.query_mut::<(&mut SolanaTransactionTask, &bool)>() {
         match future::block_on(future::poll_once(&mut task.task)) {
             Some(result) => {
@@ -101,6 +100,7 @@ pub struct HologramServer {
     // Custom Switchboard functions
     pub spaceship_seed_generation_function: Pubkey,
     pub arena_matchmaking_function: Pubkey,
+    pub crate_picking_function: Pubkey,
 }
 
 impl Default for HologramServer {
@@ -135,14 +135,20 @@ impl Default for HologramServer {
                 "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog",
             )
             .unwrap(), // @HARDCODED
+            crate_picking_function: Pubkey::from_str(
+                "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG",
+            )
+            .unwrap(), // @HARDCODED
         }
     }
 }
 
 // DEVNET test spaceship seed generation function CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
 // DEVNET test arena matchmaking function HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
+// DEVNET test crate picking function EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 // https://app.switchboard.xyz/build/function/CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5
 // https://app.switchboard.xyz/build/function/HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
+// https://app.switchboard.xyz/build/function/EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 
 // See anchor client blocking sources https://github.com/coral-xyz/anchor/blob/cec9946111a1c651fd21235c2a554eda05c3ffa3/client/src/blocking.rs
 // and examples https://github.com/coral-xyz/anchor/blob/cec9946111a1c651fd21235c2a554eda05c3ffa3/client/example/src/blocking.rs
@@ -154,6 +160,7 @@ impl HologramServer {
             &self.realm_name,
             &self.spaceship_seed_generation_function,
             &self.arena_matchmaking_function,
+            &self.crate_picking_function,
             &self.solana_client.payer.pubkey(),
         );
     }
@@ -180,6 +187,7 @@ impl HologramServer {
         realm_name: &String,
         spaceship_seed_generation_function: &Pubkey,
         arena_matchmaking_function: &Pubkey,
+        crate_picking_function: &Pubkey,
         admin: &Pubkey, // Here should be a keypair, but it's just the payer. This IX is not really meant to be in this bevy app (as it's more of an admin IX), just temporary for dev
     ) {
         let thread_pool = IoTaskPool::get();
@@ -189,12 +197,12 @@ impl HologramServer {
         let realm_name = realm_name.clone();
         let spaceship_seed_generation_function = spaceship_seed_generation_function.clone();
         let arena_matchmaking_function = arena_matchmaking_function.clone();
+        let crate_picking_function = crate_picking_function.clone();
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending initialize_realm IX");
             let (realm_pda, _) = Self::get_realm_pda(&realm_name);
 
-            let program_id = hologram::id();
             let instruction = hologram::instruction::InitializeRealm { name: realm_name };
             let accounts = hologram::accounts::InitializeRealm {
                 payer: payer.pubkey(),
@@ -203,11 +211,12 @@ impl HologramServer {
                 spaceship_seed_generation_function,
                 arena_matchmaking_function,
                 system_program: solana_program::system_program::id(),
+                crate_picking_function,
             };
 
             Self::send_and_confirm_instruction_blocking(
                 client,
-                program_id,
+                hologram::id(),
                 instruction,
                 accounts,
                 payer.clone(),
@@ -216,10 +225,13 @@ impl HologramServer {
             )
         });
 
-        commands.spawn((SolanaTransactionTask {
-            description: "initialize_realm".to_string(),
-            task,
-        }, false));
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "initialize_realm".to_string(),
+                task,
+            },
+            false,
+        ));
     }
 
     pub fn fire_create_user_account_task(
@@ -238,7 +250,6 @@ impl HologramServer {
             let (realm_pda, _) = Self::get_realm_pda(&realm_name);
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
 
-            let program_id = hologram::id();
             let instruction = hologram::instruction::CreateUserAccount {};
             let accounts = hologram::accounts::CreateUserAccount {
                 user,
@@ -249,7 +260,7 @@ impl HologramServer {
 
             Self::send_and_confirm_instruction_blocking(
                 client,
-                program_id,
+                hologram::id(),
                 instruction,
                 accounts,
                 payer,
@@ -258,10 +269,13 @@ impl HologramServer {
             )
         });
 
-        commands.spawn((SolanaTransactionTask {
-            description: "create_user_account".to_string(),
-            task,
-        }, false));
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "create_user_account".to_string(),
+                task,
+            },
+            false,
+        ));
     }
 
     pub fn fire_create_spaceship_task(
@@ -277,18 +291,23 @@ impl HologramServer {
         let user = user.clone();
         let spaceship_seed_generation_function = self.spaceship_seed_generation_function;
         let arena_matchmaking_function = self.arena_matchmaking_function;
+        let crate_picking_function = self.crate_picking_function;
         let spaceship_name = spaceship_name.clone();
         let payer = client.payer().clone();
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending create_spaceship IX");
-
-            // @HARDCODED: need to retrieve the user_account, and read the lenght of the spaceship vec.
-            // but that require somt async code
-            let spaceship_index = 0;
-
             let (realm_pda, _) = Self::get_realm_pda(&realm_name);
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+
+            // @TODO use cache
+            let user_account: UserAccount = client
+                .anchor_client
+                .program(hologram::id())?
+                .account(user_account_pda)?;
+            let new_spaceship_index = user_account.spaceships.len();
+            let spaceship_index = new_spaceship_index;
+
             let (spaceship_pda, _) = Self::get_spaceship_pda(&realm_pda, &user, spaceship_index);
             let user_wsol_token_account = get_associated_token_address(&user, &native_mint::ID);
             let (switchboard_state_pda, _) = Self::get_switchboard_state();
@@ -302,7 +321,11 @@ impl HologramServer {
                 &switchboard_amf_request_keypair.pubkey(),
                 &native_mint::ID,
             );
-            let program_id = hologram::id();
+            let switchboard_cpf_request_keypair = Keypair::new();
+            let switchboard_cpf_request_escrow = get_associated_token_address(
+                &switchboard_cpf_request_keypair.pubkey(),
+                &native_mint::ID,
+            );
             let instruction = hologram::instruction::CreateSpaceship {
                 name: spaceship_name,
             };
@@ -324,6 +347,9 @@ impl HologramServer {
                 arena_matchmaking_function,
                 switchboard_amf_request: switchboard_amf_request_keypair.pubkey(),
                 switchboard_amf_request_escrow,
+                crate_picking_function,
+                switchboard_cpf_request: switchboard_cpf_request_keypair.pubkey(),
+                switchboard_cpf_request_escrow,
                 user_wsol_token_account,
                 switchboard_mint: native_mint::ID,
                 system_program: solana_program::system_program::id(),
@@ -334,22 +360,26 @@ impl HologramServer {
 
             Self::send_and_confirm_instruction_blocking(
                 client,
-                program_id,
+                hologram::id(),
                 instruction,
                 accounts,
                 payer,
                 vec![
                     switchboard_ssgf_request_keypair,
                     switchboard_amf_request_keypair,
+                    switchboard_cpf_request_keypair,
                 ],
                 450_000,
             )
         });
 
-        commands.spawn((SolanaTransactionTask {
-            description: "create_spaceship".to_string(),
-            task,
-        }, false));
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "create_spaceship".to_string(),
+                task,
+            },
+            false,
+        ));
     }
 
     pub fn fire_arena_matchmaking_task(
@@ -383,7 +413,6 @@ impl HologramServer {
                 spaceship.arena_matchmaking.switchboard_request_info.account;
             let switchboard_amf_request_escrow =
                 get_associated_token_address(&switchboard_amf_request, &native_mint::ID);
-            let program_id = hologram::id();
             let instruction = hologram::instruction::ArenaMatchmaking {};
 
             let accounts = hologram::accounts::ArenaMatchmaking {
@@ -407,7 +436,7 @@ impl HologramServer {
 
             Self::send_and_confirm_instruction_blocking(
                 client,
-                program_id,
+                hologram::id(),
                 instruction,
                 accounts,
                 payer,
@@ -416,10 +445,108 @@ impl HologramServer {
             )
         });
 
-        commands.spawn((SolanaTransactionTask {
-            description: "create_spaceship".to_string(),
-            task,
-        }, false));
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "arena_matchmaking".to_string(),
+                task,
+            },
+            false,
+        ));
+    }
+
+    pub fn fire_claim_fuel_allowance_task(
+        &self,
+        commands: &mut CommandBuffer,
+        spaceship_pda: &Pubkey,
+        user: &Pubkey,
+    ) {
+        let thread_pool = IoTaskPool::get();
+        let client = Arc::clone(&self.solana_client);
+        let realm_name = self.realm_name.clone();
+        let user = user.clone();
+        let payer = client.payer().clone();
+        let spaceship_pda = spaceship_pda.clone();
+
+        let task = thread_pool.spawn(async move {
+            log::info!("<Solana> Sending claim_fuel_allowance IX");
+
+            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
+            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+            let instruction = hologram::instruction::ClaimFuelAllowance {};
+
+            let accounts = hologram::accounts::ClaimFuelAllowance {
+                user,
+                realm: realm_pda,
+                user_account: user_account_pda,
+                spaceship: spaceship_pda,
+            };
+
+            Self::send_and_confirm_instruction_blocking(
+                client,
+                hologram::id(),
+                instruction,
+                accounts,
+                payer,
+                vec![],
+                50_000,
+            )
+        });
+
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "claim_fuel_allowance".to_string(),
+                task,
+            },
+            false,
+        ));
+    }
+
+    pub fn fire_allocate_stat_point_task(
+        &self,
+        commands: &mut CommandBuffer,
+        spaceship_pda: &Pubkey,
+        user: &Pubkey,
+        stat_type: StatType,
+    ) {
+        let thread_pool = IoTaskPool::get();
+        let client = Arc::clone(&self.solana_client);
+        let realm_name = self.realm_name.clone();
+        let user = user.clone();
+        let payer = client.payer().clone();
+        let spaceship_pda = spaceship_pda.clone();
+
+        let task = thread_pool.spawn(async move {
+            log::info!("<Solana> Sending allocate_stat_point IX");
+
+            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
+            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+            let instruction = hologram::instruction::AllocateStatPoint { stat_type };
+
+            let accounts = hologram::accounts::AllocateStatPoint {
+                user,
+                realm: realm_pda,
+                user_account: user_account_pda,
+                spaceship: spaceship_pda,
+            };
+
+            Self::send_and_confirm_instruction_blocking(
+                client,
+                hologram::id(),
+                instruction,
+                accounts,
+                payer,
+                vec![],
+                50_000,
+            )
+        });
+
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "allocate_stat_point".to_string(),
+                task,
+            },
+            false,
+        ));
     }
 
     /// Returns the account at the given address
@@ -441,10 +568,13 @@ impl HologramServer {
             Ok(account)
         });
 
-        commands.spawn((SolanaFetchAccountTask {
-            description: "fetch_account".to_string(),
-            task,
-        }, false));
+        commands.spawn((
+            SolanaFetchAccountTask {
+                description: "fetch_account".to_string(),
+                task,
+            },
+            false,
+        ));
     }
 
     /// Returns all program accounts of the given type matching the given filters
@@ -470,10 +600,13 @@ impl HologramServer {
             Ok(account)
         });
 
-        commands.spawn((SolanaFetchAccountsTask {
-            description: "fetch_account".to_string(),
-            task,
-        }, false));
+        commands.spawn((
+            SolanaFetchAccountsTask {
+                description: "fetch_accounts_with_filter".to_string(),
+                task,
+            },
+            false,
+        ));
     }
 
     /// Sends and confirms an instruction to the Solana cluster

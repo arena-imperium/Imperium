@@ -1,4 +1,5 @@
 use spaceship::SwitchboardFunctionRequestStatus;
+use switchboard_solana::{FunctionAccountData, FunctionRequestAccountData};
 
 use {
     crate::{
@@ -8,7 +9,7 @@ use {
     },
     anchor_lang::prelude::*,
     spaceship::Hull,
-    switchboard_solana::prelude::*,
+    switchboard_solana,
 };
 
 #[derive(Accounts)]
@@ -71,7 +72,7 @@ pub fn create_spaceship_settle(
     {
         // verify that the request is pending settlement
         require!(
-            matches!(ctx.accounts.spaceship.randomness.switchboard_request_info.status, SwitchboardFunctionRequestStatus::Requested(_)),
+            ctx.accounts.spaceship.randomness.switchboard_request_info.is_requested(),
             HologramError::SpaceshipRandomnessAlreadySettled
         );
 
@@ -84,7 +85,7 @@ pub fn create_spaceship_settle(
 
     // Finish Spaceship initialization with the generated seed
     {
-        ctx.accounts.spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Settled(Realm::get_time()?);
+        ctx.accounts.spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Settled { slot: Realm::get_slot()?};
         ctx.accounts.spaceship.randomness.original_seed = generated_seed.into();
         ctx.accounts.spaceship.randomness.current_seed = generated_seed.into();
         ctx.accounts.spaceship.randomness.iteration = 1;

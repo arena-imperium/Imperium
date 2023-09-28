@@ -6,11 +6,13 @@ pub mod utils;
 use {anchor_lang::prelude::*, instructions::*};
 
 #[cfg(feature = "localnet")]
-declare_id!("AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u");
-#[cfg(feature = "devnet")]
 declare_id!("GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet");
+#[cfg(feature = "devnet")]
+declare_id!("81fgjX6KXbbjfySuP2gqvjmKjq9JHw4ozPDYDmCDhaHF");
 #[cfg(feature = "mainnet-beta")]
 declare_id!("Hologram1111");
+
+pub const SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION: u8 = 75;
 
 pub const SHORT_LIMITED_STRING_MAX_LENGTH: usize = 64;
 pub const LONG_LIMITED_STRING_MAX_LENGTH: usize = 256;
@@ -24,6 +26,8 @@ pub const ARENA_MATCHMAKING_FUNCTION_FEE: u64 = 0;
 pub const BASE_MAX_FUEL: u8 = 5;
 // Amount of fuel that is provided per day per spaceship
 pub const DAILY_FUEL_ALLOWANCE: u8 = 3;
+// How often the fuel allowance is provided
+pub const FUEL_ALLOWANCE_COOLDOWN: i64 = 24 * 60 * 60; // 24 hours in seconds
 
 // Experience required for next level is equal to next_level * XP_REQUIERED_PER_LEVEL_MULT
 pub const XP_REQUIERED_PER_LEVEL_MULT: u8 = 5;
@@ -116,11 +120,17 @@ pub mod hologram {
         instructions::arena_matchmaking_settle(ctx, generated_seed)
     }
 
-    // pub fn spend_stat_points(ctx: Context<SpendStatPoints>, stat: Stat, amount: u8) -> Result<()> {
-    //     instructions::spend_stat_points(ctx, stat, amount)
-    // }
+    // Once per FUEL_ALLOWANCE_COOLDOWN players can claim free Fuel for each of their spaceships
+    pub fn claim_fuel_allowance(ctx: Context<ClaimFuelAllowance>) -> Result<()> {
+        instructions::claim_fuel_allowance(ctx)
+    }
 
-    // pub fn pick_power_up(ctx: Context<PickPowerUp>, power_up: PowerUp) -> Result<()> {
+    // Allocates available stat point if any
+    pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatType) -> Result<()> {
+        instructions::allocate_stat_point(ctx, stat_type)
+    }
+
+    // pub fn pick_power_up(ctx: Context<PickPowerUp>, type: PowerUpType) -> Result<()> {
     //     instructions::pick_power_up(ctx, power_up)
     // }
 }

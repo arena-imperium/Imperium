@@ -1,4 +1,6 @@
-use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}};
+use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID, FunctionRequestSetConfig, FunctionRequestTrigger};
+
+use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
 
 use {
     crate::{
@@ -6,7 +8,6 @@ use {
         state::{Realm, SpaceShip, SpaceShipLite, UserAccount},
     },
     anchor_lang::prelude::*,
-    switchboard_solana::prelude::*,
 };
 
 
@@ -27,21 +28,16 @@ pub struct ArenaMatchmaking<'info> {
     pub admin: AccountInfo<'info>,
 
     #[account(
-        mut,
-        realloc = UserAccount::LEN + std::mem::size_of::<SpaceShipLite>() * user_account.spaceships.len(),
-        realloc::payer = user,
-        realloc::zero = false,
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
         bump = user_account.bump,
     )]
-    pub user_account: Box<Account<'info, UserAccount>>,
+    pub user_account: Account<'info, UserAccount>,
 
     #[account(
-        init,
-        payer=user,
+        mut,
         seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
-        bump,
-        space = SpaceShip::LEN
+        bump = spaceship.bump,
+        constraint = spaceship.randomness.switchboard_request_info.account == switchboard_request.key(),
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
@@ -79,7 +75,7 @@ pub struct ArenaMatchmaking<'info> {
     pub switchboard_request_escrow: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Program<'info, anchor_spl::token::Token>,
     /// CHECK: SWITCHBOARD_ATTESTATION_PROGRAM
     #[account(executable, address = SWITCHBOARD_ATTESTATION_PROGRAM_ID)]
     pub switchboard_program: AccountInfo<'info>,
@@ -93,24 +89,33 @@ pub struct ArenaMatchmakingQueueJoined {
 }
 
 pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
+    // cancel pending switchboard function request if stale
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        let current_slot = Realm::get_slot()?;
+        if spaceship.arena_matchmaking.switchboard_request_info.request_is_expired(current_slot) {
+            spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Expired { slot: current_slot  };
+        }
+    }
+    
     // Validations
     {
         // verify that the user has spend his level up upgrades yet
         require!(
-            ctx.accounts.spaceship.has_no_pending_stats_or_powerup(),
+            ctx.accounts.spaceship.has_no_pending_stats_or_crate(),
             HologramError::PendingStatOrPowerup
         );
 
-        // verify that the user has not registered for the arena yet
+        // verify that the user is not in the process of registering for the arena already
         require!(
-            !matches!(ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.status, SwitchboardFunctionRequestStatus::Requested(_)),
+            !ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.is_requested(),
             HologramError::ArenaMatchmakingAlreadyRequested
         );
 
         // verify that the user is not already in the queue
         require!(
             matches!(ctx.accounts.spaceship.arena_matchmaking.matchmaking_status, MatchMakingStatus::None),
-            HologramError::MatchmakingAlreadyInQueue
+            HologramError::ArenaMatchmakingAlreadyInQueue
         );
 
     }
@@ -217,7 +222,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
                     // slots_until_expiration - optional max number of slots the request can be processed in
                     // default: 2250 slots, ~ 15 min at 400 ms/slot
                     // minimum: 150 slots, ~ 1 min at 400 ms/slot
-                    None,
+                    Some(SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64),
                     // valid_after_slot - schedule a request to execute in N slots
                     // default: 0 slots, valid immediately for oracles to process
                     None,
@@ -228,7 +233,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
             // update arena_matchmaking status
             {
                 let spaceship = &mut ctx.accounts.spaceship;
-                spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested(Realm::get_time()?);
+                spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested { slot: Realm::get_slot()? };
             }
         } else {
             // insert spaceship in the first available slot

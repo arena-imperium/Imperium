@@ -3,10 +3,10 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-hologram = "AMXakgYy6jGM9jSmrvfywZgGcgXnMGBcxXTawY2gAT4u"
+hologram = "GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet"
 
 [programs.devnet]
-hologram = "GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet"
+hologram = "81fgjX6KXbbjfySuP2gqvjmKjq9JHw4ozPDYDmCDhaHF"
 
 [registry]
 url = "https://api.apr.dev"
@@ -35,3 +35,12 @@ address = "5ExuoQR69trmKQfB95fDsUGsUrrChbGq9PFgt8qouncz"
 
 [[test.validator.clone]] # sb devnet programState
 address = "5MFs7RGTjLi1wtKNBFRtuLipCkkjs4YQwRRU9sjnbQbS"
+
+[[test.validator.clone]] # devnet ssgf
+address = "CyxB4ZrDSL2jjgPs5nGP93UpfNPHN4X66Z26WhnaeEi5"
+
+[[test.validator.clone]] # devnet amf
+address = "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog"
+
+[[test.validator.clone]] # devnet amf
+address = "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG"
