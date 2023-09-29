@@ -1,7 +1,9 @@
+use std::borrow::BorrowMut;
+
 use spaceship::{SwitchboardFunctionRequestStatus, MatchMakingStatus};
 use switchboard_solana::{FunctionAccountData, FunctionRequestAccountData};
 
-use crate::{utils::RandomNumberGenerator, ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE};
+use crate::{utils::RandomNumberGenerator, ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE, state::MatchmakingQueue};
 
 use {
     crate::{
@@ -17,6 +19,7 @@ use solana_program::log::sol_log_compute_units;
 #[derive(Accounts)]
 pub struct ArenaMatchmakingSettle<'info> {
 
+    /// CHECK: verified in the arena_matchmaking_function (to make sure it was called by the container)
     #[account()]
     pub enclave_signer: Signer<'info>,
     
@@ -25,6 +28,7 @@ pub struct ArenaMatchmakingSettle<'info> {
     pub user: AccountInfo<'info>,
 
     #[account(
+        mut,
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
     )]
@@ -38,25 +42,27 @@ pub struct ArenaMatchmakingSettle<'info> {
 
     #[account(
         mut,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
-        bump = spaceship.bump,
-        constraint = spaceship.randomness.switchboard_request_info.account == switchboard_request.key(),
+        // seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), index_unknown here],
+        // bump = spaceship.bump,
+        constraint = spaceship.arena_matchmaking.switchboard_request_info.account == switchboard_request.key(),
+        constraint = spaceship.owner == *user.key,
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
     #[account( 
         // validate that we use the realm custom switchboard function
-        constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key()
+        constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key(),
     )]
     pub arena_matchmaking_function: AccountLoader<'info, FunctionAccountData>,
 
+    #[cfg(not(any(test, feature = "testing")))]
     #[account(
-      constraint = switchboard_request.validate_signer(
-          &arena_matchmaking_function.to_account_info(),
-          &enclave_signer.to_account_info()
-        )? @ HologramError::SwitchboardFunctionValidationFailed,
+        // validation of the signer is done in the IX code
     )]
     pub switchboard_request: Box<Account<'info, FunctionRequestAccountData>>,
+    #[cfg(any(test, feature = "testing"))]
+    /// CHECK: test target only
+    pub switchboard_request: AccountInfo<'info>,
 
     #[account(mut)]
     pub opponent_1_spaceship: Box<Account<'info, SpaceShip>>,
@@ -95,6 +101,13 @@ pub fn arena_matchmaking_settle(
 ) -> Result<()> {
     // Validations
     {
+        // verify that the call was made by the container
+        // Disabled during tests
+        #[cfg(not(any(test, feature = "testing")))]
+        require!(
+            ctx.accounts.switchboard_request.validate_signer(&ctx.accounts.arena_matchmaking_function.to_account_info(), &ctx.accounts.enclave_signer.to_account_info()) == Ok(true),
+            HologramError::FunctionValidationFailed
+        );
 
         // verify that the request is pending settlement
         require!(
@@ -103,6 +116,7 @@ pub fn arena_matchmaking_settle(
         );
 
         // // verify that the switchboard request was successful
+        // #[cfg(not(any(test, feature = "testing")))]
         // require!(
         //     ctx.accounts.switchboard_request.active_request.status == RequestStatus::RequestSuccess,
         //     HologramError::SwitchboardRequestNotSuccessful
@@ -120,26 +134,8 @@ pub fn arena_matchmaking_settle(
     let opponent_spaceship = {
         let spaceship = &mut ctx.accounts.spaceship;
         let mut rng = RandomNumberGenerator::new(generated_seed.into());
-        let dice_roll = rng.roll_dice(ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE as usize); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
         let queue = ctx.accounts.realm.get_matching_matchmaking_queue_mut(spaceship)?;
-        let opponents_spaceship_keys = queue.spaceships.clone();
-
-        // find the opponent spaceship account pubkey
-        let mut opponent_spaceship_key: Pubkey = Pubkey::default();
-        let dice_rolled_opponent_key = queue.spaceships.get((dice_roll - 1) as usize).unwrap();
-
-        // if it was not found, pick the first spaceship available in the queue
-        // this can happen due to the concurent nature of the program
-        if let Some(key) = dice_rolled_opponent_key {
-            opponent_spaceship_key = *key;
-        } else {
-            for spaceship_key in opponents_spaceship_keys {
-                if let Some(key) = spaceship_key {
-                    opponent_spaceship_key = key;
-                    break;
-                }
-            }
-        }
+        let opponent_spaceship_key = roll_opponent_spaceship(rng.borrow_mut(), &queue)?;
     
         // load the opponent spaceship based on the key        
         let opponent_spaceship = match opponent_spaceship_key {
@@ -151,26 +147,31 @@ pub fn arena_matchmaking_settle(
             _ => panic!("Invalid spaceship key"),
         };
 
-        // remove that spaceship from the matchmaking queue
-        if let Some(spaceship) = queue.spaceships.iter_mut().find(|s| **s == Some(opponent_spaceship_key)) {
-            *spaceship = None;
+        // remove opponent spaceship from the matchmaking queue
+        if let Some(spaceship_key) = queue.spaceships.iter_mut().find(|s| **s == Some(opponent_spaceship_key)) {
+            *spaceship_key = None;
+            msg!("Removed spaceship from queue");
         }
+
+        // decrease request awaiting settlement counter
+        queue.matchmaking_request_count = queue.matchmaking_request_count.checked_sub(1).ok_or(HologramError::Overflow)?;
 
         // updates the opponent matchmaking status
         opponent_spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::None;
 
+        msg!("Opponent spaceship: {:?}", opponent_spaceship.to_account_info().key);
         opponent_spaceship
     };
 
     // FIGHT
     let (winner, looser) = {
         let spaceship = &mut ctx.accounts.spaceship;
-        Realm::fight(spaceship, opponent_spaceship)
+        GameEngine::fight(spaceship, opponent_spaceship, generated_seed)
     };
     
     // distribute experience to participants
     {
-        Realm::distribute_arena_experience(winner, looser);
+        GameEngine::distribute_arena_experience(winner, looser);
     }
 
     // advance seeds
@@ -188,7 +189,67 @@ pub fn arena_matchmaking_settle(
         winner.analytics.total_arena_victories += 1;
     }
 
+    #[cfg(target_os = "solana")]
     sol_log_compute_units();
 
     Ok(())
 }
+
+
+pub fn roll_opponent_spaceship(rng: &mut RandomNumberGenerator, queue: &MatchmakingQueue) -> Result<Pubkey> {
+        let dice_roll = rng.roll_dice(ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE as usize); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
+        let opponents_spaceship_keys = queue.spaceships.clone();
+        // find the opponent spaceship account pubkey
+        let dice_rolled_opponent_key = queue.spaceships.get((dice_roll - 1) as usize).unwrap();
+
+        // if it was not found, pick the first spaceship available in the queue
+        // this can happen due to the concurent nature of the program
+        if let Some(key) = dice_rolled_opponent_key {
+            return Ok(*key);
+        } else {
+            for spaceship_key in opponents_spaceship_keys {
+                if let Some(key) = spaceship_key {
+                    return Ok(key);
+                }
+            }
+            return Err(HologramError::MatchmakingQueueNotFound.into());
+        }
+}
+
+pub struct GameEngine {}
+ 
+ impl GameEngine {
+    // This function is used to distribute experience points to the winner and loser of an arena match.
+    // The winner gains experience points equal to the maximum of 1 and the difference between the loser's level and their own.
+    // The loser gains 1 experience point if their level is less than or equal to 5.
+    // After level 5, losing in the arena does not grant any experience points.
+    pub fn distribute_arena_experience(winner: &mut SpaceShip, looser: &mut SpaceShip) {
+        let winner_lvl = winner.experience.current_level;
+        let looser_lvl = looser.experience.current_level;
+
+        // Winning in the Arena will grant you
+        // max(1, opponent_spaceship_level - spaceship_level) XP points
+        let xp_gain = std::cmp::max(1, looser_lvl + winner_lvl);
+        winner.experience.increase(xp_gain);
+
+        // Loosing in the Arena will grant you *1* XP point (after lvl.5 loosing won’t grant experience).
+        if looser_lvl <= 5 {
+            looser.experience.increase(1)
+        }
+    }
+
+    pub fn fight<'a>(
+        s1: &'a mut SpaceShip,
+        s2: &'a mut SpaceShip,
+        fight_seed: u32,
+    ) -> (&'a mut SpaceShip, &'a mut SpaceShip) {
+        let mut rng = RandomNumberGenerator::new(fight_seed as u64);
+        // emulate game engine for now @TODO
+        let winner_roll = rng.roll_dice(2);
+        match winner_roll {
+            1 => (s1, s2),
+            2 => (s2, s1),
+            _ => panic!("Invalid dice roll"),
+        }
+    }
+ }

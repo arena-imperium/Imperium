@@ -104,12 +104,12 @@ pub async fn create_and_execute_hologram_ix<T: InstructionData, U: Signers>(
 
 pub async fn get_account<T: anchor_lang::AccountDeserialize>(
     program_test_ctx: &RwLock<ProgramTestContext>,
-    key: Pubkey,
+    key: &Pubkey,
 ) -> T {
     let mut ctx = program_test_ctx.write().await;
     let banks_client = &mut ctx.banks_client;
 
-    let account = banks_client.get_account(key).await.unwrap().unwrap();
+    let account = banks_client.get_account(*key).await.unwrap().unwrap();
 
     T::try_deserialize(&mut account.data.as_slice()).unwrap()
 }

@@ -50,7 +50,7 @@ pub async fn initialize_realm(
     .await?;
 
     // ==== THEN ==============================================================
-    let realm_account = utils::get_account::<Realm>(program_test_ctx, realm_pda).await;
+    let realm_account = utils::get_account::<Realm>(program_test_ctx, &realm_pda).await;
 
     assert_eq!(realm_account.bump, realm_bump);
     assert_eq!(realm_account.name.to_string(), *realm_name);
