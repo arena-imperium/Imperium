@@ -44,7 +44,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(c: &mut EngineContext) -> Self {
+    pub fn new(_c: &mut EngineContext) -> Self {
         Self { tasks: TaskPoolBuilder::new()
             .thread_name("MainThreadPool".to_string())
             .build(),
@@ -80,7 +80,7 @@ fn make_context<'a, 'b: 'a>(
 }
 
 /// Setup initial state of the engine, load assets, etc.
-fn setup(c: &mut GameContext) {
+fn setup(_c: &mut GameContext) {
     // Initializes the task pool
     IoTaskPool::init(||{TaskPoolBuilder::new().build()});
 }
