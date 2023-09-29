@@ -4,6 +4,8 @@
 
 - give a go at using same deps as solpg and compile to wasm <https://github.com/solana-playground/solana-playground>
 
+- in pick_crate_settle the spaceship should allocate more space to accomodate for the drop 
+
 - test pick_crate
 - test allocate_stat_point
 - test claim_fuel_allowance
