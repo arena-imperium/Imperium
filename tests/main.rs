@@ -1,6 +1,6 @@
 use {
     crate::utils::pda,
-    hologram::state::UserAccount,
+    hologram::{instructions::StatType, state::UserAccount},
     solana_program::pubkey::Pubkey,
     solana_program_test::{processor, ProgramTest, ProgramTestContext},
     solana_sdk::{signature::Keypair, signer::Signer},
@@ -75,6 +75,8 @@ pub async fn test_integration() {
     let program_test_ctx: Arc<RwLock<ProgramTestContext>> =
         Arc::new(RwLock::new(program_test.start_with_context().await));
 
+    let (realm_pda, _) = pda::get_realm_pda(&REALM_NAME.to_string());
+
     // [1] --------------------------------- INITIALIZE REALM ------------------------------------
     let ssgf = Pubkey::from_str(IMPERIUM_SSGF).unwrap();
     let amf = Pubkey::from_str(IMPERIUM_AMF).unwrap();
@@ -98,10 +100,9 @@ pub async fn test_integration() {
         .iter()
         .for_each(|user| {
             let user = Arc::clone(&keypairs[*user]);
-            let realm_name = REALM_NAME.to_string();
             let ctx = Arc::clone(&program_test_ctx);
             let task = tokio::spawn(async move {
-                instructions::create_user_account(&ctx, &user, &realm_name)
+                instructions::create_user_account(&ctx, &user, &realm_pda)
                     .await
                     .unwrap();
             });
@@ -126,8 +127,8 @@ pub async fn test_integration() {
                 instructions::create_spaceship(
                     &ctx,
                     &user,
+                    &realm_pda,
                     &admin_key,
-                    &REALM_NAME.to_string(),
                     &spaceship_name.to_string(),
                 )
                 .await
@@ -141,10 +142,67 @@ pub async fn test_integration() {
         task.await.unwrap();
     }
 
-    // [4] --------------------------------- ARENA MATCHMAKING (queue filling) ----------------------------------
+    // [4] ---------------------- ARENA MATCHMAKING (should fail) ----------------------------------
+    // This test should fail as the user has the starting Stat/crate points available
+    // ---------------------------------------------------------------------------------------------
+    let user = &keypairs[USER_1];
+    let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+    let user_account =
+        utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
+    // we pick the first spaceship of the player for these tests
+    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+
+    assert!(instructions::arena_matchmaking(
+        &program_test_ctx,
+        &user,
+        &realm_pda,
+        &keypairs[ADMIN].pubkey(),
+        &spaceship_pda,
+    )
+    .await
+    .is_err());
+
+    // [5] -------------------- ALLOCATE STAT POINT ------------------------------------------------
+    // Allocate the stat point of each user in ArmorLayering
+    // ---------------------------------------------------------------------------------------------
+    let mut allocate_stat_point_tasks = vec![];
+    [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
+        .iter()
+        .for_each(|user| {
+            let user = Arc::clone(&keypairs[*user]);
+            let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+            let ctx = Arc::clone(&program_test_ctx);
+            let task = tokio::spawn(async move {
+                let user_account =
+                    utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
+                // we pick the first spaceship of the player for these tests
+                let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+                instructions::allocate_stat_point(
+                    &ctx,
+                    &user,
+                    &realm_pda,
+                    &spaceship_pda,
+                    StatType::ArmorLayering,
+                )
+                .await
+                .unwrap();
+            });
+            allocate_stat_point_tasks.push(task);
+        });
+
+    // Wait for all tasks to finish
+    for task in allocate_stat_point_tasks {
+        task.await.unwrap();
+    }
+
+    // [6] -------------------- PICK CRATE ---------------------------------------------------------
+    // Pick a crate for each spaceship
+    // ---------------------------------------------------------------------------------------------
+
+    // [4] -------------------- ARENA MATCHMAKING (queue filling) ----------------------------------
     // Start by placing 5 players in the queue
+    // ---------------------------------------------------------------------------------------------
     let mut arena_matchmaking_tasks = vec![];
-    let (realm_pda, _) = pda::get_realm_pda(&REALM_NAME.to_string());
     [USER_2, USER_3, USER_4, USER_5, USER_6]
         .iter()
         .for_each(|user| {
@@ -162,7 +220,7 @@ pub async fn test_integration() {
                 instructions::arena_matchmaking(
                     &ctx,
                     &user,
-                    &REALM_NAME.to_string(),
+                    &realm_pda,
                     &admin_key,
                     &spaceship_pda,
                 )
@@ -177,7 +235,9 @@ pub async fn test_integration() {
         tokio::spawn(task).await.unwrap();
     }
 
-    // [5] --------------------------------- ARENA MATCHMAKING (matching) ----------------------------------
+    // [5] ---------------------- ARENA MATCHMAKING (matching) -------------------------------------
+    // Now that the queue is full, we can match the players
+    // ---------------------------------------------------------------------------------------------
     let user = &keypairs[USER_1];
     let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
     let user_account =
@@ -188,7 +248,7 @@ pub async fn test_integration() {
     instructions::arena_matchmaking(
         &program_test_ctx,
         &user,
-        &REALM_NAME.to_string(),
+        &realm_pda,
         &keypairs[ADMIN].pubkey(),
         &spaceship_pda,
     )
