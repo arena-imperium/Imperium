@@ -151,6 +151,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     //              
     {
         let spaceship = &mut ctx.accounts.spaceship;
+        let realm_key =  ctx.accounts.realm.key();
         let realm = &mut ctx.accounts.realm;
 
         // find the queue matching spaceship level
@@ -170,7 +171,6 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
             // Switchboard function bloc
             #[cfg(not(any(test, feature = "testing")))]
             {
-                let realm_key = realm.key();
                 let user_account_seed = &[
                     b"user_account",
                     realm_key.as_ref(), ctx.accounts.user.key.as_ref(),
