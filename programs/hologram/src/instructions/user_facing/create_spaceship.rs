@@ -262,6 +262,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     #[cfg(not(any(test, feature = "testing")))]
     {    
         use switchboard_solana::FunctionRequestInit;
+        use crate::CrateType;
 
         // Create the Switchboard request account.
         let request_init_ctx = FunctionRequestInit {
@@ -314,6 +315,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     #[cfg(not(any(test, feature = "testing")))]
     {
         use switchboard_solana::FunctionRequestInitAndTrigger;
+        use crate::SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION;
         
         let request_params = format!(
             "PID={},LOWER_BOUND={},UPPER_BOUND={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={}",

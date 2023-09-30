@@ -174,6 +174,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
             #[cfg(not(any(test, feature = "testing")))]
             {
                 use switchboard_solana::{FunctionRequestSetConfig, FunctionRequestTrigger};
+                use crate::SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION;
 
                 let user_account_seed = &[
                     b"user_account",

@@ -105,6 +105,7 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
     #[cfg(not(any(test, feature = "testing")))]
     {
         use switchboard_solana::{FunctionRequestSetConfig, FunctionRequestTrigger};
+        use crate::SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION;
 
         let realm_key = ctx.accounts.realm.key();
         let user_account_seed = &[
