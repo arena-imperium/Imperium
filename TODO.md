@@ -2,13 +2,10 @@
 
 ## Smart Contract
 
-- give a go at using same deps as solpg and compile to wasm <https://github.com/solana-playground/solana-playground>
-
-- in pick_crate_settle the spaceship should allocate more space to accomodate for the drop 
-
-- test pick_crate
-- test allocate_stat_point
 - test claim_fuel_allowance
+
+- in pick_crate_settle the spaceship should allocate more space to accomodate for the drop
+
 - test expired switchboard function request after 75 slots (warp and check it can be called again)
 
 - implement fight engine logic (in arena_matchmaking_settle, currently placeholder)
@@ -24,3 +21,6 @@
 - how to host loot table, how to have it "updatable"
 
 - IMPORTANT - switchboard function will need to enable the "authorized caller" and to be transfered to a PDA. Best is to init them from the program right away
+   -- no need, we verify the signer is the secure enclave
+
+- give a go at using same deps as solpg and compile to wasm <https://github.com/solana-playground/solana-playground>

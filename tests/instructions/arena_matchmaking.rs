@@ -19,12 +19,10 @@ use {
 pub async fn arena_matchmaking(
     program_test_ctx: &RwLock<ProgramTestContext>,
     user: &Keypair,
-    realm_name: &String,
+    realm_pda: &Pubkey,
     realm_admin: &Pubkey,
     spaceship_pda: &Pubkey,
 ) -> std::result::Result<(), BanksClientError> {
-    let (realm_pda, _) = pda::get_realm_pda(realm_name);
-
     let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
     let realm_before = utils::get_account::<Realm>(program_test_ctx, &realm_pda).await;
     let matchmaking_queue_before = realm_before
@@ -50,7 +48,7 @@ pub async fn arena_matchmaking(
     let accounts_meta = {
         let accounts = hologram::accounts::ArenaMatchmaking {
             user: user.pubkey(),
-            realm: realm_pda,
+            realm: *realm_pda,
             admin: *realm_admin,
             user_account: user_account_pda,
             spaceship: *spaceship_pda,
@@ -145,7 +143,7 @@ pub async fn arena_matchmaking(
             let accounts = hologram::accounts::ArenaMatchmakingSettle {
                 enclave_signer: enclave_signer.pubkey(), // In the real world this is not called by anyone else than the docker container
                 user: user.pubkey(),
-                realm: realm_pda,
+                realm: *realm_pda,
                 user_account: user_account_pda,
                 spaceship: *spaceship_pda,
                 switchboard_request: switchboard_amf_request,

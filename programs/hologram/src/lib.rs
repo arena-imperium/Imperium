@@ -1,3 +1,4 @@
+pub mod engine;
 pub mod error;
 pub mod instructions;
 pub mod state;
@@ -19,8 +20,6 @@ pub const LONG_LIMITED_STRING_MAX_LENGTH: usize = 256;
 
 pub const RANDOMNESS_LOWER_BOUND: u32 = 1;
 pub const RANDOMNESS_UPPER_BOUND: u32 = 1_000_000;
-pub const SPACESHIP_RANDOMNESS_FUNCTION_FEE: u64 = 0;
-pub const ARENA_MATCHMAKING_FUNCTION_FEE: u64 = 0;
 
 // Max amount of fuel for new Spaceships
 pub const BASE_MAX_FUEL: u8 = 5;
@@ -130,7 +129,17 @@ pub mod hologram {
         instructions::allocate_stat_point(ctx, stat_type)
     }
 
-    // pub fn pick_power_up(ctx: Context<PickPowerUp>, type: PowerUpType) -> Result<()> {
-    //     instructions::pick_power_up(ctx, power_up)
-    // }
+    // Pick a crate reward (once per level), will roll for a RNG based drop to power up the spaceship
+    pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> {
+        instructions::pick_crate(ctx, crate_type)
+    }
+    // Switchboard function callback
+    // given the choosen crate, pick the reward using the generated_seed
+    pub fn pick_crate_settle(
+        ctx: Context<PickCrateSettle>,
+        generated_seed: u32,
+        crate_type: CrateType,
+    ) -> Result<()> {
+        instructions::pick_crate_settle(ctx, generated_seed, crate_type)
+    }
 }

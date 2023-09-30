@@ -6,7 +6,7 @@ use {
     anchor_lang::prelude::*,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum StatType {
     ArmorLayering,
     ShieldSubsystems,
@@ -48,10 +48,16 @@ pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatType)
 
 impl SpaceShip {
     pub fn increase_stat(&mut self, stat_type: StatType) -> Result<()> {
-        require!(
-            self.experience.available_stats_points,
-            HologramError::NoAvailableStatsPoints
-        );
+        // validation
+        {
+            // spaceship must have an available stat point to spend
+            require!(
+                self.experience.available_stat_points,
+                HologramError::NoAvailableStatsPoints
+            );
+        }
+
+        // allocate stat point
         match stat_type {
             StatType::ArmorLayering => self.stats.armor_layering += 1,
             StatType::ShieldSubsystems => self.stats.shield_subsystems += 1,
@@ -59,7 +65,11 @@ impl SpaceShip {
             StatType::ElectronicSubsystems => self.stats.electronic_subsystems += 1,
             StatType::Manoeuvering => self.stats.manoeuvering += 1,
         }
-        self.experience.available_stats_points = false;
+
+        // spend the stat point
+        {
+            self.experience.available_stat_points = false;
+        }
         Ok(())
     }
 }

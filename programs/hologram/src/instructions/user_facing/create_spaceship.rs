@@ -1,6 +1,6 @@
-use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, Token, SWITCHBOARD_ATTESTATION_PROGRAM_ID, FunctionRequestInit, FunctionRequestInitAndTrigger};
+use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, Token, SWITCHBOARD_ATTESTATION_PROGRAM_ID};
 
-use crate::{BASE_MAX_FUEL, state::SwitchboardFunctionRequestStatus, instructions::CrateType, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
+use crate::{BASE_MAX_FUEL, state::{SwitchboardFunctionRequestStatus, Module}};
 
 use anchor_spl::associated_token::AssociatedToken;
 use {
@@ -8,12 +8,11 @@ use {
         error::HologramError,
         state::{Realm, SpaceShip, SpaceShipLite, UserAccount},
         utils::LimitedString,
-        MAX_SPACESHIPS_PER_USER_ACCOUNT, SPACESHIP_RANDOMNESS_FUNCTION_FEE,
+        MAX_SPACESHIPS_PER_USER_ACCOUNT,
     },
     anchor_lang::prelude::*,
     switchboard_solana,
 };
-
 // @TODO: Create a transfer/close spaceship IX (remember to handle the switchboard_request account, holds rent)
 
 #[derive(Accounts)]
@@ -45,11 +44,11 @@ pub struct CreateSpaceship<'info> {
     pub user_account: Box<Account<'info, UserAccount>>,
 
     #[account(
-        init,
+        init_if_needed, // this might be called again if the settlement ix fails
         payer=user,
         seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
         bump,
-        space = SpaceShip::LEN
+        space = SpaceShip::LEN + std::mem::size_of::<Module>(), // make space for the starter civilian weapon module
     )]
     pub spaceship: Box<Account<'info, SpaceShip>>,
 
@@ -207,6 +206,8 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     // will be ready for future calls to arena_matchmaking IX.
     #[cfg(not(any(test, feature = "testing")))]
     {
+        use switchboard_solana::FunctionRequestInit;
+        
         // Create the Switchboard request account.
         let request_init_ctx = FunctionRequestInit {
             request: ctx.accounts.switchboard_amf_request.clone(),
@@ -260,6 +261,8 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     // will be ready for future calls to pick_crate IX.
     #[cfg(not(any(test, feature = "testing")))]
     {    
+        use switchboard_solana::FunctionRequestInit;
+
         // Create the Switchboard request account.
         let request_init_ctx = FunctionRequestInit {
             request: ctx.accounts.switchboard_cpf_request.clone(),
@@ -310,6 +313,8 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     // the result back to our program via the 'create_spaceship_settle' instruction.
     #[cfg(not(any(test, feature = "testing")))]
     {
+        use switchboard_solana::FunctionRequestInitAndTrigger;
+        
         let request_params = format!(
             "PID={},LOWER_BOUND={},UPPER_BOUND={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={}",
             crate::id(),

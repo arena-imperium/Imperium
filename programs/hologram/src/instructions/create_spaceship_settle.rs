@@ -1,16 +1,17 @@
-use spaceship::SwitchboardFunctionRequestStatus;
-use switchboard_solana::{FunctionAccountData, FunctionRequestAccountData};
-
 use {
+    anchor_lang::prelude::*,
     crate::{
+        engine::LT_STARTER_WEAPON,
         error::HologramError,
         state::{spaceship, Realm, SpaceShip, SpaceShipLite, UserAccount},
         utils::RandomNumberGenerator,
     },
-    anchor_lang::prelude::*,
-    spaceship::Hull,
-    switchboard_solana,
+    spaceship::{Hull, SwitchboardFunctionRequestStatus},
+    switchboard_solana::{self, FunctionAccountData},
 };
+
+#[allow(unused_imports)]
+use switchboard_solana::FunctionRequestAccountData;
 
 #[derive(Accounts)]
 pub struct CreateSpaceshipSettle<'info> {
@@ -116,10 +117,19 @@ pub fn create_spaceship_settle(
             7 => Hull::UncommonFour,
             8 => Hull::RareOne,
             9 => Hull::RareTwo,
-            10 => Hull::MythicalOne,
+            10 => Hull::FactionOne,
             _ => panic!("Invalid dice roll"),
         };
     }
+
+    // provide the spaceship with it's first crate and stat points
+    // mount starter weapon
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        spaceship.experience.grant_power_up();
+        spaceship.modules.push(LT_STARTER_WEAPON.clone());
+    }
+
     let spaceship_lite =  SpaceShipLite {
         name: ctx.accounts.spaceship.name,
         hull: ctx.accounts.spaceship.hull.clone(),

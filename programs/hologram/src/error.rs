@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 #[error_code]
 pub enum HologramError {
     #[msg("Overflow in arithmetic operation")]
-    Overflow,
+    Overflow = 0,
     #[msg("Limited String can store 64 chars at most")]
     LimitedStringLengthExceeded,
     #[msg("There cannot be more than 25 spaceships per user account")]
@@ -16,7 +16,7 @@ pub enum HologramError {
     SwitchboardFunctionValidationFailed,
 
     #[msg("The switchboard function for the randomness has already been requested")]
-    SpaceshipRandomnessAlreadyRequested,
+    SpaceshipRandomnessAlreadyRequested, // 5
     #[msg("The switchboard function for the Arena Matchmaking has already been requested")]
     ArenaMatchmakingAlreadyRequested,
     #[msg("The switchboard function for the crate picking has already been requested")]
@@ -26,7 +26,7 @@ pub enum HologramError {
     #[msg("The switchboard function request for the arena matchmaking has already been settled")]
     ArenaMatchmakingAlreadySettled,
     #[msg("The switchboard function request for crate picking has already been settled")]
-    CratePickingAlreadySettled,
+    CratePickingAlreadySettled, // 10
 
     #[msg("The switchboard request was not successful")]
     SwitchboardRequestNotSuccessful,
@@ -37,7 +37,7 @@ pub enum HologramError {
     #[msg("No matchmaking queue was found for this spaceship level")]
     MatchmakingQueueNotFound,
     #[msg("The matchmaking queue is full")]
-    MatchmakingQueueFull,
+    MatchmakingQueueFull, // 15
     #[msg("The matchmaking queue cannot handle more requests at the moment. Please retry later")]
     MatchmakingTooManyRequests,
     #[msg("The spaceship must allocate his level up stats and powerup before being able to join the arena")]
@@ -52,6 +52,8 @@ pub enum HologramError {
     NoCrateAvailable,
     #[msg("The switchboard function wasn't signed by the enclave")]
     FunctionValidationFailed,
+    #[msg("There is a problem with the loot table")]
+    InvalidLootTable,
     #[msg("The game state does not permit this action")]
     InvalidAction,
 }

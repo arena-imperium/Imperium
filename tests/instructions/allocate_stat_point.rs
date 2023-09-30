@@ -2,10 +2,7 @@ pub use crate::utils;
 use {
     crate::utils::pda,
     anchor_lang::ToAccountMetas,
-    hologram::{
-        instructions::StatType,
-        state::{spaceship, SpaceShip, UserAccount},
-    },
+    hologram::{instructions::StatType, state::SpaceShip},
     solana_program::pubkey::Pubkey,
     solana_program_test::{BanksClientError, ProgramTestContext},
     solana_sdk::signer::{keypair::Keypair, Signer},

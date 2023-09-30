@@ -1,10 +1,16 @@
 use anchor_lang::prelude::*;
 
 // Storage space must be known in advance, as such all strings are limited to 64 chars
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
 pub struct LimitedString {
     pub value: [u8; 64], // Self::MaxLenght - anchor bug, cannot use constants here
     pub length: u8,
+}
+
+impl std::fmt::Debug for LimitedString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
 }
 
 impl PartialEq for LimitedString {

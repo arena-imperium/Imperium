@@ -53,7 +53,7 @@ pub enum Hull {
     UncommonFour,
     RareOne,
     RareTwo,
-    MythicalOne,
+    FactionOne,
 }
 
 // All bonus described below are per level of the statistic. Players start with 0 level in all stats.
@@ -101,7 +101,7 @@ pub struct Experience {
     pub current_level: u8,
     pub current_exp: u16,
     pub exp_to_next_level: u16,
-    pub available_stats_points: bool,
+    pub available_stat_points: bool,
     pub available_crate: bool,
 }
 
@@ -120,7 +120,12 @@ impl Experience {
         self.current_level += 1;
         self.current_exp -= self.exp_to_next_level;
         self.exp_to_next_level = self.experience_to_next_level();
-        self.available_stats_points = true;
+        self.grant_power_up()
+    }
+
+    // Used to grant power up to the player when he levels up (and at initialization)
+    pub fn grant_power_up(&mut self) {
+        self.available_stat_points = true;
         self.available_crate = true;
     }
 
@@ -276,8 +281,8 @@ impl SpaceShip {
 
     // informs wether the spaceship has available stat or crate point to spend.
     // Untils these are spent, he is barred from entering the arena
-    pub fn has_no_pending_stats_or_crate(&self) -> bool {
-        !(self.experience.available_stats_points || self.experience.available_crate)
+    pub fn has_pending_stat_point_or_crate(&self) -> bool {
+        self.experience.available_stat_points || self.experience.available_crate
     }
 
     // --- [Game engine code] ---
@@ -359,20 +364,12 @@ impl SpaceShip {
     }
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum Rarity {
     Common,
     Uncommon,
     Rare,
-    Mythical,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum TechTier {
-    One,
-    Two,
-    Three,
-    Four,
+    Faction,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -413,6 +410,7 @@ pub struct DamageProfile {
 pub enum ModuleClass {
     // Weapons
     Turret(WeaponModuleStats),
+    Launcher(WeaponModuleStats),
     Exotic(WeaponModuleStats),
     // Repairers
     ShieldBooster(RepairModuleStats),
@@ -429,32 +427,49 @@ pub enum ModuleClass {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum CycleTime {
+    Short = 6,       // 5:3 (1.67)
+    Accelerated = 8, // 5:4 (1.25)
+    Standard = 10,   // 1:1 (1.0)
+    Extended = 14,   // 5:7 (0.71)
+    Long = 20,       // 1:2 (0.5)
+    VeryLong = 30,   // 1:3 (0.33)
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum ProjectileSpeed {
+    Sluggish = 40,
+    Slow = 50,
+    SubStandard = 60,
+    Standard = 75,
+    Fast = 90,
+    Blazing = 105,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum Shots {
+    Single,
+    Salvo(u8),
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct WeaponModuleStats {
-    pub class: WeaponClass,
+    pub class: AmmoClass,
     pub damage_profile: DamageProfile,
-    pub shots: u8,
-    pub charge_time: u8,
-    pub projectile_speed: u8,
-    // pub range: u8,
-    // pub accuracy: u8,
-    // pub tracking_speed: u8,
-    // pub optimal_falloff: u8,
-    // pub turret_size: u8,
+    pub shots: Shots,
+    pub cycle_time: CycleTime,
+    pub projectile_speed: ProjectileSpeed,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct RepairModuleStats {
     pub repair_amount: u8,
-    pub cycle_time: u8,
+    pub cycle_time: CycleTime,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum WeaponClass {
-    // turrets
-    Energy,
+pub enum AmmoClass {
     Projectile,
-    Hybrid,
-    // exotic
-    EntropicDesintegrator,
     Missile,
+    Energy,
 }

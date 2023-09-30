@@ -1,6 +1,10 @@
 use {
     crate::utils::pda,
-    hologram::{instructions::StatType, state::UserAccount},
+    hologram::{
+        instructions::{CrateType, StatType},
+        state::UserAccount,
+    },
+    instructions::utils::warp_forward,
     solana_program::pubkey::Pubkey,
     solana_program_test::{processor, ProgramTest, ProgramTestContext},
     solana_sdk::{signature::Keypair, signer::Signer},
@@ -76,182 +80,242 @@ pub async fn test_integration() {
         Arc::new(RwLock::new(program_test.start_with_context().await));
 
     let (realm_pda, _) = pda::get_realm_pda(&REALM_NAME.to_string());
-
-    // [1] --------------------------------- INITIALIZE REALM ------------------------------------
     let ssgf = Pubkey::from_str(IMPERIUM_SSGF).unwrap();
     let amf = Pubkey::from_str(IMPERIUM_AMF).unwrap();
     let cpf = Pubkey::from_str(IMPERIUM_CPF).unwrap();
 
-    instructions::initialize_realm(
-        &program_test_ctx,
-        &keypairs[PAYER],
-        &keypairs[ADMIN],
-        &REALM_NAME.to_string(),
-        &ssgf,
-        &amf,
-        &cpf,
-    )
-    .await
-    .unwrap();
+    // [1] --------------------------------- INITIALIZE REALM ------------------------------------
+    {
+        instructions::initialize_realm(
+            &program_test_ctx,
+            &keypairs[PAYER],
+            &keypairs[ADMIN],
+            &REALM_NAME.to_string(),
+            &ssgf,
+            &amf,
+            &cpf,
+        )
+        .await
+        .unwrap();
+    }
 
     // [2] --------------------------------- CREATE USERs ACCOUNT ---------------------------------
-    let mut create_user_account_tasks = vec![];
-    [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
-        .iter()
-        .for_each(|user| {
-            let user = Arc::clone(&keypairs[*user]);
-            let ctx = Arc::clone(&program_test_ctx);
-            let task = tokio::spawn(async move {
-                instructions::create_user_account(&ctx, &user, &realm_pda)
-                    .await
-                    .unwrap();
+    {
+        let mut create_user_account_tasks = vec![];
+        [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
+            .iter()
+            .for_each(|user| {
+                let user = Arc::clone(&keypairs[*user]);
+                let ctx = Arc::clone(&program_test_ctx);
+                let task = tokio::spawn(async move {
+                    instructions::create_user_account(&ctx, &user, &realm_pda)
+                        .await
+                        .unwrap();
+                });
+                create_user_account_tasks.push(task);
             });
-            create_user_account_tasks.push(task);
-        });
 
-    // Wait for all tasks to finish
-    for task in create_user_account_tasks {
-        task.await.unwrap();
+        // Wait for all tasks to finish
+        for task in create_user_account_tasks {
+            task.await.unwrap();
+        }
     }
 
     // [3] --------------------------------- CREATE SPACESHIP ------------------------------------
-    let mut create_spaceships_tasks = vec![];
-    [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
-        .iter()
-        .for_each(|user| {
-            let user = Arc::clone(&keypairs[*user]);
-            let ctx = Arc::clone(&program_test_ctx);
-            let spaceship_name = "HoloShip".to_string();
-            let admin_key = keypairs[ADMIN].pubkey();
-            let task = tokio::spawn(async move {
-                instructions::create_spaceship(
-                    &ctx,
-                    &user,
-                    &realm_pda,
-                    &admin_key,
-                    &spaceship_name.to_string(),
-                )
-                .await
-                .unwrap();
+    {
+        let mut create_spaceships_tasks = vec![];
+        [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
+            .iter()
+            .for_each(|user| {
+                let user = Arc::clone(&keypairs[*user]);
+                let ctx = Arc::clone(&program_test_ctx);
+                let spaceship_name = "HoloShip".to_string();
+                let admin_key = keypairs[ADMIN].pubkey();
+                let task = tokio::spawn(async move {
+                    instructions::create_spaceship(
+                        &ctx,
+                        &user,
+                        &realm_pda,
+                        &admin_key,
+                        &spaceship_name.to_string(),
+                    )
+                    .await
+                    .unwrap();
+                });
+                create_spaceships_tasks.push(task);
             });
-            create_spaceships_tasks.push(task);
-        });
 
-    // Wait for all tasks to finish
-    for task in create_spaceships_tasks {
-        task.await.unwrap();
+        // Wait for all tasks to finish
+        for task in create_spaceships_tasks {
+            task.await.unwrap();
+        }
     }
 
     // [4] ---------------------- ARENA MATCHMAKING (should fail) ----------------------------------
     // This test should fail as the user has the starting Stat/crate points available
     // ---------------------------------------------------------------------------------------------
-    let user = &keypairs[USER_1];
-    let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-    let user_account =
-        utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
-    // we pick the first spaceship of the player for these tests
-    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+    {
+        let user = &keypairs[USER_1];
+        let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+        let user_account =
+            utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
+        // we pick the first spaceship of the player for these tests
+        let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
 
-    assert!(instructions::arena_matchmaking(
-        &program_test_ctx,
-        &user,
-        &realm_pda,
-        &keypairs[ADMIN].pubkey(),
-        &spaceship_pda,
-    )
-    .await
-    .is_err());
+        assert!(instructions::arena_matchmaking(
+            &program_test_ctx,
+            &user,
+            &realm_pda,
+            &keypairs[ADMIN].pubkey(),
+            &spaceship_pda,
+        )
+        .await
+        .is_err());
+    }
 
     // [5] -------------------- ALLOCATE STAT POINT ------------------------------------------------
-    // Allocate the stat point of each user in ArmorLayering
+    // Allocate the stat point of each user (we vary the type of stat)
     // ---------------------------------------------------------------------------------------------
-    let mut allocate_stat_point_tasks = vec![];
-    [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
-        .iter()
-        .for_each(|user| {
-            let user = Arc::clone(&keypairs[*user]);
-            let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-            let ctx = Arc::clone(&program_test_ctx);
-            let task = tokio::spawn(async move {
-                let user_account =
-                    utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
-                // we pick the first spaceship of the player for these tests
-                let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
-                instructions::allocate_stat_point(
-                    &ctx,
-                    &user,
-                    &realm_pda,
-                    &spaceship_pda,
-                    StatType::ArmorLayering,
-                )
-                .await
-                .unwrap();
+    {
+        let mut allocate_stat_point_tasks = vec![];
+        let stat_types = [
+            StatType::ArmorLayering,
+            StatType::ElectronicSubsystems,
+            StatType::Manoeuvering,
+            StatType::ShieldSubsystems,
+            StatType::TurretRigging,
+        ];
+        [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
+            .iter()
+            .enumerate()
+            .for_each(|(i, user)| {
+                let user = Arc::clone(&keypairs[*user]);
+                let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+                let ctx = Arc::clone(&program_test_ctx);
+                let task = tokio::spawn(async move {
+                    let user_account =
+                        utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
+                    // we pick the first spaceship of the player for these tests
+                    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+                    instructions::allocate_stat_point(
+                        &ctx,
+                        &user,
+                        &realm_pda,
+                        &spaceship_pda,
+                        stat_types[i % stat_types.len()],
+                    )
+                    .await
+                    .unwrap();
+                });
+                allocate_stat_point_tasks.push(task);
             });
-            allocate_stat_point_tasks.push(task);
-        });
-
-    // Wait for all tasks to finish
-    for task in allocate_stat_point_tasks {
-        task.await.unwrap();
+        // Wait for all tasks to finish
+        for task in allocate_stat_point_tasks {
+            task.await.unwrap();
+        }
     }
 
     // [6] -------------------- PICK CRATE ---------------------------------------------------------
-    // Pick a crate for each spaceship
+    // Pick a crate for each spaceship (we vary the types of crates)
     // ---------------------------------------------------------------------------------------------
-
-    // [4] -------------------- ARENA MATCHMAKING (queue filling) ----------------------------------
-    // Start by placing 5 players in the queue
-    // ---------------------------------------------------------------------------------------------
-    let mut arena_matchmaking_tasks = vec![];
-    [USER_2, USER_3, USER_4, USER_5, USER_6]
-        .iter()
-        .for_each(|user| {
-            let user = Arc::clone(&keypairs[*user]);
-            let ctx = Arc::clone(&program_test_ctx);
-            let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-            let admin_key = keypairs[ADMIN].pubkey();
-
-            let task = async move {
-                let user_account =
-                    utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
-                // we pick the first spaceship of the player for these tests
-                let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
-
-                instructions::arena_matchmaking(
-                    &ctx,
-                    &user,
-                    &realm_pda,
-                    &admin_key,
-                    &spaceship_pda,
-                )
-                .await
-                .unwrap();
-            };
-            arena_matchmaking_tasks.push(task);
-        });
-
-    // Here we want each task to be executed sequentially so that we can verify the results without interferences
-    for task in arena_matchmaking_tasks {
-        tokio::spawn(task).await.unwrap();
+    {
+        let mut pick_crate_tasks = vec![];
+        let crate_types = [
+            CrateType::NavyIssue,
+            CrateType::PirateContraband,
+            CrateType::BlackMarket,
+        ];
+        [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
+            .iter()
+            .enumerate()
+            .for_each(|(i, user)| {
+                let user = Arc::clone(&keypairs[*user]);
+                let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+                let ctx = Arc::clone(&program_test_ctx);
+                let admin_key = keypairs[ADMIN].pubkey();
+                let task = tokio::spawn(async move {
+                    let user_account =
+                        utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
+                    // we pick the first spaceship of the player for these tests
+                    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+                    instructions::pick_crate(
+                        &ctx,
+                        &user,
+                        &realm_pda,
+                        &admin_key,
+                        &spaceship_pda,
+                        crate_types[i % crate_types.len()],
+                    )
+                    .await
+                    .unwrap();
+                });
+                pick_crate_tasks.push(task);
+            });
+        // Wait for all tasks to finish
+        for task in pick_crate_tasks {
+            task.await.unwrap();
+        }
     }
 
-    // [5] ---------------------- ARENA MATCHMAKING (matching) -------------------------------------
+    // [7] -------------------- ARENA MATCHMAKING (queue filling) ----------------------------------
+    // Start by placing 5 players in the queue
+    // ---------------------------------------------------------------------------------------------
+    {
+        let mut arena_matchmaking_tasks = vec![];
+        [USER_2, USER_3, USER_4, USER_5, USER_6]
+            .iter()
+            .for_each(|user| {
+                let user = Arc::clone(&keypairs[*user]);
+                let ctx = Arc::clone(&program_test_ctx);
+                let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+                let admin_key = keypairs[ADMIN].pubkey();
+
+                let task = async move {
+                    let user_account =
+                        utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
+                    // we pick the first spaceship of the player for these tests
+                    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+
+                    instructions::arena_matchmaking(
+                        &ctx,
+                        &user,
+                        &realm_pda,
+                        &admin_key,
+                        &spaceship_pda,
+                    )
+                    .await
+                    .unwrap();
+                };
+                arena_matchmaking_tasks.push(task);
+            });
+
+        // Here we want each task to be executed sequentially so that we can verify the results without interferences
+        for task in arena_matchmaking_tasks {
+            tokio::spawn(task).await.unwrap();
+        }
+    }
+
+    // [8] ---------------------- ARENA MATCHMAKING (matching) -------------------------------------
     // Now that the queue is full, we can match the players
     // ---------------------------------------------------------------------------------------------
-    let user = &keypairs[USER_1];
-    let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-    let user_account =
-        utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
-    // we pick the first spaceship of the player for these tests
-    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+    // require to bypass validator protection to drop "similar IX" (we called the same in step [4])
+    warp_forward(&program_test_ctx, 1).await;
+    {
+        let user = &keypairs[USER_1];
+        let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+        let user_account =
+            utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
+        // we pick the first spaceship of the player for these tests
+        let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
 
-    instructions::arena_matchmaking(
-        &program_test_ctx,
-        &user,
-        &realm_pda,
-        &keypairs[ADMIN].pubkey(),
-        &spaceship_pda,
-    )
-    .await
-    .unwrap();
+        instructions::arena_matchmaking(
+            &program_test_ctx,
+            &user,
+            &realm_pda,
+            &keypairs[ADMIN].pubkey(),
+            &spaceship_pda,
+        )
+        .await
+        .unwrap();
+    }
 }

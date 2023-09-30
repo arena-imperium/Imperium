@@ -1,6 +1,6 @@
-use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID, FunctionRequestSetConfig, FunctionRequestTrigger};
+use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID};
 
-use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
+use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}};
 
 use {
     crate::{
@@ -58,6 +58,7 @@ pub struct ArenaMatchmaking<'info> {
     )]
     pub arena_matchmaking_function: AccountLoader<'info, FunctionAccountData>,
 
+    /// CHECK: in spaceship account's constraints 
     #[account(mut)]
     pub switchboard_request: AccountInfo<'info>,
 
@@ -95,9 +96,9 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     
     // Validations
     {
-        // verify that the user has spend his level up upgrades yet
+        // verify that the user has spent his level up points
         require!(
-            ctx.accounts.spaceship.has_no_pending_stats_or_crate(),
+            !ctx.accounts.spaceship.has_pending_stat_point_or_crate(),
             HologramError::PendingStatOrPowerup
         );
 
@@ -151,6 +152,8 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     //              
     {
         let spaceship = &mut ctx.accounts.spaceship;
+        #[allow(unused_variables)] // due to #cfg[]
+        let realm_key = ctx.accounts.realm.key();
         let realm = &mut ctx.accounts.realm;
 
         // find the queue matching spaceship level
@@ -170,7 +173,8 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
             // Switchboard function bloc
             #[cfg(not(any(test, feature = "testing")))]
             {
-                let realm_key = realm.key();
+                use switchboard_solana::{FunctionRequestSetConfig, FunctionRequestTrigger};
+
                 let user_account_seed = &[
                     b"user_account",
                     realm_key.as_ref(), ctx.accounts.user.key.as_ref(),

@@ -3,6 +3,7 @@ use {
     crate::utils::pda,
     anchor_lang::ToAccountMetas,
     hologram::state::UserAccount,
+    solana_program::pubkey::Pubkey,
     solana_program_test::{BanksClientError, ProgramTestContext},
     solana_sdk::signer::{keypair::Keypair, Signer},
     tokio::sync::RwLock,
@@ -11,17 +12,16 @@ use {
 pub async fn create_user_account(
     program_test_ctx: &RwLock<ProgramTestContext>,
     user: &Keypair,
-    realm_name: &String,
+    realm_pda: &Pubkey,
 ) -> std::result::Result<(), BanksClientError> {
     // ==== WHEN ==============================================================
-    let (realm_pda, _) = pda::get_realm_pda(realm_name);
     let (user_account_pda, user_account_bump) =
         pda::get_user_account_pda(&realm_pda, &user.pubkey());
 
     let accounts_meta = {
         let accounts = hologram::accounts::CreateUserAccount {
             user: user.pubkey(),
-            realm: realm_pda,
+            realm: *realm_pda,
             user_account: user_account_pda,
             system_program: anchor_lang::system_program::ID,
         };

@@ -1,6 +1,4 @@
-use switchboard_solana::{AttestationQueueAccountData, AttestationProgramState, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID, FunctionRequestSetConfig, FunctionRequestTrigger};
-
-use crate::{error::HologramError, state::spaceship::SwitchboardFunctionRequestStatus, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
+use crate::state::{Module, Drone, Mutation};
 
 use {
     crate::{
@@ -8,9 +6,11 @@ use {
         state::{
             Realm, SpaceShip, UserAccount,
         },
+        error::HologramError,
+        state::spaceship::SwitchboardFunctionRequestStatus
     },
     anchor_lang::prelude::*,
-    switchboard_solana,
+    switchboard_solana::{AttestationQueueAccountData, AttestationProgramState, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID},
 };
 
 #[derive(Accounts)]
@@ -34,10 +34,16 @@ pub struct PickCrate<'info> {
     )]
     pub user_account: Account<'info, UserAccount>,
 
+    // Note: Pre-emptively resize the modules/drones/mutations arrays to avoid reallocating them in the settle instruction
+    // It complicates things to do so in the settle due to the payer required for reallocating
     #[account(
         mut,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
-        bump = spaceship.bump,
+        realloc = SpaceShip::LEN + std::mem::size_of::<Module>() * (spaceship.modules.len() + 1) + std::mem::size_of::<Drone>() * (spaceship.drones.len() + 1) + std::mem::size_of::<Mutation>() * (spaceship.mutations.len() + 1),
+        realloc::payer = user,
+        realloc::zero = false,
+        // seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), unknown index],
+        // bump = spaceship.bump,
+        constraint = user_account.spaceships.iter().map(|s|{s.spaceship}).collect::<Vec<_>>().contains(&spaceship.key()),
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
@@ -70,6 +76,7 @@ pub struct PickCrate<'info> {
     pub switchboard_program: AccountInfo<'info>,
 }
 
+#[allow(unused_variables)] // due to #cfg[]
 pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> {
     // cancel pending switchboard function request if stale
     {
@@ -97,6 +104,8 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
 
     #[cfg(not(any(test, feature = "testing")))]
     {
+        use switchboard_solana::{FunctionRequestSetConfig, FunctionRequestTrigger};
+
         let realm_key = ctx.accounts.realm.key();
         let user_account_seed = &[
             b"user_account",
