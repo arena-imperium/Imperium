@@ -4,6 +4,7 @@
 
 mod menu;
 mod solana;
+mod login;
 
 use bevy_tasks::{IoTaskPool, TaskPool, TaskPoolBuilder};
 use comfy::*;
@@ -21,7 +22,7 @@ comfy_game!(
 
 /// Ie: what gamemode/scene are we currently in?
 #[derive(Default, Clone, Eq, PartialEq, Debug, Hash)]
-enum Scene {
+pub enum Scene {
     #[default]
     Loading,
     // Starting scene, where the player can setup a connection with their wallet
@@ -65,6 +66,7 @@ pub struct GameContext<'a, 'b: 'a> {
     pub engine: &'a mut EngineContext<'b>,
     pub tasks: &'a mut TaskPool,
     pub solana_server: &'a mut HologramServer,
+    pub scene: &'a mut Scene
 }
 
 fn make_context<'a, 'b: 'a>(
@@ -76,6 +78,7 @@ fn make_context<'a, 'b: 'a>(
         engine,
         tasks: &mut state.tasks,
         solana_server: &mut state.solana_server,
+        scene: &mut state.scene,
     }
 }
 
@@ -90,19 +93,50 @@ fn setup(_c: &mut GameContext) {
 /// Drawing and most things are immediate mode; so can be very
 /// quick to setup ui for debugging state.
 fn update(c: &mut GameContext) {
+    match c.scene {
+        Scene::Loading => {
+            draw_text(
+                "Loading...",
+                Position::screen_percent(0.5, 0.5).to_world(),
+                WHITE,
+                TextAlign::Center,
+            );
+            *c.scene = Scene::Login
+        }
+        Scene::Login => {
+            // Currently hardcoded?
+            *c.scene = Scene::Menu
+        }
+        Scene::Playing => {}
+        Scene::Menu => {
+            let top_pos = Position::screen_percent(0.95, 0.05).to_world();
+            draw_text(
+                &format!("Connected Wallet: {}", c.solana_server.admin_pubkey),
+                top_pos,
+                GREEN,
+                TextAlign::TopRight,
+            );
+            draw_text(
+                &format!("Account: {:05}", (random()*10000.0) as u32),
+                top_pos - Vec2::new(0.0, egui_scale_factor()*0.35),
+                RED,
+                TextAlign::TopRight,
+            );
+            draw_text(
+                "Welcome to the Imperium galactic Arena!",
+                Position::screen_percent(0.5, 0.85).to_world(),
+                WHITE,
+                TextAlign::Center,
+            );
 
-    draw_text(
-        "Welcome to the Imperium galactic Arena!",
-        Position::screen_percent(0.5, 0.85).to_world(),
-        WHITE,
-        TextAlign::Center,
-    );
+            egui::Window::new("Dev Test Window")
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                .show(c.egui, |ui| {
+                    dev_menu(ui, c);
+                });
+        }
+    }
 
-    egui::Window::new("Dev Test Window")
-        .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
-        .show(c.egui, |ui| {
-            dev_menu(ui, c);
-        });
 
     // Handles solana threads and such for us.
     solana_transaction_task_handler(&mut c.engine.commands.borrow_mut(), &mut c.engine.world.borrow_mut());
