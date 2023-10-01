@@ -201,11 +201,6 @@ impl SpaceShip {
         self.experience.exp_to_next_level = self.experience.experience_to_next_level();
         // give a stat point
         self.experience.credit_stat_point(1);
-        // if the spaceship level is > 11, increase fuel capacity
-        if self.experience.current_level > 11 {
-            self.fuel.max += 1;
-            self.fuel.refill(1)?
-        }
         Ok(())
     }
 
