@@ -3,6 +3,7 @@ use {
     hologram::{
         instructions::{CrateType, Faction, StatType},
         state::UserAccount,
+        FUEL_ALLOWANCE_COOLDOWN,
     },
     instructions::utils::warp_forward,
     solana_program::pubkey::Pubkey,
@@ -151,27 +152,43 @@ pub async fn test_integration() {
         }
     }
 
-    // // [4] ---------------------- ARENA MATCHMAKING (should fail) ----------------------------------
-    // // This test should fail as the user has the starting Stat/crate points available
-    // // ---------------------------------------------------------------------------------------------
-    // {
-    //     let user = &keypairs[USER_1];
-    //     let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-    //     let user_account =
-    //         utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
-    //     // we pick the first spaceship of the player for these tests
-    //     let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+    // [4] ---------------------- CLAIM FUEL ALLOWANCE (should fail) ----------------------------------
+    // This test should fail as the first claim is available 24h after the spaceship creation
+    // ------------------------------------------------------------------------------------------------
+    {
+        let user = &keypairs[USER_1];
+        let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+        let user_account =
+            utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
+        // we pick the first spaceship of the player for this test
+        let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
 
-    //     assert!(instructions::arena_matchmaking(
-    //         &program_test_ctx,
-    //         &user,
-    //         &realm_pda,
-    //         &keypairs[ADMIN].pubkey(),
-    //         &spaceship_pda,
-    //     )
-    //     .await
-    //     .is_err());
-    // }
+        assert!(instructions::claim_fuel_allowance(
+            &program_test_ctx,
+            &user,
+            &realm_pda,
+            &spaceship_pda,
+        )
+        .await
+        .is_err());
+    }
+
+    // [4 bis] ---------------------- CLAIM FUEL ALLOWANCE (should fail) ----------------------------
+    // We now warp FUEL_ALLOWANCE_COOLDOWN seconds later
+    warp_forward(&program_test_ctx, FUEL_ALLOWANCE_COOLDOWN + 1).await;
+    // ---------------------------------------------------------------------------------------------
+    {
+        let user = &keypairs[USER_1];
+        let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+        let user_account =
+            utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
+        // we pick the first spaceship of the player for this test
+        let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+
+        instructions::claim_fuel_allowance(&program_test_ctx, &user, &realm_pda, &spaceship_pda)
+            .await
+            .unwrap();
+    }
 
     // [5] -------------------- ALLOCATE STAT POINT ------------------------------------------------
     // Allocate the stat point of each user (we vary the type of stat)
