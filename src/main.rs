@@ -1,14 +1,17 @@
 // disable console on windows for release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-
 mod menu;
 mod solana;
 
-use bevy_tasks::{IoTaskPool, TaskPool, TaskPoolBuilder};
-use comfy::*;
-use crate::menu::dev_menu;
-use crate::solana::{HologramServer, solana_transaction_task_handler};
+use {
+    crate::{
+        menu::dev_menu,
+        solana::{solana_transaction_task_handler, HologramServer},
+    },
+    bevy_tasks::{IoTaskPool, TaskPool, TaskPoolBuilder},
+    comfy::*,
+};
 
 comfy_game!(
     "Imperium",
@@ -37,7 +40,6 @@ pub struct GameState {
     // Note this is different from GameContext in that game context
     // is a convenient *reference*, whereas this is where the data is
     // actually located.
-
     tasks: TaskPool,
     scene: Scene,
     solana_server: HologramServer,
@@ -45,9 +47,10 @@ pub struct GameState {
 
 impl GameState {
     pub fn new(_c: &mut EngineContext) -> Self {
-        Self { tasks: TaskPoolBuilder::new()
-            .thread_name("MainThreadPool".to_string())
-            .build(),
+        Self {
+            tasks: TaskPoolBuilder::new()
+                .thread_name("MainThreadPool".to_string())
+                .build(),
             scene: Default::default(),
             solana_server: Default::default(),
         }
@@ -82,7 +85,7 @@ fn make_context<'a, 'b: 'a>(
 /// Setup initial state of the engine, load assets, etc.
 fn setup(_c: &mut GameContext) {
     // Initializes the task pool
-    IoTaskPool::init(||{TaskPoolBuilder::new().build()});
+    IoTaskPool::init(|| TaskPoolBuilder::new().build());
 }
 
 /// Called every frame; our main loop.
@@ -90,7 +93,6 @@ fn setup(_c: &mut GameContext) {
 /// Drawing and most things are immediate mode; so can be very
 /// quick to setup ui for debugging state.
 fn update(c: &mut GameContext) {
-
     draw_text(
         "Welcome to the Imperium galactic Arena!",
         Position::screen_percent(0.5, 0.85).to_world(),
@@ -105,5 +107,8 @@ fn update(c: &mut GameContext) {
         });
 
     // Handles solana threads and such for us.
-    solana_transaction_task_handler(&mut c.engine.commands.borrow_mut(), &mut c.engine.world.borrow_mut());
+    solana_transaction_task_handler(
+        &mut c.engine.commands.borrow_mut(),
+        &mut c.engine.world.borrow_mut(),
+    );
 }

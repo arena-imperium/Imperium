@@ -1,13 +1,17 @@
 use {
     crate::{
+        error::HologramError,
         instructions::CrateType,
         state::{
-            Realm, SpaceShip, UserAccount, Module, Drone, Mutation, SwitchboardFunctionRequestStatus
+            Drone, Module, Mutation, Realm, SpaceShip, SwitchboardFunctionRequestStatus,
+            UserAccount,
         },
-        error::HologramError,
     },
     anchor_lang::prelude::*,
-    switchboard_solana::{AttestationQueueAccountData, AttestationProgramState, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID},
+    switchboard_solana::{
+        AttestationProgramState, AttestationQueueAccountData, FunctionAccountData,
+        SWITCHBOARD_ATTESTATION_PROGRAM_ID,
+    },
 };
 
 #[derive(Accounts)]
@@ -44,7 +48,7 @@ pub struct PickCrate<'info> {
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
-     /// CHECK: validated by Switchboard CPI
+    /// CHECK: validated by Switchboard CPI
     pub switchboard_state: AccountLoader<'info, AttestationProgramState>,
 
     /// CHECK: validated by Switchboard CPI
@@ -52,7 +56,7 @@ pub struct PickCrate<'info> {
 
     /// CHECK: validated by Switchboard CPI
     #[account(
-        mut, 
+        mut,
         // validate that we use the realm custom switchboard function for the arena matchmaking
         constraint = realm.switchboard_info.crate_picking_function == crate_picking_function.key() && !crate_picking_function.load()?.requests_disabled
     )]
@@ -79,8 +83,13 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
     {
         let spaceship = &mut ctx.accounts.spaceship;
         let current_slot = Realm::get_slot()?;
-        if spaceship.crate_picking.switchboard_request_info.request_is_expired(current_slot) {
-            spaceship.crate_picking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Expired { slot: current_slot  };
+        if spaceship
+            .crate_picking
+            .switchboard_request_info
+            .request_is_expired(current_slot)
+        {
+            spaceship.crate_picking.switchboard_request_info.status =
+                SwitchboardFunctionRequestStatus::Expired { slot: current_slot };
         }
     }
 
@@ -90,27 +99,35 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
 
         // verify that the user is not in the process of requesting to pick a crate already
         require!(
-            !ctx.accounts.spaceship.crate_picking.switchboard_request_info.is_requested(),
+            !ctx.accounts
+                .spaceship
+                .crate_picking
+                .switchboard_request_info
+                .is_requested(),
             HologramError::CratePickingAlreadyRequested
         );
     }
 
     #[cfg(not(any(test, feature = "testing")))]
     {
-        use switchboard_solana::{FunctionRequestSetConfig, FunctionRequestTrigger};
-        use crate::SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION;
+        use {
+            crate::SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION,
+            switchboard_solana::{FunctionRequestSetConfig, FunctionRequestTrigger},
+        };
 
         let realm_key = ctx.accounts.realm.key();
         let user_account_seed = &[
             b"user_account",
-            realm_key.as_ref(), ctx.accounts.user.key.as_ref(),
+            realm_key.as_ref(),
+            ctx.accounts.user.key.as_ref(),
             &[ctx.accounts.user_account.bump],
         ];
         // Update the switchboard function parameters
         {
-
-
-            let request_set_config_ctx = FunctionRequestSetConfig { request: ctx.accounts.switchboard_request.clone(), authority: ctx.accounts.admin.clone() };
+            let request_set_config_ctx = FunctionRequestSetConfig {
+                request: ctx.accounts.switchboard_request.clone(),
+                authority: ctx.accounts.admin.clone(),
+            };
             let request_params = format!(
                 "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},CRATE_TYPE{}",
                 crate::id(),
@@ -121,7 +138,12 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
                 crate_type as u8,
             );
 
-            request_set_config_ctx.invoke_signed(ctx.accounts.switchboard_program.clone(), request_params.into_bytes(), false, &[user_account_seed])?;
+            request_set_config_ctx.invoke_signed(
+                ctx.accounts.switchboard_program.clone(),
+                request_params.into_bytes(),
+                false,
+                &[user_account_seed],
+            )?;
         }
 
         // Trigger the request account for the crate_picking_function
@@ -163,7 +185,9 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
             .spaceship
             .crate_picking
             .switchboard_request_info
-            .status = SwitchboardFunctionRequestStatus::Requested { slot: Realm::get_slot()?};
+            .status = SwitchboardFunctionRequestStatus::Requested {
+            slot: Realm::get_slot()?,
+        };
     }
     Ok(())
 }

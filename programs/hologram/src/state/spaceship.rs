@@ -154,10 +154,10 @@ impl SpaceShip {
 
     // the account has finished the initialization process
     pub fn is_initialized(&self) -> bool {
-        match self.randomness.switchboard_request_info.status {
-            SwitchboardFunctionRequestStatus::Settled { slot: _ } => true,
-            _ => false,
-        }
+        matches!(
+            self.randomness.switchboard_request_info.status,
+            SwitchboardFunctionRequestStatus::Settled { slot: _ }
+        )
     }
 
     pub fn fuel_allowance_is_available(&self, current_time: i64) -> Result<bool> {
@@ -180,21 +180,33 @@ impl SpaceShip {
         self.experience.available_stat_points > 0
     }
 
-    pub fn gain_experience(&mut self, amount: u8) {
+    pub fn gain_experience(&mut self, amount: u8) -> Result<()> {
         self.experience.current_exp += amount as u16;
         if self.experience.current_exp >= self.experience.exp_to_next_level {
-            self.level_up();
+            self.level_up()?
         }
+        Ok(())
     }
 
-    fn level_up(&mut self) {
+    fn level_up(&mut self) -> Result<()> {
         if self.experience.current_level >= MAX_LEVEL {
-            return;
+            msg!("Max level reached, no more XP can be gained");
+            return Ok(());
         }
+        // increase level
         self.experience.current_level += 1;
+        // remove XP points that were used to level up
         self.experience.current_exp -= self.experience.exp_to_next_level;
+        // update xp to next level
         self.experience.exp_to_next_level = self.experience.experience_to_next_level();
-        self.experience.credit_stat_point(1)
+        // give a stat point
+        self.experience.credit_stat_point(1);
+        // if the spaceship level is > 11, increase fuel capacity
+        if self.experience.current_level > 11 {
+            self.fuel.max += 1;
+            self.fuel.refill(1)?
+        }
+        Ok(())
     }
 
     pub fn mount_module(&mut self, module: Module) -> Result<()> {

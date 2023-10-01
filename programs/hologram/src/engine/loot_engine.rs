@@ -39,16 +39,10 @@ impl LootEngine {
 
         // remove exotic drops if not enabled
         if exotic_weapon_enabled {
-            loot_table = loot_table
-                .into_iter()
-                .filter(|m| !matches!(m.class, ModuleClass::Exotic(_)))
-                .collect()
+            loot_table.retain(|m| !matches!(m.class, ModuleClass::Exotic(_)))
         }
 
-        require!(
-            loot_table.len() > 0 && loot_table.len() <= usize::MAX,
-            HologramError::InvalidLootTable
-        );
+        require!(!loot_table.is_empty(), HologramError::InvalidLootTable);
         let roll = rng.roll_dice(loot_table.len()) as usize;
         Ok(loot_table[roll - 1].clone())
     }
@@ -67,7 +61,7 @@ impl LootEngine {
 
     pub fn drop_mutation(
         rng: &mut RandomNumberGenerator,
-        _owned_mutation: &Vec<Mutation>,
+        _owned_mutation: &[Mutation],
     ) -> Result<Mutation> {
         let _roll = rng.roll_dice(100);
 
@@ -307,5 +301,19 @@ lazy_static! {
             projectile_speed: ProjectileSpeed::Standard,
             shots: Shots::Single,
         }),
+    }];
+    pub static ref LT_MUTATIONS_UNCOMMON: [Mutation; 2] = [
+        Mutation {
+            name: LimitedString::new("Reverse Gravity Field"),
+            rarity: Uncommon,
+        },
+        Mutation {
+            name: LimitedString::new("Shield Polarisation"),
+            rarity: Uncommon,
+        }
+    ];
+    pub static ref LT_MUTATIONS_RARE: [Mutation; 1] = [Mutation {
+        name: LimitedString::new("Nanite Outbreak"),
+        rarity: Uncommon,
     }];
 }

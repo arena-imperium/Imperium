@@ -11,13 +11,13 @@ pub struct FightEngine {}
 impl FightEngine {
     // This function is used to distribute experience points to the winner and loser of an arena match.
     // The winner gains experience points equal to the maximum of 1 and the difference between the loser's level and their own.
-    pub fn distribute_arena_experience(winner: &mut SpaceShip, looser: &SpaceShip) {
+    pub fn distribute_arena_experience(winner: &mut SpaceShip, looser: &SpaceShip) -> Result<()> {
         let winner_lvl = winner.experience.current_level;
         let looser_lvl = looser.experience.current_level;
 
         // Winning in the Arena will grant you max(1, opponent_spaceship_level - spaceship_level) XP points
         let xp_gain = std::cmp::max(1, looser_lvl + winner_lvl);
-        winner.gain_experience(xp_gain);
+        winner.gain_experience(xp_gain)
     }
 
     // This function is used to distribute currency to the winner of an arena match.

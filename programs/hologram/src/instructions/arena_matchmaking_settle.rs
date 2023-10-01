@@ -1,30 +1,29 @@
-
+#[allow(unused_imports)]
+use switchboard_solana::FunctionRequestAccountData;
 use {
     super::user_facing::Faction,
     crate::{
+        engine::FightEngine,
         error::HologramError,
-        state::{spaceship, Realm, SpaceShip, SpaceShipLite, UserAccount},
-        utils::RandomNumberGenerator, ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE, state::MatchmakingQueue, engine::FightEngine
+        state::{
+            spaceship, MatchmakingQueue, Realm, SpaceShip, SpaceShipLite,
+            SwitchboardFunctionRequestStatus, UserAccount,
+        },
+        utils::RandomNumberGenerator,
+        ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE,
     },
     anchor_lang::prelude::*,
-    
-    switchboard_solana::FunctionAccountData,
+    spaceship::MatchMakingStatus,
     std::borrow::BorrowMut,
-    spaceship::MatchMakingStatus, 
+    switchboard_solana::FunctionAccountData,
 };
-
-#[allow(unused_imports)]
-use switchboard_solana::FunctionRequestAccountData;
-
-use crate::state::SwitchboardFunctionRequestStatus;
 
 #[derive(Accounts)]
 pub struct ArenaMatchmakingSettle<'info> {
-
     /// CHECK: verified in the arena_matchmaking_function (to make sure it was called by the container)
     #[account()]
     pub enclave_signer: Signer<'info>,
-    
+
     /// CHECK: forwarded from the create_spaceship IX (and validated by it)
     #[account()]
     pub user: AccountInfo<'info>,
@@ -51,7 +50,7 @@ pub struct ArenaMatchmakingSettle<'info> {
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
-    #[account( 
+    #[account(
         // validate that we use the realm custom switchboard function
         constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key(),
     )]
@@ -108,13 +107,20 @@ pub fn arena_matchmaking_settle(
         // Disabled during tests
         #[cfg(not(any(test, feature = "testing")))]
         require!(
-            ctx.accounts.switchboard_request.validate_signer(&ctx.accounts.arena_matchmaking_function.to_account_info(), &ctx.accounts.enclave_signer.to_account_info()) == Ok(true),
+            ctx.accounts.switchboard_request.validate_signer(
+                &ctx.accounts.arena_matchmaking_function.to_account_info(),
+                &ctx.accounts.enclave_signer.to_account_info()
+            ) == Ok(true),
             HologramError::FunctionValidationFailed
         );
 
         // verify that the request is pending settlement
         require!(
-            ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.is_requested(),
+            ctx.accounts
+                .spaceship
+                .arena_matchmaking
+                .switchboard_request_info
+                .is_requested(),
             HologramError::ArenaMatchmakingAlreadySettled
         );
 
@@ -129,7 +135,10 @@ pub fn arena_matchmaking_settle(
     // update caller arena_matchmaking status
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Settled { slot: Realm::get_slot()? };
+        spaceship.arena_matchmaking.switchboard_request_info.status =
+            SwitchboardFunctionRequestStatus::Settled {
+                slot: Realm::get_slot()?,
+            };
         ctx.accounts.spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::None;
     }
 
@@ -137,32 +146,55 @@ pub fn arena_matchmaking_settle(
     let opponent_spaceship = {
         let spaceship = &mut ctx.accounts.spaceship;
         let mut rng = RandomNumberGenerator::new(generated_seed.into());
-        let queue = ctx.accounts.realm.get_matching_matchmaking_queue_mut(spaceship)?;
-        let opponent_spaceship_key = roll_opponent_spaceship(rng.borrow_mut(), &queue)?;
-    
-        // load the opponent spaceship based on the key        
+        let queue = ctx
+            .accounts
+            .realm
+            .get_matching_matchmaking_queue_mut(spaceship)?;
+        let opponent_spaceship_key = roll_opponent_spaceship(rng.borrow_mut(), queue)?;
+
+        // load the opponent spaceship based on the key
         let opponent_spaceship = match opponent_spaceship_key {
-            key if key == ctx.accounts.opponent_1_spaceship.key() => &mut ctx.accounts.opponent_1_spaceship,
-            key if key == ctx.accounts.opponent_2_spaceship.key() => &mut ctx.accounts.opponent_2_spaceship,
-            key if key == ctx.accounts.opponent_3_spaceship.key() => &mut ctx.accounts.opponent_3_spaceship,
-            key if key == ctx.accounts.opponent_4_spaceship.key() => &mut ctx.accounts.opponent_4_spaceship,
-            key if key == ctx.accounts.opponent_5_spaceship.key() => &mut ctx.accounts.opponent_5_spaceship,
+            key if key == ctx.accounts.opponent_1_spaceship.key() => {
+                &mut ctx.accounts.opponent_1_spaceship
+            }
+            key if key == ctx.accounts.opponent_2_spaceship.key() => {
+                &mut ctx.accounts.opponent_2_spaceship
+            }
+            key if key == ctx.accounts.opponent_3_spaceship.key() => {
+                &mut ctx.accounts.opponent_3_spaceship
+            }
+            key if key == ctx.accounts.opponent_4_spaceship.key() => {
+                &mut ctx.accounts.opponent_4_spaceship
+            }
+            key if key == ctx.accounts.opponent_5_spaceship.key() => {
+                &mut ctx.accounts.opponent_5_spaceship
+            }
             _ => panic!("Invalid spaceship key"),
         };
 
         // remove opponent spaceship from the matchmaking queue
-        if let Some(spaceship_key) = queue.spaceships.iter_mut().find(|s| **s == Some(opponent_spaceship_key)) {
+        if let Some(spaceship_key) = queue
+            .spaceships
+            .iter_mut()
+            .find(|s| **s == Some(opponent_spaceship_key))
+        {
             *spaceship_key = None;
             msg!("Removed spaceship from queue");
         }
 
         // decrease request awaiting settlement counter
-        queue.matchmaking_request_count = queue.matchmaking_request_count.checked_sub(1).ok_or(HologramError::Overflow)?;
+        queue.matchmaking_request_count = queue
+            .matchmaking_request_count
+            .checked_sub(1)
+            .ok_or(HologramError::Overflow)?;
 
         // updates the opponent matchmaking status
         opponent_spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::None;
 
-        msg!("Opponent spaceship: {:?}", opponent_spaceship.to_account_info().key);
+        msg!(
+            "Opponent spaceship: {:?}",
+            opponent_spaceship.to_account_info().key
+        );
         opponent_spaceship
     };
 
@@ -171,10 +203,10 @@ pub fn arena_matchmaking_settle(
         let spaceship = &mut ctx.accounts.spaceship;
         FightEngine::fight(spaceship, opponent_spaceship, generated_seed)
     };
-    
+
     // distribute rewards to participants
     {
-        FightEngine::distribute_arena_experience(winner, looser);
+        FightEngine::distribute_arena_experience(winner, looser)?;
         FightEngine::distribute_arena_currency(winner, faction)?;
     }
 
@@ -199,23 +231,23 @@ pub fn arena_matchmaking_settle(
     Ok(())
 }
 
+pub fn roll_opponent_spaceship(
+    rng: &mut RandomNumberGenerator,
+    queue: &MatchmakingQueue,
+) -> Result<Pubkey> {
+    let dice_roll = rng.roll_dice(ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE as usize); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
+    let opponents_spaceship_keys = queue.spaceships;
+    // find the opponent spaceship account pubkey
+    let dice_rolled_opponent_key = queue.spaceships.get((dice_roll - 1) as usize).unwrap();
 
-pub fn roll_opponent_spaceship(rng: &mut RandomNumberGenerator, queue: &MatchmakingQueue) -> Result<Pubkey> {
-        let dice_roll = rng.roll_dice(ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE as usize); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
-        let opponents_spaceship_keys = queue.spaceships.clone();
-        // find the opponent spaceship account pubkey
-        let dice_rolled_opponent_key = queue.spaceships.get((dice_roll - 1) as usize).unwrap();
-
-        // if it was not found, pick the first spaceship available in the queue
-        // this can happen due to the concurent nature of the program
-        if let Some(key) = dice_rolled_opponent_key {
-            return Ok(*key);
-        } else {
-            for spaceship_key in opponents_spaceship_keys {
-                if let Some(key) = spaceship_key {
-                    return Ok(key);
-                }
-            }
-            return Err(HologramError::MatchmakingQueueNotFound.into());
+    // if it was not found, pick the first spaceship available in the queue
+    // this can happen due to the concurent nature of the program
+    if let Some(key) = dice_rolled_opponent_key {
+        Ok(*key)
+    } else {
+        for spaceship_key in opponents_spaceship_keys.into_iter().flatten() {
+            return Ok(spaceship_key);
         }
+        Err(HologramError::MatchmakingQueueNotFound.into())
+    }
 }

@@ -1,17 +1,18 @@
-use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, Token, SWITCHBOARD_ATTESTATION_PROGRAM_ID};
-
-use crate::{BASE_MAX_FUEL, state::{SwitchboardFunctionRequestStatus, Module}};
-
-use anchor_spl::associated_token::AssociatedToken;
 use {
     crate::{
         error::HologramError,
-        state::{Realm, SpaceShip, SpaceShipLite, UserAccount},
+        state::{
+            Module, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus, UserAccount,
+        },
         utils::LimitedString,
-        MAX_SPACESHIPS_PER_USER_ACCOUNT,
+        BASE_MAX_FUEL, MAX_SPACESHIPS_PER_USER_ACCOUNT,
     },
     anchor_lang::prelude::*,
-    switchboard_solana,
+    anchor_spl::associated_token::AssociatedToken,
+    switchboard_solana::{
+        self, AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, Token,
+        SWITCHBOARD_ATTESTATION_PROGRAM_ID,
+    },
 };
 // @TODO: Create a transfer/close spaceship IX (remember to handle the switchboard_request account, holds rent)
 
@@ -60,7 +61,7 @@ pub struct CreateSpaceship<'info> {
 
     /// CHECK: validated by Switchboard CPI
     #[account(
-        mut, 
+        mut,
         // validate that we use the realm custom switchboard function for spaceship seed generation
         constraint = realm.switchboard_info.spaceship_seed_generation_function == spaceship_seed_generation_function.key() && !spaceship_seed_generation_function.load()?.requests_disabled
     )]
@@ -87,7 +88,7 @@ pub struct CreateSpaceship<'info> {
 
     /// CHECK: validated by Switchboard CPI
     #[account(
-        mut, 
+        mut,
         // validate that we use the realm custom switchboard function for arena match making
         constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key() && !arena_matchmaking_function.load()?.requests_disabled
     )]
@@ -114,7 +115,7 @@ pub struct CreateSpaceship<'info> {
 
     /// CHECK: validated by Switchboard CPI
     #[account(
-        mut, 
+        mut,
         // validate that we use the realm custom switchboard function for arena match making
         constraint = realm.switchboard_info.arena_matchmaking_function == arena_matchmaking_function.key() && !arena_matchmaking_function.load()?.requests_disabled
     )]
@@ -152,12 +153,17 @@ pub struct CreateSpaceship<'info> {
 }
 
 pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<()> {
-        // cancel pending switchboard function request if stale
+    // cancel pending switchboard function request if stale
     {
         let spaceship = &mut ctx.accounts.spaceship;
         let current_slot = Realm::get_slot()?;
-        if spaceship.randomness.switchboard_request_info.request_is_expired(current_slot) {
-            spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Expired { slot: current_slot  };
+        if spaceship
+            .randomness
+            .switchboard_request_info
+            .request_is_expired(current_slot)
+        {
+            spaceship.randomness.switchboard_request_info.status =
+                SwitchboardFunctionRequestStatus::Expired { slot: current_slot };
         }
     }
 
@@ -184,7 +190,14 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         );
         // verify that there is no pending request already
         require!(
-            matches!(ctx.accounts.spaceship.randomness.switchboard_request_info.status, crate::state::SwitchboardFunctionRequestStatus::None),
+            matches!(
+                ctx.accounts
+                    .spaceship
+                    .randomness
+                    .switchboard_request_info
+                    .status,
+                crate::state::SwitchboardFunctionRequestStatus::None
+            ),
             HologramError::SpaceshipRandomnessAlreadyRequested
         );
     }
@@ -207,14 +220,17 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     #[cfg(not(any(test, feature = "testing")))]
     {
         use switchboard_solana::FunctionRequestInit;
-        
+
         // Create the Switchboard request account.
         let request_init_ctx = FunctionRequestInit {
             request: ctx.accounts.switchboard_amf_request.clone(),
             authority: ctx.accounts.user_account.to_account_info(),
-            function: ctx.accounts.arena_matchmaking_function.to_account_info(), 
+            function: ctx.accounts.arena_matchmaking_function.to_account_info(),
             function_authority: None, // only needed if switchboard_function.requests_require_authorization is enabled
-            escrow: ctx.accounts.switchboard_amf_request_escrow.to_account_info(),
+            escrow: ctx
+                .accounts
+                .switchboard_amf_request_escrow
+                .to_account_info(),
             mint: ctx.accounts.switchboard_mint.to_account_info(),
             state: ctx.accounts.switchboard_state.to_account_info(),
             attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
@@ -238,39 +254,43 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         );
         request_init_ctx.invoke(
             ctx.accounts.switchboard_program.clone(),
-                // max_container_params_len - the length of the vec containing the container params
-                // default: 256 bytes
-                Some(400),
-                // container_params - the container params
-                // default: empty vec
-                Some(request_params.into_bytes()),
-                // garbage_collection_slot - the slot when the request can be closed by anyone and is considered dead
-                // default: None, only authority can close the request
-                None,
+            // max_container_params_len - the length of the vec containing the container params
+            // default: 256 bytes
+            Some(400),
+            // container_params - the container params
+            // default: empty vec
+            Some(request_params.into_bytes()),
+            // garbage_collection_slot - the slot when the request can be closed by anyone and is considered dead
+            // default: None, only authority can close the request
+            None,
         )?;
     }
 
     // update the spaceship arena_matchmaking state
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        spaceship.arena_matchmaking.switchboard_request_info.account = ctx.accounts.switchboard_amf_request.key();
-        spaceship.arena_matchmaking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::None;
+        spaceship.arena_matchmaking.switchboard_request_info.account =
+            ctx.accounts.switchboard_amf_request.key();
+        spaceship.arena_matchmaking.switchboard_request_info.status =
+            SwitchboardFunctionRequestStatus::None;
     }
 
     // init the request account for the crate_picking_function. Not used in this context, but
     // will be ready for future calls to pick_crate IX.
     #[cfg(not(any(test, feature = "testing")))]
-    {    
-        use switchboard_solana::FunctionRequestInit;
-        use crate::CrateType;
+    {
+        use {crate::CrateType, switchboard_solana::FunctionRequestInit};
 
         // Create the Switchboard request account.
         let request_init_ctx = FunctionRequestInit {
             request: ctx.accounts.switchboard_cpf_request.clone(),
             authority: ctx.accounts.user_account.to_account_info(),
-            function: ctx.accounts.crate_picking_function.to_account_info(), 
+            function: ctx.accounts.crate_picking_function.to_account_info(),
             function_authority: None, // only needed if switchboard_function.requests_require_authorization is enabled
-            escrow: ctx.accounts.switchboard_cpf_request_escrow.to_account_info(),
+            escrow: ctx
+                .accounts
+                .switchboard_cpf_request_escrow
+                .to_account_info(),
             mint: ctx.accounts.switchboard_mint.to_account_info(),
             state: ctx.accounts.switchboard_state.to_account_info(),
             attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
@@ -290,23 +310,25 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         );
         request_init_ctx.invoke(
             ctx.accounts.switchboard_program.clone(),
-                // max_container_params_len - the length of the vec containing the container params
-                // default: 256 bytes
-                Some(180),
-                // container_params - the container params
-                // default: empty vec
-                 Some(request_params.into_bytes()),
-                // garbage_collection_slot - the slot when the request can be closed by anyone and is considered dead
-                // default: None, only authority can close the request
-                None,
+            // max_container_params_len - the length of the vec containing the container params
+            // default: 256 bytes
+            Some(180),
+            // container_params - the container params
+            // default: empty vec
+            Some(request_params.into_bytes()),
+            // garbage_collection_slot - the slot when the request can be closed by anyone and is considered dead
+            // default: None, only authority can close the request
+            None,
         )?;
     }
 
     // update the spaceship crate_picking state
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        spaceship.crate_picking.switchboard_request_info.account = ctx.accounts.switchboard_cpf_request.key();
-        spaceship.crate_picking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::None;
+        spaceship.crate_picking.switchboard_request_info.account =
+            ctx.accounts.switchboard_cpf_request.key();
+        spaceship.crate_picking.switchboard_request_info.status =
+            SwitchboardFunctionRequestStatus::None;
     }
 
     // Init and Trigger the request account for the spaceship_seed_generation_function
@@ -314,9 +336,11 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     // the result back to our program via the 'create_spaceship_settle' instruction.
     #[cfg(not(any(test, feature = "testing")))]
     {
-        use switchboard_solana::FunctionRequestInitAndTrigger;
-        use crate::SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION;
-        
+        use {
+            crate::SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION,
+            switchboard_solana::FunctionRequestInitAndTrigger,
+        };
+
         let request_params = format!(
             "PID={},LOWER_BOUND={},UPPER_BOUND={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={}",
             crate::id(),
@@ -331,9 +355,15 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         let request_init_and_trigger_ctx = FunctionRequestInitAndTrigger {
             request: ctx.accounts.switchboard_ssgf_request.clone(),
             authority: ctx.accounts.admin.to_account_info(),
-            function: ctx.accounts.spaceship_seed_generation_function.to_account_info(),
+            function: ctx
+                .accounts
+                .spaceship_seed_generation_function
+                .to_account_info(),
             function_authority: None, // only needed if switchboard_function.requests_require_authorization is enabled
-            escrow: ctx.accounts.switchboard_ssgf_request_escrow.to_account_info(),
+            escrow: ctx
+                .accounts
+                .switchboard_ssgf_request_escrow
+                .to_account_info(),
             mint: ctx.accounts.switchboard_mint.to_account_info(),
             state: ctx.accounts.switchboard_state.to_account_info(),
             attestation_queue: ctx.accounts.switchboard_attestation_queue.to_account_info(),
@@ -369,8 +399,12 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
     // update the spaceship randomness state
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        spaceship.randomness.switchboard_request_info.account = ctx.accounts.switchboard_ssgf_request.key();
-        spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Requested { slot: Realm::get_slot()? };
+        spaceship.randomness.switchboard_request_info.account =
+            ctx.accounts.switchboard_ssgf_request.key();
+        spaceship.randomness.switchboard_request_info.status =
+            SwitchboardFunctionRequestStatus::Requested {
+                slot: Realm::get_slot()?,
+            };
         // randomness fields defaulted to 0 for now, soon updated in the settle callback
     }
 
@@ -381,7 +415,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         spaceship.fuel.max = BASE_MAX_FUEL;
         spaceship.fuel.current = BASE_MAX_FUEL;
         spaceship.fuel.daily_allowance_last_collection = Realm::get_time()?;
-        
+
         // all stats defaulted to 0
 
         // experience fields defaulted to 0

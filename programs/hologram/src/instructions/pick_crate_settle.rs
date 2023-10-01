@@ -1,20 +1,16 @@
+#[allow(unused_imports)]
+use switchboard_solana::FunctionRequestAccountData;
 use {
-    anchor_lang::prelude::*,
     crate::{
         engine::LootEngine,
         error::HologramError,
-        state::{
-            Realm, SpaceShip, UserAccount,
-        },
+        state::{Currency, Realm, SpaceShip, SwitchboardFunctionRequestStatus, UserAccount},
         utils::RandomNumberGenerator,
     },
+    anchor_lang::prelude::*,
     std::borrow::BorrowMut,
     switchboard_solana::FunctionAccountData,
 };
-
-use crate::state::{Currency, SwitchboardFunctionRequestStatus};
-#[allow(unused_imports)]
-use switchboard_solana::FunctionRequestAccountData;
 
 // total of each category must be 100 (%)
 
@@ -80,7 +76,7 @@ pub struct PickCrateSettle<'info> {
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
-    #[account( 
+    #[account(
         // validate that we use the realm custom switchboard function
         constraint = realm.switchboard_info.crate_picking_function == crate_picking_function.key(),
     )]
@@ -107,7 +103,10 @@ pub fn pick_crate_settle(
         // Disabled during tests
         #[cfg(not(any(test, feature = "testing")))]
         require!(
-            ctx.accounts.switchboard_request.validate_signer(&ctx.accounts.crate_picking_function.to_account_info(), &ctx.accounts.enclave_signer.to_account_info()) == Ok(true),
+            ctx.accounts.switchboard_request.validate_signer(
+                &ctx.accounts.crate_picking_function.to_account_info(),
+                &ctx.accounts.enclave_signer.to_account_info()
+            ) == Ok(true),
             HologramError::FunctionValidationFailed
         );
 
@@ -132,7 +131,10 @@ pub fn pick_crate_settle(
     // purchase the crate (built-in balance validation)
     {
         let spaceship = ctx.accounts.spaceship.borrow_mut();
-        spaceship.wallet.debit(crate_type.crate_price() as u16, crate_type.payment_currency())?;
+        spaceship.wallet.debit(
+            crate_type.crate_price() as u16,
+            crate_type.payment_currency(),
+        )?;
     }
 
     // depending of player crate choice, allocate a module, a drone, a mutation or... nothing based on RNG
@@ -147,8 +149,11 @@ pub fn pick_crate_settle(
                 faction_rarity_enabled,
                 exotic_module_enabled,
             } => {
-                let module =
-                    LootEngine::drop_module(&mut rng, faction_rarity_enabled, exotic_module_enabled)?;
+                let module = LootEngine::drop_module(
+                    &mut rng,
+                    faction_rarity_enabled,
+                    exotic_module_enabled,
+                )?;
                 spaceship.mount_module(module)?;
             }
             CrateOutcome::Drone {
@@ -162,7 +167,7 @@ pub fn pick_crate_settle(
                 spaceship.apply_mutation(mutation)?;
             }
             CrateOutcome::Scam => {
-                 msg!("You've been scammed...");
+                msg!("You've been scammed...");
                 // no op
             }
         }
@@ -224,35 +229,53 @@ impl CrateType {
     pub fn determine_outcome(&self, roll: u8) -> CrateOutcome {
         let crate_chances = match self {
             CrateType::NavyIssue => [
-                (NI_MODULE_CHANCE, CrateOutcome::Module {
-                    faction_rarity_enabled: NI_FACTION_RARITY_ENABLED,
-                    exotic_module_enabled: NI_EXOTIC_MODULE_ENABLED,
-                }),
-                (NI_DRONE_CHANCE, CrateOutcome::Drone {
-                    faction_rarity_enabled: NI_FACTION_RARITY_ENABLED,
-                }),
+                (
+                    NI_MODULE_CHANCE,
+                    CrateOutcome::Module {
+                        faction_rarity_enabled: NI_FACTION_RARITY_ENABLED,
+                        exotic_module_enabled: NI_EXOTIC_MODULE_ENABLED,
+                    },
+                ),
+                (
+                    NI_DRONE_CHANCE,
+                    CrateOutcome::Drone {
+                        faction_rarity_enabled: NI_FACTION_RARITY_ENABLED,
+                    },
+                ),
                 (NI_MUTATION_CHANCE, CrateOutcome::Mutation),
                 (NI_SCAM_CHANCE, CrateOutcome::Scam),
             ],
             CrateType::PirateContraband => [
-                (PC_MODULE_CHANCE, CrateOutcome::Module {
-                    faction_rarity_enabled: PC_FACTION_RARITY_ENABLED,
-                    exotic_module_enabled: PC_EXOTIC_MODULE_ENABLED,
-                }),
-                (PC_DRONE_CHANCE, CrateOutcome::Drone {
-                    faction_rarity_enabled: PC_FACTION_RARITY_ENABLED,
-                }),
+                (
+                    PC_MODULE_CHANCE,
+                    CrateOutcome::Module {
+                        faction_rarity_enabled: PC_FACTION_RARITY_ENABLED,
+                        exotic_module_enabled: PC_EXOTIC_MODULE_ENABLED,
+                    },
+                ),
+                (
+                    PC_DRONE_CHANCE,
+                    CrateOutcome::Drone {
+                        faction_rarity_enabled: PC_FACTION_RARITY_ENABLED,
+                    },
+                ),
                 (PC_MUTATION_CHANCE, CrateOutcome::Mutation),
                 (PC_SCAM_CHANCE, CrateOutcome::Scam),
             ],
             CrateType::BiomechanicalCache => [
-                (BMC_MODULE_CHANCE, CrateOutcome::Module {
-                    faction_rarity_enabled: BMC_FACTION_RARITY_ENABLED,
-                    exotic_module_enabled: BMC_EXOTIC_MODULE_ENABLED,
-                }),
-                (BMC_DRONE_CHANCE, CrateOutcome::Drone {
-                    faction_rarity_enabled: BMC_FACTION_RARITY_ENABLED,
-                }),
+                (
+                    BMC_MODULE_CHANCE,
+                    CrateOutcome::Module {
+                        faction_rarity_enabled: BMC_FACTION_RARITY_ENABLED,
+                        exotic_module_enabled: BMC_EXOTIC_MODULE_ENABLED,
+                    },
+                ),
+                (
+                    BMC_DRONE_CHANCE,
+                    CrateOutcome::Drone {
+                        faction_rarity_enabled: BMC_FACTION_RARITY_ENABLED,
+                    },
+                ),
                 (BMC_MUTATION_CHANCE, CrateOutcome::Mutation),
                 (BMC_SCAM_CHANCE, CrateOutcome::Scam),
             ],

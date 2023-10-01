@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use {anchor_lang::prelude::*, std::fmt::Display};
 
 // Storage space must be known in advance, as such all strings are limited to 64 chars
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
@@ -37,9 +37,11 @@ impl LimitedString {
     pub fn to_bytes(&self) -> &[u8] {
         &self.value[..self.length as usize]
     }
+}
 
-    pub fn to_string(&self) -> String {
-        String::from_utf8_lossy(&self.value[..self.length as usize]).into_owned()
+impl Display for LimitedString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from(*self))
     }
 }
 

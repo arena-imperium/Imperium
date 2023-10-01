@@ -9,7 +9,7 @@ pub struct CreateUserAccount<'info> {
     pub user: Signer<'info>,
 
     #[account(
-        seeds=[b"realm", realm.name.to_bytes().as_ref()],
+        seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
     )]
     pub realm: Account<'info, Realm>,
