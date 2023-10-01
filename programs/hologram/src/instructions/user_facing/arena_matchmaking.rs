@@ -1,6 +1,6 @@
 use switchboard_solana::{AttestationProgramState, AttestationQueueAccountData, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID};
 
-use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus}};
+use crate::{ARENA_MATCHMAKING_FUEL_COST, state::{SwitchboardFunctionRequestStatus, MatchMakingStatus, Currency}};
 
 use {
     crate::{
@@ -10,6 +10,22 @@ use {
     anchor_lang::prelude::*,
 };
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
+pub enum Faction {
+    Imperium,
+    Pirate,
+    RogueDrone
+}
+
+impl Faction {
+    pub fn legal_tender(&self) -> Currency {
+        match self {
+            Faction::Imperium => Currency::ImperialCredit,
+            Faction::Pirate => Currency::ImperialCredit,
+            Faction::RogueDrone => Currency::ActivateNanitePaste,
+        }
+    }
+}
 
 #[derive(Accounts)]
 pub struct ArenaMatchmaking<'info> {
@@ -80,7 +96,8 @@ pub struct ArenaMatchmakingQueueJoined {
     pub spaceship: SpaceShipLite,
 }
 
-pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
+#[allow(unused_variables)]
+pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Result<()> {
     // cancel pending switchboard function request if stale
     {
         let spaceship = &mut ctx.accounts.spaceship;
@@ -96,12 +113,6 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
     
     // Validations
     {
-        // verify that the user has spent his level up points
-        require!(
-            !ctx.accounts.spaceship.has_pending_stat_point_or_crate(),
-            HologramError::PendingStatOrPowerup
-        );
-
         // verify that the user is not in the process of registering for the arena already
         require!(
             !ctx.accounts.spaceship.arena_matchmaking.switchboard_request_info.is_requested(),
@@ -187,12 +198,13 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
                 {
                     let request_set_config_ctx = FunctionRequestSetConfig { request: ctx.accounts.switchboard_request.clone(), authority: ctx.accounts.admin.clone() };
                     let request_params = format!(
-                        "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},OS_1_PDA={},OS_2_PDA={},OS_3_PDA={},OS_4_PDA={},OS_5_PDA={}",
+                        "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},FACTION={},OS_1_PDA={},OS_2_PDA={},OS_3_PDA={},OS_4_PDA={},OS_5_PDA={}",
                         crate::id(),
                         ctx.accounts.user.key(),
                         realm_key,
                         ctx.accounts.user_account.key(),
                         ctx.accounts.spaceship.key(),
+                        faction as u8,
                         queue.spaceships[0].unwrap(),
                         queue.spaceships[1].unwrap(),
                         queue.spaceships[2].unwrap(),

@@ -54,6 +54,12 @@ pub enum HologramError {
     FunctionValidationFailed,
     #[msg("There is a problem with the loot table")]
     InvalidLootTable,
+    #[msg("The ingame spaceship wallet doesn't have enough funds to pay for the transaction")]
+    InsufficientFunds,
+    #[msg("The spaceship does not have sufficient unspent stat points to allocate")]
+    InsufficientStatPoints,
+    #[msg("The spaceship is decked out with the maximum amount of powerups")]
+    MaxPowerupScoreReached,
     #[msg("The game state does not permit this action")]
     InvalidAction,
 }

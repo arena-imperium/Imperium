@@ -123,8 +123,13 @@ pub async fn pick_crate(
         SwitchboardFunctionRequestStatus::Settled { slot: _ }
     ));
 
-    // verify that the crate drop was consumed
-    assert_eq!(spaceship.experience.available_crate, false);
+    // verify that the crate cost was debited
+    let price = crate_type.crate_price();
+    let currency = crate_type.payment_currency();
+    assert_eq!(
+        spaceship_before.wallet.get_balance(currency) - price as u16,
+        spaceship.wallet.get_balance(currency) as u16
+    );
 
     // verify presence of drop (the RNG is deterministic)
     let mut rng = RandomNumberGenerator::new(generated_seed as u64);
@@ -132,19 +137,25 @@ pub async fn pick_crate(
     let crate_outcome = crate_type.determine_outcome(crate_outcome_roll);
     match crate_outcome {
         hologram::instructions::CrateOutcome::Module { .. } => {
-            assert_eq!(spaceship.modules.len(), spaceship_before.modules.len() + 1)
+            assert_eq!(spaceship.modules.len(), spaceship_before.modules.len() + 1);
+            assert_eq!(spaceship.powerup_score, spaceship_before.powerup_score + 1);
         }
         hologram::instructions::CrateOutcome::Drone { .. } => {
-            assert_eq!(spaceship.drones.len(), spaceship_before.drones.len() + 1)
+            assert_eq!(spaceship.drones.len(), spaceship_before.drones.len() + 1);
+            assert_eq!(spaceship.powerup_score, spaceship_before.powerup_score + 1);
         }
-        hologram::instructions::CrateOutcome::Mutation => assert_eq!(
-            spaceship.mutations.len(),
-            spaceship_before.mutations.len() + 1
-        ),
+        hologram::instructions::CrateOutcome::Mutation => {
+            assert_eq!(
+                spaceship.mutations.len(),
+                spaceship_before.mutations.len() + 1
+            );
+            assert_eq!(spaceship.powerup_score, spaceship_before.powerup_score + 1);
+        }
         hologram::instructions::CrateOutcome::Scam => {
             assert_eq!(spaceship.modules.len(), spaceship_before.modules.len());
             assert_eq!(spaceship.drones.len(), spaceship_before.drones.len());
             assert_eq!(spaceship.mutations.len(), spaceship_before.mutations.len());
+            assert_eq!(spaceship.powerup_score, spaceship_before.powerup_score);
         }
     }
 

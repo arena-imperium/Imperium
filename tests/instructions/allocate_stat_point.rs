@@ -48,7 +48,13 @@ pub async fn allocate_stat_point(
     // ==== THEN ==============================================================
     let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
 
-    assert_eq!(spaceship.experience.available_stat_points, false);
+    // verify that we debited a stat point
+    assert_eq!(
+        spaceship.experience.available_stat_points,
+        spaceship_before.experience.available_stat_points - 1
+    );
+
+    // verify that the stat was increased
     match stat_type {
         StatType::ArmorLayering => assert_eq!(
             spaceship.stats.armor_layering,

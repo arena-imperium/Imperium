@@ -385,7 +385,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         // all stats defaulted to 0
 
         // experience fields defaulted to 0
-        spaceship.experience.exp_to_next_level = spaceship.experience_to_next_level();
+        spaceship.experience.exp_to_next_level = spaceship.experience.experience_to_next_level();
 
         // hull is rolled during settle callback
     }

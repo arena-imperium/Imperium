@@ -89,11 +89,7 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
 
     // Validations
     {
-        // verify that the user has an available crate
-        require!(
-            ctx.accounts.spaceship.experience.available_crate,
-            HologramError::NoCrateAvailable
-        );
+        // necessary funds validation is done in the settlements
 
         // verify that the user is not in the process of requesting to pick a crate already
         require!(

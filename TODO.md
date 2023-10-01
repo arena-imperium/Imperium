@@ -2,6 +2,15 @@
 
 ## Smart Contract
 
+- add fuel capacity increase per lvl from 10-16
+- rename BlakcMarket crate by BiomechanicalCache
+- add currency wallet per spaceship
+- tweak XP gains, loose don't get XP, only winner
+- add currency gain, looser get half XP value, winner gets XP value
+- change the pick_crate_IX to select the faction (and pay currency)
+
+- add new drones and mutatio to the LT
+
 - test claim_fuel_allowance
 
 - in pick_crate_settle the spaceship should allocate more space to accomodate for the drop

@@ -3,7 +3,7 @@ use {
     crate::{utils::pda, IMPERIUM_AMF, SWITCHBOARD_ATTESTATION_QUEUE},
     anchor_lang::ToAccountMetas,
     hologram::{
-        instructions::roll_opponent_spaceship,
+        instructions::{roll_opponent_spaceship, Faction},
         state::{MatchMakingStatus, Realm, SpaceShip, SwitchboardFunctionRequestStatus},
         utils::RandomNumberGenerator,
     },
@@ -22,6 +22,7 @@ pub async fn arena_matchmaking(
     realm_pda: &Pubkey,
     realm_admin: &Pubkey,
     spaceship_pda: &Pubkey,
+    faction: Faction,
 ) -> std::result::Result<(), BanksClientError> {
     let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
     let realm_before = utils::get_account::<Realm>(program_test_ctx, &realm_pda).await;
@@ -70,7 +71,7 @@ pub async fn arena_matchmaking(
     utils::create_and_execute_hologram_ix(
         program_test_ctx,
         accounts_meta,
-        hologram::instruction::ArenaMatchmaking {},
+        hologram::instruction::ArenaMatchmaking { faction },
         Some(&user.pubkey()),
         &[user],
         None,
@@ -165,7 +166,10 @@ pub async fn arena_matchmaking(
         utils::create_and_execute_hologram_ix(
             program_test_ctx,
             accounts_meta,
-            hologram::instruction::ArenaMatchmakingSettle { generated_seed },
+            hologram::instruction::ArenaMatchmakingSettle {
+                generated_seed,
+                faction,
+            },
             Some(&user.pubkey()),
             &[&user, &enclave_signer],
             None,
@@ -211,6 +215,9 @@ pub async fn arena_matchmaking(
             matchmaking_queue.matchmaking_request_count,
             matchmaking_queue_before.matchmaking_request_count - 1
         );
+
+        // XP distributed
+        // Currencies distributed
 
         // matchmaking status updated (for both participants)
         assert!(matches!(

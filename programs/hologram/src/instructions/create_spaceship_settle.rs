@@ -10,6 +10,7 @@ use {
     switchboard_solana::{self, FunctionAccountData},
 };
 
+use spaceship::Currency;
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
 
@@ -126,8 +127,13 @@ pub fn create_spaceship_settle(
     // mount starter weapon
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        spaceship.experience.grant_power_up();
+        // provide starter weapon
         spaceship.modules.push(LT_STARTER_WEAPON.clone());
+        spaceship.powerup_score = 1;
+        // provide 1 stat point
+        spaceship.experience.credit_stat_point(1);
+        // provide currency for 1 NI crate
+        spaceship.wallet.credit(30, Currency::ImperialCredit)?;
     }
 
     let spaceship_lite =  SpaceShipLite {

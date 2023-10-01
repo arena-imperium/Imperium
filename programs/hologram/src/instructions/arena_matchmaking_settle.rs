@@ -15,6 +15,8 @@ use {
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
 
+use super::user_facing::Faction;
+
 #[derive(Accounts)]
 pub struct ArenaMatchmakingSettle<'info> {
 
@@ -97,6 +99,7 @@ pub struct ArenaMatchmakingMatchExited {
 pub fn arena_matchmaking_settle(
     ctx: Context<ArenaMatchmakingSettle>,
     generated_seed: u32,
+    faction: Faction,
 ) -> Result<()> {
     // Validations
     {
@@ -168,9 +171,10 @@ pub fn arena_matchmaking_settle(
         FightEngine::fight(spaceship, opponent_spaceship, generated_seed)
     };
     
-    // distribute experience to participants
+    // distribute rewards to participants
     {
         FightEngine::distribute_arena_experience(winner, looser);
+        FightEngine::distribute_arena_currency(winner, faction)?;
     }
 
     // advance seeds

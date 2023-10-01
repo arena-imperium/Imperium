@@ -7,7 +7,7 @@ use {
         BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP, DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO,
         HULL_HITPOINTS_PER_LEVEL, JAMMING_NULLIFYING_CHANCE_CAP,
         JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_LEVEL,
-        MAX_XP_PER_LEVEL, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
+        MAX_POWERUP_SCORE, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
         SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION, XP_REQUIERED_PER_LEVEL_MULT,
     },
     anchor_lang::prelude::*,
@@ -31,6 +31,9 @@ pub struct SpaceShip {
     // The resource used to join the Arena. Respenish daily.
     pub fuel: Fuel,
     pub experience: Experience,
+    // The "gear level" of the ship. Max of MAX_POWERUP_SCORE
+    pub powerup_score: u8,
+    pub wallet: Wallet,
     pub modules: Vec<Module>,
     pub drones: Vec<Drone>,
     pub mutations: Vec<Mutation>,
@@ -101,38 +104,87 @@ pub struct Experience {
     pub current_level: u8,
     pub current_exp: u16,
     pub exp_to_next_level: u16,
-    pub available_stat_points: bool,
-    pub available_crate: bool,
+    pub available_stat_points: u8,
 }
 
 impl Experience {
-    pub fn increase(&mut self, amount: u8) {
-        self.current_exp += amount as u16;
-        if self.current_exp >= self.exp_to_next_level {
-            self.level_up();
-        }
+    pub fn credit_stat_point(&mut self, amount: u8) {
+        self.available_stat_points += amount;
     }
 
-    fn level_up(&mut self) {
-        if self.current_level >= MAX_LEVEL {
-            return;
-        }
-        self.current_level += 1;
-        self.current_exp -= self.exp_to_next_level;
-        self.exp_to_next_level = self.experience_to_next_level();
-        self.grant_power_up()
+    pub fn debit_stat_point(&mut self, amount: u8) -> Result<()> {
+        require!(
+            self.available_stat_points >= amount,
+            HologramError::InsufficientStatPoints
+        );
+        self.available_stat_points -= amount;
+        Ok(())
     }
 
-    // Used to grant power up to the player when he levels up (and at initialization)
-    pub fn grant_power_up(&mut self) {
-        self.available_stat_points = true;
-        self.available_crate = true;
-    }
-
+    // return the amount of experience needed to reach the next level
+    // formula: next_level * XP_REQUIERED_PER_LEVEL_MULT, capped at MAX_XP_PER_LEVEL
     pub fn experience_to_next_level(&self) -> u16 {
-        let xp_to_next_level = (self.current_level + 1) * XP_REQUIERED_PER_LEVEL_MULT;
-        std::cmp::min(xp_to_next_level.into(), MAX_XP_PER_LEVEL)
+        (self.current_level as u16 + 1) * XP_REQUIERED_PER_LEVEL_MULT as u16
     }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
+pub struct Wallet {
+    pub imperial_credits: u16,
+    pub activate_nanite_paste: u16,
+}
+
+impl Wallet {
+    pub fn get_balance(&self, currency: Currency) -> u16 {
+        match currency {
+            Currency::ImperialCredit => self.imperial_credits,
+            Currency::ActivateNanitePaste => self.activate_nanite_paste,
+        }
+    }
+
+    pub fn debit(&mut self, amount: u16, currency: Currency) -> Result<()> {
+        match currency {
+            Currency::ImperialCredit => {
+                require!(
+                    self.imperial_credits >= amount,
+                    HologramError::InsufficientFunds
+                );
+                self.imperial_credits -= amount;
+            }
+            Currency::ActivateNanitePaste => {
+                require!(
+                    self.activate_nanite_paste >= amount,
+                    HologramError::InsufficientFunds
+                );
+                self.activate_nanite_paste -= amount;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn credit(&mut self, amount: u16, currency: Currency) -> Result<()> {
+        match currency {
+            Currency::ImperialCredit => {
+                self.imperial_credits = self
+                    .imperial_credits
+                    .checked_add(amount)
+                    .ok_or(HologramError::Overflow)?;
+            }
+            Currency::ActivateNanitePaste => {
+                self.activate_nanite_paste = self
+                    .activate_nanite_paste
+                    .checked_add(amount)
+                    .ok_or(HologramError::Overflow)?;
+            }
+        };
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum Currency {
+    ImperialCredit,
+    ActivateNanitePaste,
 }
 
 // Randomness is initially seeded using a Switchboard Function (custom).
@@ -281,18 +333,61 @@ impl SpaceShip {
 
     // informs wether the spaceship has available stat or crate point to spend.
     // Untils these are spent, he is barred from entering the arena
-    pub fn has_pending_stat_point_or_crate(&self) -> bool {
-        self.experience.available_stat_points || self.experience.available_crate
+    pub fn has_available_stat_point(&self) -> bool {
+        self.experience.available_stat_points > 0
+    }
+
+    pub fn gain_experience(&mut self, amount: u8) {
+        self.experience.current_exp += amount as u16;
+        if self.experience.current_exp >= self.experience.exp_to_next_level {
+            self.level_up();
+        }
+    }
+
+    fn level_up(&mut self) {
+        if self.experience.current_level >= MAX_LEVEL {
+            return;
+        }
+        self.experience.current_level += 1;
+        self.experience.current_exp -= self.experience.exp_to_next_level;
+        self.experience.exp_to_next_level = self.experience.experience_to_next_level();
+        self.experience.credit_stat_point(1)
+    }
+
+    pub fn mount_module(&mut self, module: Module) -> Result<()> {
+        require!(
+            self.powerup_score < MAX_POWERUP_SCORE,
+            HologramError::MaxPowerupScoreReached
+        );
+        msg!("Module mounted: {:?}", module);
+        self.modules.push(module);
+        self.powerup_score += 1;
+        Ok(())
+    }
+
+    pub fn load_drone(&mut self, drone: Drone) -> Result<()> {
+        require!(
+            self.powerup_score < MAX_POWERUP_SCORE,
+            HologramError::MaxPowerupScoreReached
+        );
+        msg!("Drone loaded: {:?}", drone);
+        self.drones.push(drone);
+        self.powerup_score += 1;
+        Ok(())
+    }
+
+    pub fn apply_mutation(&mut self, mutation: Mutation) -> Result<()> {
+        require!(
+            self.powerup_score < MAX_POWERUP_SCORE,
+            HologramError::MaxPowerupScoreReached
+        );
+        msg!("Mutation applied: {:?}", mutation);
+        self.mutations.push(mutation);
+        self.powerup_score += 1;
+        Ok(())
     }
 
     // --- [Game engine code] ---
-
-    // return the amount of experience a spaceship must earn to reach the next level
-    // formula: next_level * XP_REQUIERED_PER_LEVEL_MULT, capped at MAX_XP_PER_LEVEL
-    pub fn experience_to_next_level(&self) -> u16 {
-        let xp_to_next_level = (self.experience.current_level + 1) * XP_REQUIERED_PER_LEVEL_MULT;
-        std::cmp::min(xp_to_next_level.into(), MAX_XP_PER_LEVEL)
-    }
 
     // return hull hitpoints for a ship - Value are prefight, they will be modified by the fight engine
     // formula: BASE_HULL_HITPOINTS + (current_level * HULL_HITPOINTS_PER_LEVEL)

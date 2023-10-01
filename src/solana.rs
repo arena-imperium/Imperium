@@ -10,7 +10,7 @@ use {
     futures_lite::future,
     hologram::{
         self,
-        instructions::StatType,
+        instructions::{Faction, StatType},
         state::{SpaceShip, UserAccount},
     },
     solana_cli_output::display::println_transaction,
@@ -385,6 +385,8 @@ impl HologramServer {
         commands: &mut CommandBuffer,
         user: &Pubkey,
         spaceship_pda: &Pubkey,
+        // Location
+        faction: Faction,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
@@ -411,7 +413,7 @@ impl HologramServer {
                 spaceship.arena_matchmaking.switchboard_request_info.account;
             let switchboard_amf_request_escrow =
                 get_associated_token_address(&switchboard_amf_request, &native_mint::ID);
-            let instruction = hologram::instruction::ArenaMatchmaking {};
+            let instruction = hologram::instruction::ArenaMatchmaking { faction };
 
             let accounts = hologram::accounts::ArenaMatchmaking {
                 user,

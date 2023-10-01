@@ -52,7 +52,7 @@ impl SpaceShip {
         {
             // spaceship must have an available stat point to spend
             require!(
-                self.experience.available_stat_points,
+                self.experience.available_stat_points > 0,
                 HologramError::NoAvailableStatsPoints
             );
         }
@@ -68,7 +68,7 @@ impl SpaceShip {
 
         // spend the stat point
         {
-            self.experience.available_stat_points = false;
+            self.experience.debit_stat_point(1)?;
         }
         Ok(())
     }

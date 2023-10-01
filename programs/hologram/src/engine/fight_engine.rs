@@ -1,25 +1,31 @@
-use crate::{state::SpaceShip, utils::RandomNumberGenerator};
+use {
+    crate::{
+        instructions::user_facing::Faction, state::SpaceShip, utils::RandomNumberGenerator,
+        CURRENCY_REWARD_FOR_ARENA_WINNER,
+    },
+    anchor_lang::prelude::*,
+};
 
 pub struct FightEngine {}
 
 impl FightEngine {
     // This function is used to distribute experience points to the winner and loser of an arena match.
     // The winner gains experience points equal to the maximum of 1 and the difference between the loser's level and their own.
-    // The loser gains 1 experience point if their level is less than or equal to 5.
-    // After level 5, losing in the arena does not grant any experience points.
-    pub fn distribute_arena_experience(winner: &mut SpaceShip, looser: &mut SpaceShip) {
+    pub fn distribute_arena_experience(winner: &mut SpaceShip, looser: &SpaceShip) {
         let winner_lvl = winner.experience.current_level;
         let looser_lvl = looser.experience.current_level;
 
-        // Winning in the Arena will grant you
-        // max(1, opponent_spaceship_level - spaceship_level) XP points
+        // Winning in the Arena will grant you max(1, opponent_spaceship_level - spaceship_level) XP points
         let xp_gain = std::cmp::max(1, looser_lvl + winner_lvl);
-        winner.experience.increase(xp_gain);
+        winner.gain_experience(xp_gain);
+    }
 
-        // Loosing in the Arena will grant you *1* XP point (after lvl.5 loosing won’t grant experience).
-        if looser_lvl <= 5 {
-            looser.experience.increase(1)
-        }
+    // This function is used to distribute currency to the winner of an arena match.
+    pub fn distribute_arena_currency(winner: &mut SpaceShip, faction: Faction) -> Result<()> {
+        let currency = faction.legal_tender();
+        winner
+            .wallet
+            .credit(CURRENCY_REWARD_FOR_ARENA_WINNER as u16, currency)
     }
 
     pub fn fight<'a>(
