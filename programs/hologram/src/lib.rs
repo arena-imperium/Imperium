@@ -26,8 +26,8 @@ pub const RANDOMNESS_UPPER_BOUND: u32 = 1_000_000;
 
 // Max amount of fuel for new Spaceships
 pub const BASE_MAX_FUEL: u8 = 5;
-// Amount of fuel that is provided per day per spaceship
-pub const DAILY_FUEL_ALLOWANCE: u8 = 3;
+// Amount of fuel that is provided per period per spaceship
+pub const FUEL_ALLOWANCE_AMOUNT: u8 = 3;
 // How often the fuel allowance is provided
 pub const FUEL_ALLOWANCE_COOLDOWN: i64 = 24 * 60 * 60; // 24 hours in seconds
 

@@ -1,13 +1,10 @@
-use crate::state::{Module, Drone, Mutation};
-
 use {
     crate::{
         instructions::CrateType,
         state::{
-            Realm, SpaceShip, UserAccount,
+            Realm, SpaceShip, UserAccount, Module, Drone, Mutation, SwitchboardFunctionRequestStatus
         },
         error::HologramError,
-        state::spaceship::SwitchboardFunctionRequestStatus
     },
     anchor_lang::prelude::*,
     switchboard_solana::{AttestationQueueAccountData, AttestationProgramState, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID},

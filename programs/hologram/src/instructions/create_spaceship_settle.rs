@@ -3,14 +3,13 @@ use {
     crate::{
         engine::LT_STARTER_WEAPON,
         error::HologramError,
-        state::{spaceship, Realm, SpaceShip, SpaceShipLite, UserAccount},
+        state::{spaceship, Realm, SpaceShip, SpaceShipLite, UserAccount, Currency, SwitchboardFunctionRequestStatus},
         utils::RandomNumberGenerator,
     },
-    spaceship::{Hull, SwitchboardFunctionRequestStatus},
+    spaceship::Hull,
     switchboard_solana::{self, FunctionAccountData},
 };
 
-use spaceship::Currency;
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
 

@@ -1,14 +1,15 @@
 use {
+    super::{Experience, Fuel, SwitchboardFunctionRequestStatus, SwitchboardRequestInfo, Wallet},
     crate::{
         error::HologramError,
         utils::{LimitedString, RandomNumberGenerator},
         ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL, BASE_ARMOR_HITPOINTS, BASE_CELERITY,
         BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE,
         BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP, DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO,
-        HULL_HITPOINTS_PER_LEVEL, JAMMING_NULLIFYING_CHANCE_CAP,
+        FUEL_ALLOWANCE_AMOUNT, FUEL_ALLOWANCE_COOLDOWN, HULL_HITPOINTS_PER_LEVEL,
+        JAMMING_NULLIFYING_CHANCE_CAP,
         JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_LEVEL,
         MAX_POWERUP_SCORE, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
-        SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION, XP_REQUIERED_PER_LEVEL_MULT,
     },
     anchor_lang::prelude::*,
 };
@@ -78,115 +79,6 @@ pub struct Stats {
     pub manoeuvering: u8,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct Fuel {
-    pub max: u8,
-    pub current: u8,
-    // players can collect DAILY_FUEL_ALLOWANCE once per FUEL_ALLOWANCE_COOLDOWN period, this is the timestamp of their last collection
-    pub daily_allowance_last_collection: i64,
-}
-
-impl Fuel {
-    pub fn consume(&mut self, amount: u8) -> Result<()> {
-        require!(self.current > amount, HologramError::InsufficientFuel);
-        self.current -= amount;
-        Ok(())
-    }
-
-    pub fn refill(&mut self, amount: u8) -> Result<()> {
-        self.current = std::cmp::min(self.current + amount, self.max);
-        Ok(())
-    }
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct Experience {
-    pub current_level: u8,
-    pub current_exp: u16,
-    pub exp_to_next_level: u16,
-    pub available_stat_points: u8,
-}
-
-impl Experience {
-    pub fn credit_stat_point(&mut self, amount: u8) {
-        self.available_stat_points += amount;
-    }
-
-    pub fn debit_stat_point(&mut self, amount: u8) -> Result<()> {
-        require!(
-            self.available_stat_points >= amount,
-            HologramError::InsufficientStatPoints
-        );
-        self.available_stat_points -= amount;
-        Ok(())
-    }
-
-    // return the amount of experience needed to reach the next level
-    // formula: next_level * XP_REQUIERED_PER_LEVEL_MULT, capped at MAX_XP_PER_LEVEL
-    pub fn experience_to_next_level(&self) -> u16 {
-        (self.current_level as u16 + 1) * XP_REQUIERED_PER_LEVEL_MULT as u16
-    }
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct Wallet {
-    pub imperial_credits: u16,
-    pub activate_nanite_paste: u16,
-}
-
-impl Wallet {
-    pub fn get_balance(&self, currency: Currency) -> u16 {
-        match currency {
-            Currency::ImperialCredit => self.imperial_credits,
-            Currency::ActivateNanitePaste => self.activate_nanite_paste,
-        }
-    }
-
-    pub fn debit(&mut self, amount: u16, currency: Currency) -> Result<()> {
-        match currency {
-            Currency::ImperialCredit => {
-                require!(
-                    self.imperial_credits >= amount,
-                    HologramError::InsufficientFunds
-                );
-                self.imperial_credits -= amount;
-            }
-            Currency::ActivateNanitePaste => {
-                require!(
-                    self.activate_nanite_paste >= amount,
-                    HologramError::InsufficientFunds
-                );
-                self.activate_nanite_paste -= amount;
-            }
-        }
-        Ok(())
-    }
-
-    pub fn credit(&mut self, amount: u16, currency: Currency) -> Result<()> {
-        match currency {
-            Currency::ImperialCredit => {
-                self.imperial_credits = self
-                    .imperial_credits
-                    .checked_add(amount)
-                    .ok_or(HologramError::Overflow)?;
-            }
-            Currency::ActivateNanitePaste => {
-                self.activate_nanite_paste = self
-                    .activate_nanite_paste
-                    .checked_add(amount)
-                    .ok_or(HologramError::Overflow)?;
-            }
-        };
-        Ok(())
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum Currency {
-    ImperialCredit,
-    ActivateNanitePaste,
-}
-
 // Randomness is initially seeded using a Switchboard Function (custom).
 // The function is called once only. Randomness is then iterated over using Xorshift.
 // github: https://github.com/acamill/spaceship_seed_generation_function
@@ -219,31 +111,6 @@ pub struct ArenaMatchmaking {
     pub matchmaking_status: MatchMakingStatus,
 }
 
-impl SwitchboardRequestInfo {
-    pub fn is_requested(&self) -> bool {
-        match self.status {
-            SwitchboardFunctionRequestStatus::Requested { slot: _ } => true,
-            _ => false,
-        }
-    }
-
-    pub fn request_is_expired(&self, current_slot: u64) -> bool {
-        match self.status {
-            SwitchboardFunctionRequestStatus::Requested {
-                slot: requested_slot,
-            } => {
-                if current_slot > requested_slot + SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64
-                {
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-
 // Crate picking is handled by a Switchboard Function (custom).
 // github: https://github.com/acamill/@TODO
 // devnet: https://app.switchboard.xyz/solana/devnet/function/@TODO
@@ -251,12 +118,6 @@ impl SwitchboardRequestInfo {
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct CratePicking {
     pub switchboard_request_info: SwitchboardRequestInfo,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct SwitchboardRequestInfo {
-    pub account: Pubkey,
-    pub status: SwitchboardFunctionRequestStatus,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -288,38 +149,6 @@ pub struct Mutation {
     pub rarity: Rarity,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum SwitchboardFunctionRequestStatus {
-    // No request has been made yet
-    None,
-    // The request has been made but the callback has not been called by the Function yet
-    Requested { slot: u64 },
-    // The request has been settled. the callback has been made
-    Settled { slot: u64 },
-    // The request has expired and was not settled
-    Expired { slot: u64 },
-}
-
-// Ignore specific timestamp
-impl PartialEq for SwitchboardFunctionRequestStatus {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (SwitchboardFunctionRequestStatus::None, SwitchboardFunctionRequestStatus::None) => {
-                true
-            }
-            (
-                SwitchboardFunctionRequestStatus::Requested { slot: _ },
-                SwitchboardFunctionRequestStatus::Requested { slot: _ },
-            ) => true,
-            (
-                SwitchboardFunctionRequestStatus::Settled { slot: _ },
-                SwitchboardFunctionRequestStatus::Settled { slot: _ },
-            ) => true,
-            _ => false,
-        }
-    }
-}
-
 impl SpaceShip {
     pub const LEN: usize = 8 + std::mem::size_of::<SpaceShip>();
 
@@ -329,6 +158,20 @@ impl SpaceShip {
             SwitchboardFunctionRequestStatus::Settled { slot: _ } => true,
             _ => false,
         }
+    }
+
+    pub fn fuel_allowance_is_available(&self, current_time: i64) -> Result<bool> {
+        let cooldown = current_time
+            .checked_sub(FUEL_ALLOWANCE_COOLDOWN)
+            .ok_or(HologramError::Overflow)?;
+        Ok(self.fuel.daily_allowance_last_collection < cooldown)
+    }
+
+    // refill fuel + update timestamp
+    pub fn claim_fuel_allowance(&mut self, current_time: i64) -> Result<()> {
+        self.fuel.refill(FUEL_ALLOWANCE_AMOUNT)?;
+        self.fuel.daily_allowance_last_collection = current_time;
+        Ok(())
     }
 
     // informs wether the spaceship has available stat or crate point to spend.

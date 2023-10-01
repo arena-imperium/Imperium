@@ -1,5 +1,6 @@
 
 use {
+    super::user_facing::Faction,
     crate::{
         error::HologramError,
         state::{spaceship, Realm, SpaceShip, SpaceShipLite, UserAccount},
@@ -9,13 +10,13 @@ use {
     
     switchboard_solana::FunctionAccountData,
     std::borrow::BorrowMut,
-    spaceship::{SwitchboardFunctionRequestStatus, MatchMakingStatus}
+    spaceship::MatchMakingStatus, 
 };
 
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
 
-use super::user_facing::Faction;
+use crate::state::SwitchboardFunctionRequestStatus;
 
 #[derive(Accounts)]
 pub struct ArenaMatchmakingSettle<'info> {

@@ -4,17 +4,15 @@ use {
         engine::LootEngine,
         error::HologramError,
         state::{
-            spaceship::{self},
             Realm, SpaceShip, UserAccount,
         },
         utils::RandomNumberGenerator,
     },
-    spaceship::SwitchboardFunctionRequestStatus,
     std::borrow::BorrowMut,
     switchboard_solana::FunctionAccountData,
 };
 
-use spaceship::Currency;
+use crate::state::{Currency, SwitchboardFunctionRequestStatus};
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
 
