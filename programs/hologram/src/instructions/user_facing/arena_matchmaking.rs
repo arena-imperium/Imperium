@@ -100,6 +100,20 @@ pub struct ArenaMatchmakingQueueJoined {
     pub spaceship: SpaceShipLite,
 }
 
+#[event]
+pub struct ArenaMatchmakingMatching {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+}
+
+#[event]
+pub struct ArenaMatchmakingMatchingFailed {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+}
+
 #[allow(unused_variables)]
 pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Result<()> {
     // cancel pending switchboard function request if stale
@@ -118,6 +132,11 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
             // refund fuel cost
             spaceship.fuel.refill(ARENA_MATCHMAKING_FUEL_COST)?;
         }
+        emit!(ArenaMatchmakingMatchingFailed {
+            realm_name: ctx.accounts.realm.name.to_string(),
+            user: ctx.accounts.user.key(),
+            spaceship: SpaceShipLite::from_spaceship_account(spaceship)
+        });
     }
 
     // Validations
@@ -289,6 +308,18 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
                         slot: Realm::get_slot()?,
                     };
             }
+
+            // update matchmaking status
+            ctx.accounts.spaceship.arena_matchmaking.matchmaking_status =
+                MatchMakingStatus::Matching {
+                    slot: Realm::get_slot()?,
+                };
+
+            emit!(ArenaMatchmakingMatching {
+                realm_name: ctx.accounts.realm.name.to_string(),
+                user: ctx.accounts.user.key(),
+                spaceship: SpaceShipLite::from_spaceship_account(&ctx.accounts.spaceship)
+            });
         } else {
             msg!("Matchmaking queue is not filled, adding spaceship to queue");
             // insert spaceship in the first available slot
@@ -298,22 +329,20 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
             } else {
                 return Err(error!(HologramError::MatchmakingQueueFull)); // Should not happen as we checked the queue is not filled
             }
+
+            // update matchmaking status
+            ctx.accounts.spaceship.arena_matchmaking.matchmaking_status =
+                MatchMakingStatus::InQueue {
+                    slot: Realm::get_slot()?,
+                };
+
+            emit!(ArenaMatchmakingQueueJoined {
+                realm_name: ctx.accounts.realm.name.to_string(),
+                user: ctx.accounts.user.key(),
+                spaceship: SpaceShipLite::from_spaceship_account(&ctx.accounts.spaceship)
+            });
         }
     }
 
-    // update matchmaking status
-    ctx.accounts.spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::InQueue {
-        slot: Realm::get_slot()?,
-    };
-
-    emit!(ArenaMatchmakingQueueJoined {
-        realm_name: ctx.accounts.realm.name.to_string(),
-        user: ctx.accounts.user.key(),
-        spaceship: SpaceShipLite {
-            name: ctx.accounts.spaceship.name,
-            hull: ctx.accounts.spaceship.hull.clone(),
-            spaceship: *ctx.accounts.spaceship.to_account_info().key,
-        }
-    });
     Ok(())
 }

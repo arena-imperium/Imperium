@@ -28,17 +28,18 @@ impl FightEngine {
             .credit(CURRENCY_REWARD_FOR_ARENA_WINNER as u16, currency)
     }
 
+    // Return true if the spaceship won the fight against opponent_spaceship
     pub fn fight<'a>(
-        s1: &'a mut SpaceShip,
-        s2: &'a mut SpaceShip,
+        spaceship: &SpaceShip,
+        opponent_spaceship: &SpaceShip,
         fight_seed: u32,
-    ) -> (&'a mut SpaceShip, &'a mut SpaceShip) {
+    ) -> bool {
         let mut rng = RandomNumberGenerator::new(fight_seed as u64);
         // emulate game engine for now @TODO
         let winner_roll = rng.roll_dice(2);
         match winner_roll {
-            1 => (s1, s2),
-            2 => (s2, s1),
+            1 => true,
+            2 => false,
             _ => panic!("Invalid dice roll"),
         }
     }

@@ -1,4 +1,8 @@
-use {super::Hull, crate::utils::LimitedString, anchor_lang::prelude::*};
+use {
+    super::{Hull, SpaceShip},
+    crate::utils::LimitedString,
+    anchor_lang::prelude::*,
+};
 
 #[account()]
 #[derive(Debug)]
@@ -14,6 +18,16 @@ pub struct SpaceShipLite {
     pub name: LimitedString,
     pub hull: Hull,
     pub spaceship: Pubkey,
+}
+
+impl SpaceShipLite {
+    pub fn from_spaceship_account<'info>(spaceship: &Account<'info, SpaceShip>) -> Self {
+        Self {
+            name: spaceship.name,
+            hull: spaceship.hull,
+            spaceship: spaceship.key(),
+        }
+    }
 }
 
 impl UserAccount {

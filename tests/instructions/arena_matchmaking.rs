@@ -38,7 +38,7 @@ pub async fn arena_matchmaking(
     // ==== WHEN ==============================================================
     let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
 
-    // Fetch the user account
+    // Fetch the spaceship account
     let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
 
     let switchboard_amf_request = spaceship.arena_matchmaking.switchboard_request_info.account;

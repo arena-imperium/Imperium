@@ -46,7 +46,7 @@ pub struct SpaceShipAnalytics {
     pub total_arena_victories: u16,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum Hull {
     CommonOne,
     CommonTwo,
@@ -126,6 +126,8 @@ pub enum MatchMakingStatus {
     None,
     // the user is queued and waiting for a match
     InQueue { slot: u64 },
+    // the user is being matched
+    Matching { slot: u64 },
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]

@@ -48,7 +48,7 @@ pub struct ArenaMatchmakingSettle<'info> {
         constraint = spaceship.arena_matchmaking.switchboard_request_info.account == switchboard_request.key(),
         constraint = spaceship.owner == *user.key,
     )]
-    pub spaceship: Account<'info, SpaceShip>,
+    pub spaceship: Box<Account<'info, SpaceShip>>,
 
     #[account(
         // validate that we use the realm custom switchboard function
@@ -85,15 +85,9 @@ pub struct ArenaMatchmakingSettle<'info> {
 pub struct ArenaMatchmakingMatchCompleted {
     pub realm_name: String,
     pub user: Pubkey,
-    pub user_spaceship: SpaceShipLite,
-    pub opponent_spaceship: SpaceShipLite,
-}
-
-#[event]
-pub struct ArenaMatchmakingMatchExited {
-    pub realm_name: String,
-    pub user: Pubkey,
-    pub spaceship: SpaceShipLite,
+    pub user_won: bool,
+    pub winner: SpaceShipLite,
+    pub looser: SpaceShipLite,
 }
 
 pub fn arena_matchmaking_settle(
@@ -199,12 +193,15 @@ pub fn arena_matchmaking_settle(
     };
 
     // FIGHT
-    let (winner, looser) = {
-        let spaceship = &mut ctx.accounts.spaceship;
-        FightEngine::fight(spaceship, opponent_spaceship, generated_seed)
+    let spaceship = &mut ctx.accounts.spaceship;
+    let spaceship_won = { FightEngine::fight(spaceship, opponent_spaceship, generated_seed) };
+    let (winner, looser) = if spaceship_won {
+        (&mut *spaceship, &mut *opponent_spaceship)
+    } else {
+        (&mut *opponent_spaceship, &mut *spaceship)
     };
 
-    // distribute rewards to participants
+    // distribute rewards to winner
     {
         FightEngine::distribute_arena_experience(winner, looser)?;
         FightEngine::distribute_arena_currency(winner, faction)?;
@@ -224,6 +221,14 @@ pub fn arena_matchmaking_settle(
         looser.analytics.total_arena_matches += 1;
         winner.analytics.total_arena_victories += 1;
     }
+
+    emit!(ArenaMatchmakingMatchCompleted {
+        realm_name: ctx.accounts.realm.name.to_string(),
+        user: *ctx.accounts.user.key,
+        user_won: spaceship_won,
+        winner: SpaceShipLite::from_spaceship_account(winner),
+        looser: SpaceShipLite::from_spaceship_account(looser),
+    });
 
     #[cfg(target_os = "solana")]
     solana_program::log::sol_log_compute_units();
