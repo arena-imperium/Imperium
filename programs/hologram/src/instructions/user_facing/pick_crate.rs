@@ -1,10 +1,10 @@
 use {
     crate::{
         error::HologramError,
-        instructions::CrateType,
+        instructions::{CrateType, BMC_PRICE, NI_PRICE, PC_PRICE},
         state::{
-            Drone, Module, Mutation, Realm, SpaceShip, SwitchboardFunctionRequestStatus,
-            UserAccount,
+            Drone, Module, Mutation, Realm, SpaceShip, SpaceShipLite,
+            SwitchboardFunctionRequestStatus, UserAccount,
         },
     },
     anchor_lang::prelude::*,
@@ -33,7 +33,7 @@ pub struct PickCrate<'info> {
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
         bump = user_account.bump,
     )]
-    pub user_account: Account<'info, UserAccount>,
+    pub user_account: Box<Account<'info, UserAccount>>,
 
     // Note: Pre-emptively resize the modules/drones/mutations arrays to avoid reallocating them in the settle instruction
     // It complicates things to do so in the settle due to the payer required for reallocating
@@ -46,7 +46,7 @@ pub struct PickCrate<'info> {
         // bump = spaceship.bump,
         constraint = user_account.spaceships.iter().map(|s|{s.spaceship}).collect::<Vec<_>>().contains(&spaceship.key()),
     )]
-    pub spaceship: Account<'info, SpaceShip>,
+    pub spaceship: Box<Account<'info, SpaceShip>>,
 
     /// CHECK: validated by Switchboard CPI
     pub switchboard_state: AccountLoader<'info, AttestationProgramState>,
@@ -77,6 +77,30 @@ pub struct PickCrate<'info> {
     pub switchboard_program: AccountInfo<'info>,
 }
 
+#[event]
+pub struct PickCrateRequested {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+    pub crate_type: CrateType,
+}
+
+#[event]
+pub struct PickCrateSuccess {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+    pub crate_type: CrateType,
+    pub seed: u32,
+}
+
+#[event]
+pub struct PickCrateFailed {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+}
+
 #[allow(unused_variables)] // due to #cfg[]
 pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> {
     // cancel pending switchboard function request if stale
@@ -91,11 +115,31 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
             spaceship.crate_picking.switchboard_request_info.status =
                 SwitchboardFunctionRequestStatus::Expired { slot: current_slot };
         }
+        emit!(PickCrateFailed {
+            realm_name: ctx.accounts.realm.name.to_string().clone(),
+            user: *ctx.accounts.user.key,
+            spaceship: SpaceShipLite::from_spaceship_account(&ctx.accounts.spaceship),
+        });
     }
 
     // Validations
     {
-        // necessary funds validation is done in the settlements
+        // verify that the spaceship.wallet contains the necessary amount of currency matching the price
+        // this is done in the settlement too
+        let crate_price = match crate_type {
+            CrateType::NavyIssue => NI_PRICE,
+            CrateType::PirateContraband => PC_PRICE,
+            CrateType::BiomechanicalCache => BMC_PRICE,
+        };
+        let available_balance = ctx
+            .accounts
+            .spaceship
+            .wallet
+            .get_balance(crate_type.payment_currency());
+        require!(
+            available_balance >= crate_price as u16,
+            HologramError::InsufficientFunds
+        );
 
         // verify that the user is not in the process of requesting to pick a crate already
         require!(
@@ -189,5 +233,12 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
             slot: Realm::get_slot()?,
         };
     }
+
+    emit!(PickCrateRequested {
+        realm_name: ctx.accounts.realm.name.to_string().clone(),
+        user: *ctx.accounts.user.key,
+        spaceship: SpaceShipLite::from_spaceship_account(&ctx.accounts.spaceship),
+        crate_type,
+    });
     Ok(())
 }

@@ -60,6 +60,16 @@ pub struct InitializeRealm<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[event]
+pub struct RealmInitialized {
+    pub name: String,
+    pub pda: Pubkey,
+    pub admin: Pubkey,
+    pub spaceship_seed_generation_function: Pubkey,
+    pub arena_matchmaking_function: Pubkey,
+    pub crate_picking_function: Pubkey,
+}
+
 pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<()> {
     // Checks
     {
@@ -100,6 +110,15 @@ pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<(
             });
         }
     }
+
+    emit!(RealmInitialized {
+        name: ctx.accounts.realm.name.to_string(),
+        pda: ctx.accounts.realm.key(),
+        admin: ctx.accounts.admin.key(),
+        spaceship_seed_generation_function: ctx.accounts.spaceship_seed_generation_function.key(),
+        arena_matchmaking_function: ctx.accounts.arena_matchmaking_function.key(),
+        crate_picking_function: ctx.accounts.crate_picking_function.key(),
+    });
 
     Ok(())
 }

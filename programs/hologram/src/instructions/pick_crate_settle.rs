@@ -4,7 +4,11 @@ use {
     crate::{
         engine::LootEngine,
         error::HologramError,
-        state::{Currency, Realm, SpaceShip, SwitchboardFunctionRequestStatus, UserAccount},
+        instructions::user_facing::PickCrateSuccess,
+        state::{
+            Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
+            UserAccount,
+        },
         utils::RandomNumberGenerator,
     },
     anchor_lang::prelude::*,
@@ -16,7 +20,7 @@ use {
 
 pub const NI_CURRENCY: Currency = Currency::ImperialCredit;
 pub const NI_PRICE: u8 = 25;
-//s
+//
 pub const NI_MODULE_CHANCE: u8 = 80;
 pub const NI_DRONE_CHANCE: u8 = 20;
 pub const NI_MUTATION_CHANCE: u8 = 0;
@@ -182,6 +186,15 @@ pub fn pick_crate_settle(
                 slot: Realm::get_slot()?,
             };
         }
+
+        emit!(PickCrateSuccess {
+            realm_name: ctx.accounts.realm.name.to_string().clone(),
+            user: *ctx.accounts.user.key,
+            spaceship: SpaceShipLite::from_spaceship_account(&ctx.accounts.spaceship),
+            crate_type,
+            seed: generated_seed,
+        });
+
         Ok(())
     }
 }

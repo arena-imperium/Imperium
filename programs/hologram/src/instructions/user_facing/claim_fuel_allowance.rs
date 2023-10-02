@@ -37,7 +37,7 @@ pub struct FuelAllowanceClaimed {
     pub realm_name: String,
     pub user: Pubkey,
     pub spaceship: Pubkey,
-    pub collection_timestamp: i64,
+    pub claim_timestamp: i64,
 }
 
 pub fn claim_fuel_allowance(ctx: Context<ClaimFuelAllowance>) -> Result<()> {
@@ -64,7 +64,7 @@ pub fn claim_fuel_allowance(ctx: Context<ClaimFuelAllowance>) -> Result<()> {
         realm_name: ctx.accounts.realm.name.to_string(),
         user: ctx.accounts.user.key(),
         spaceship: ctx.accounts.spaceship.key(),
-        collection_timestamp: current_time,
+        claim_timestamp: current_time,
     });
 
     Ok(())
