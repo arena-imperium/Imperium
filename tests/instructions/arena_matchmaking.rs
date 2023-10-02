@@ -110,10 +110,17 @@ pub async fn arena_matchmaking(
     assert_eq!(spaceship.fuel.current, spaceship_before.fuel.current - 1);
 
     // matchmaking status updated
-    assert!(matches!(
-        spaceship.arena_matchmaking.matchmaking_status,
-        MatchMakingStatus::InQueue { slot: _ }
-    ));
+    if matchmaking_queue_before.is_filled() {
+        assert!(matches!(
+            spaceship.arena_matchmaking.matchmaking_status,
+            MatchMakingStatus::Matching { slot: _ }
+        ));
+    } else {
+        assert!(matches!(
+            spaceship.arena_matchmaking.matchmaking_status,
+            MatchMakingStatus::InQueue { slot: _ }
+        ));
+    }
 
     // ==== AND ===============================================================
     // Because using the localnet/banksclient setup we cannot rely on switchboard function, we call the settlement directly

@@ -5,7 +5,6 @@ use {
         ClientError, Cluster, Program,
     },
     bevy_tasks::{IoTaskPool, Task},
-    borsh::BorshDeserialize,
     comfy::{hecs::*, log, CommandBuffer},
     futures_lite::future,
     hologram::{
@@ -408,6 +407,118 @@ impl HologramServer {
         ));
     }
 
+    /// This function fires a claim_fuel_allowance task.
+    /// This will attempt to get the periodical free fuel allowance for a given spaceship.
+    ///
+    /// Parameters:
+    /// commands: CommandBuffer
+    /// spaceship_pda: Pubkey of the spaceship to claim the fuel allowance for
+    /// user: The user making the call (user_account is derived)
+    pub fn fire_claim_fuel_allowance_task(
+        &self,
+        commands: &mut CommandBuffer,
+        realm_pda: &Pubkey,
+        user: &Pubkey,
+        spaceship_pda: &Pubkey,
+    ) {
+        let thread_pool = IoTaskPool::get();
+        let client = Arc::clone(&self.solana_client);
+        let realm_pda = realm_pda.clone();
+        let user = user.clone();
+        let payer = client.payer().clone();
+        let spaceship_pda = spaceship_pda.clone();
+
+        let task = thread_pool.spawn(async move {
+            log::info!("<Solana> Sending claim_fuel_allowance IX");
+            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+            let instruction = hologram::instruction::ClaimFuelAllowance {};
+
+            let accounts = hologram::accounts::ClaimFuelAllowance {
+                user,
+                realm: realm_pda,
+                user_account: user_account_pda,
+                spaceship: spaceship_pda,
+            };
+
+            Self::send_and_confirm_instruction_blocking(
+                client,
+                hologram::id(),
+                instruction,
+                accounts,
+                payer,
+                vec![],
+                50_000,
+            )
+        });
+
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "claim_fuel_allowance".to_string(),
+                task,
+            },
+            false,
+        ));
+    }
+
+    /// This function fires a claim_fuel_allowance task.
+    /// This will attempt to get the periodical free fuel allowance for a given spaceship.
+    ///
+    /// Anchor events:
+    /// - StatPointAllocated: inform that the stat point was allocated and to which stat type.
+    /// Parameters:
+    /// commands: CommandBuffer
+    /// realm_pda: Pubkey
+    /// user: The user making the call (user_account is derived)
+    /// spaceship_pda: Pubkey of the spaceship to claim the stat point for
+    /// stat_type: the stat type to allocate the point to
+    pub fn fire_allocate_stat_point_task(
+        &self,
+        commands: &mut CommandBuffer,
+        realm_pda: &Pubkey,
+        user: &Pubkey,
+        spaceship_pda: &Pubkey,
+        stat_type: StatType,
+    ) {
+        let thread_pool = IoTaskPool::get();
+        let client = Arc::clone(&self.solana_client);
+        let realm_pda = realm_pda.clone();
+        let user = user.clone();
+        let payer = client.payer().clone();
+        let spaceship_pda = spaceship_pda.clone();
+
+        let task = thread_pool.spawn(async move {
+            log::info!("<Solana> Sending allocate_stat_point IX");
+
+            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+            let instruction = hologram::instruction::AllocateStatPoint { stat_type };
+
+            let accounts = hologram::accounts::AllocateStatPoint {
+                user,
+                realm: realm_pda,
+                user_account: user_account_pda,
+                spaceship: spaceship_pda,
+            };
+
+            Self::send_and_confirm_instruction_blocking(
+                client,
+                hologram::id(),
+                instruction,
+                accounts,
+                payer,
+                vec![],
+                50_000,
+            )
+        });
+
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "allocate_stat_point".to_string(),
+                task,
+            },
+            false,
+        ));
+    }
+
     /// This function fires an arena matchmaking task.
     /// This will register the spaceship in the matchmaking queue.
     /// It triggers an offchain SBf() for the settlement callback. There is a 30 second timeout.
@@ -490,101 +601,6 @@ impl HologramServer {
         commands.spawn((
             SolanaTransactionTask {
                 description: "arena_matchmaking".to_string(),
-                task,
-            },
-            false,
-        ));
-    }
-
-    pub fn fire_claim_fuel_allowance_task(
-        &self,
-        commands: &mut CommandBuffer,
-        spaceship_pda: &Pubkey,
-        user: &Pubkey,
-    ) {
-        let thread_pool = IoTaskPool::get();
-        let client = Arc::clone(&self.solana_client);
-        let realm_name = self.realm_name.clone();
-        let user = user.clone();
-        let payer = client.payer().clone();
-        let spaceship_pda = spaceship_pda.clone();
-
-        let task = thread_pool.spawn(async move {
-            log::info!("<Solana> Sending claim_fuel_allowance IX");
-
-            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
-            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
-            let instruction = hologram::instruction::ClaimFuelAllowance {};
-
-            let accounts = hologram::accounts::ClaimFuelAllowance {
-                user,
-                realm: realm_pda,
-                user_account: user_account_pda,
-                spaceship: spaceship_pda,
-            };
-
-            Self::send_and_confirm_instruction_blocking(
-                client,
-                hologram::id(),
-                instruction,
-                accounts,
-                payer,
-                vec![],
-                50_000,
-            )
-        });
-
-        commands.spawn((
-            SolanaTransactionTask {
-                description: "claim_fuel_allowance".to_string(),
-                task,
-            },
-            false,
-        ));
-    }
-
-    pub fn fire_allocate_stat_point_task(
-        &self,
-        commands: &mut CommandBuffer,
-        realm_pda: &Pubkey,
-        user: &Pubkey,
-        spaceship_pda: &Pubkey,
-        stat_type: StatType,
-    ) {
-        let thread_pool = IoTaskPool::get();
-        let client = Arc::clone(&self.solana_client);
-        let realm_pda = realm_pda.clone();
-        let user = user.clone();
-        let payer = client.payer().clone();
-        let spaceship_pda = spaceship_pda.clone();
-
-        let task = thread_pool.spawn(async move {
-            log::info!("<Solana> Sending allocate_stat_point IX");
-
-            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
-            let instruction = hologram::instruction::AllocateStatPoint { stat_type };
-
-            let accounts = hologram::accounts::AllocateStatPoint {
-                user,
-                realm: realm_pda,
-                user_account: user_account_pda,
-                spaceship: spaceship_pda,
-            };
-
-            Self::send_and_confirm_instruction_blocking(
-                client,
-                hologram::id(),
-                instruction,
-                accounts,
-                payer,
-                vec![],
-                50_000,
-            )
-        });
-
-        commands.spawn((
-            SolanaTransactionTask {
-                description: "allocate_stat_point".to_string(),
                 task,
             },
             false,
