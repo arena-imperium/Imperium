@@ -100,6 +100,8 @@ pub struct HologramServer {
     pub spaceship_seed_generation_function: Pubkey,
     pub arena_matchmaking_function: Pubkey,
     pub crate_picking_function: Pubkey,
+    // Switchboard attestation queue
+    pub switchboard_attestation_queue: Pubkey,
 }
 
 impl Default for HologramServer {
@@ -138,6 +140,10 @@ impl Default for HologramServer {
                 "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG",
             )
             .unwrap(), // @HARDCODED
+            switchboard_attestation_queue: Pubkey::from_str(
+                "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE", // @HARDCODED @TODO
+            )
+            .unwrap(),
         }
     }
 }
@@ -331,6 +337,7 @@ impl HologramServer {
         let crate_picking_function = self.crate_picking_function;
         let spaceship_name = spaceship_name.clone();
         let payer = client.payer().clone();
+        let switchboard_attestation_queue = self.switchboard_attestation_queue;
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending create_spaceship IX");
@@ -372,10 +379,7 @@ impl HologramServer {
                 user_account: user_account_pda,
                 spaceship: spaceship_pda,
                 switchboard_state: switchboard_state_pda,
-                switchboard_attestation_queue: Pubkey::from_str(
-                    "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE", // @HARDCODED @TODO
-                )
-                .unwrap(),
+                switchboard_attestation_queue,
                 spaceship_seed_generation_function,
                 switchboard_ssgf_request: switchboard_ssgf_request_keypair.pubkey(),
                 switchboard_ssgf_request_escrow,
@@ -564,6 +568,7 @@ impl HologramServer {
         let user = user.clone();
         let spaceship_pda = spaceship_pda.clone();
         let payer = client.payer().clone();
+        let switchboard_attestation_queue = self.switchboard_attestation_queue;
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending arena_matchmaking IX");
@@ -588,10 +593,7 @@ impl HologramServer {
                 user_account: user_account_pda,
                 spaceship: spaceship_pda,
                 switchboard_state: switchboard_state_pda,
-                switchboard_attestation_queue: Pubkey::from_str(
-                    "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE",
-                )
-                .unwrap(),
+                switchboard_attestation_queue,
                 arena_matchmaking_function,
                 switchboard_request: switchboard_amf_request,
                 switchboard_request_escrow: switchboard_amf_request_escrow,
@@ -649,6 +651,7 @@ impl HologramServer {
         let user = user.clone();
         let spaceship_pda = spaceship_pda.clone();
         let payer = client.payer().clone();
+        let switchboard_attestation_queue = self.switchboard_attestation_queue;
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending pick_crate IX");
@@ -672,10 +675,7 @@ impl HologramServer {
                 user_account: user_account_pda,
                 spaceship: spaceship_pda,
                 switchboard_state: switchboard_state_pda,
-                switchboard_attestation_queue: Pubkey::from_str(
-                    "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE",
-                )
-                .unwrap(),
+                switchboard_attestation_queue,
                 crate_picking_function,
                 switchboard_request: switchboard_cpf_request,
                 switchboard_request_escrow: switchboard_cpf_request_escrow,
