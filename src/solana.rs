@@ -1,7 +1,10 @@
 pub use anchor_client::Client as AnchorClient;
 use {
     anchor_client::{
-        anchor_lang::{prelude::System, Id},
+        anchor_lang::{
+            prelude::{Result, System},
+            Id,
+        },
         ClientError, Cluster, Program,
     },
     bevy_tasks::{IoTaskPool, Task},
@@ -21,7 +24,7 @@ use {
     },
     solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
     spl_associated_token_account::get_associated_token_address,
-    std::{any::type_name, env, fmt, str::FromStr, sync::Arc},
+    std::{any::type_name, env, fmt, ops::Deref, str::FromStr, sync::Arc},
     switchboard_solana::{
         anchor_spl::token::spl_token::native_mint, AccountDeserialize, Discriminator,
     },
@@ -763,6 +766,26 @@ impl HologramServer {
             false,
         ));
     }
+
+    // pub async fn events<C: Deref<Target = impl Signer> + Clone>(&self, pid: Pubkey) -> Result<()> {
+    //     let client = Arc::clone(&self.solana_client);
+    //     let program = client.program(pid)?;
+
+    //     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+    //     let event_unsubscriber = program
+    //         .on(move |_, event: MyEvent| {
+    //             if sender.send(event).is_err() {
+    //                 println!("Error while transferring the event.")
+    //             }
+    //         })
+    //         .await?;
+
+    //     let event = receiver.recv().await.unwrap();
+    //     assert_eq!(event.data, 5);
+    //     assert_eq!(event.label, "hello".to_string());
+
+    //     Ok(())
+    // }
 
     /// Sends and confirms an instruction to the Solana cluster
     fn send_and_confirm_instruction_blocking(
