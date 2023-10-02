@@ -1,10 +1,7 @@
 pub use anchor_client::Client as AnchorClient;
 use {
     anchor_client::{
-        anchor_lang::{
-            prelude::{Result, System},
-            Id,
-        },
+        anchor_lang::{prelude::System, Id},
         ClientError, Cluster, Program,
     },
     bevy_tasks::{IoTaskPool, Task},
@@ -24,7 +21,7 @@ use {
     },
     solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding},
     spl_associated_token_account::get_associated_token_address,
-    std::{any::type_name, env, fmt, ops::Deref, str::FromStr, sync::Arc},
+    std::{any::type_name, env, fmt, str::FromStr, sync::Arc},
     switchboard_solana::{
         anchor_spl::token::spl_token::native_mint, AccountDeserialize, Discriminator,
     },
@@ -35,8 +32,8 @@ pub struct SolanaTransactionTask {
     pub task: Task<Result<EncodedConfirmedTransactionWithStatusMeta, SolanaTransactionTaskError>>,
 }
 
-pub fn solana_transaction_task_handler(mut commands: &mut CommandBuffer, mut world: &mut World) {
-    for (entity, (task, &flag)) in world.query_mut::<(&mut SolanaTransactionTask, &bool)>() {
+pub fn solana_transaction_task_handler(commands: &mut CommandBuffer, world: &mut World) {
+    for (entity, (task, &_flag)) in world.query_mut::<(&mut SolanaTransactionTask, &bool)>() {
         match future::block_on(future::poll_once(&mut task.task)) {
             Some(result) => {
                 let status = match result {
