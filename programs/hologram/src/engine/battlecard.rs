@@ -69,22 +69,8 @@ impl SpaceShipBattleCard {
     }
 
     pub fn apply_damage(&mut self, damage: [Damage; 4], did_crit: bool) {
-        if self.shield_hitpoints.current > 0 {
-            self.shield_hitpoints.current -= damage[0];
-            if self.shield_hitpoints.current < 0 {
-                self.shield_hitpoints.current = 0;
-            }
-        } else if self.armor_hitpoints.current > 0 {
-            self.armor_hitpoints.current -= damage[1];
-            if self.armor_hitpoints.current < 0 {
-                self.armor_hitpoints.current = 0;
-            }
-        } else {
-            self.hull_hitpoints.current -= damage[2];
-            if self.hull_hitpoints.current < 0 {
-                self.hull_hitpoints.current = 0;
-            }
-        }
+        // if self.shield_hitpoints.current > 0 {
+
     }
 
     // /// go through each passive powerup
