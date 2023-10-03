@@ -1,3 +1,4 @@
+pub mod engine;
 pub mod error;
 pub mod instructions;
 pub mod state;
@@ -15,24 +16,23 @@ declare_id!("Hologram1111");
 pub const SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION: u8 = 75;
 
 pub const SHORT_LIMITED_STRING_MAX_LENGTH: usize = 64;
-pub const LONG_LIMITED_STRING_MAX_LENGTH: usize = 256;
+
+// PowerUp score is the sum of all the powerups for a ship.
+pub const MAX_POWERUP_SCORE: u8 = MAX_LEVEL;
+pub const CURRENCY_REWARD_FOR_ARENA_WINNER: u8 = 3;
 
 pub const RANDOMNESS_LOWER_BOUND: u32 = 1;
 pub const RANDOMNESS_UPPER_BOUND: u32 = 1_000_000;
-pub const SPACESHIP_RANDOMNESS_FUNCTION_FEE: u64 = 0;
-pub const ARENA_MATCHMAKING_FUNCTION_FEE: u64 = 0;
 
 // Max amount of fuel for new Spaceships
 pub const BASE_MAX_FUEL: u8 = 5;
-// Amount of fuel that is provided per day per spaceship
-pub const DAILY_FUEL_ALLOWANCE: u8 = 3;
+// Amount of fuel that is provided per period per spaceship
+pub const FUEL_ALLOWANCE_AMOUNT: u8 = 3;
 // How often the fuel allowance is provided
 pub const FUEL_ALLOWANCE_COOLDOWN: i64 = 24 * 60 * 60; // 24 hours in seconds
 
 // Experience required for next level is equal to next_level * XP_REQUIERED_PER_LEVEL_MULT
 pub const XP_REQUIERED_PER_LEVEL_MULT: u8 = 5;
-// Maximum amount of xp for next level (caps the above calculation)
-pub const MAX_XP_PER_LEVEL: u16 = 50;
 // Maximum spaceship level -  MUST be an even number
 pub const MAX_LEVEL: u8 = 16;
 
@@ -71,7 +71,7 @@ solana_security_txt::security_txt! {
     auditors: "None"
 }
 
-pub const MAX_SPACESHIPS_PER_USER_ACCOUNT: usize = 25;
+pub const MAX_SPACESHIPS_PER_USER_ACCOUNT: usize = 10;
 
 #[program]
 pub mod hologram {
@@ -108,16 +108,17 @@ pub mod hologram {
     }
 
     // Queue for matchmaking in the arena (softcore)
-    pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>) -> Result<()> {
-        instructions::arena_matchmaking(ctx)
+    pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Result<()> {
+        instructions::arena_matchmaking(ctx, faction)
     }
     // Switchboard function callback
     // pairs up the spaceship with another one from the matchmaking queue and start the fight
     pub fn arena_matchmaking_settle(
         ctx: Context<ArenaMatchmakingSettle>,
         generated_seed: u32,
+        faction: Faction,
     ) -> Result<()> {
-        instructions::arena_matchmaking_settle(ctx, generated_seed)
+        instructions::arena_matchmaking_settle(ctx, generated_seed, faction)
     }
 
     // Once per FUEL_ALLOWANCE_COOLDOWN players can claim free Fuel for each of their spaceships
@@ -130,7 +131,17 @@ pub mod hologram {
         instructions::allocate_stat_point(ctx, stat_type)
     }
 
-    // pub fn pick_power_up(ctx: Context<PickPowerUp>, type: PowerUpType) -> Result<()> {
-    //     instructions::pick_power_up(ctx, power_up)
-    // }
+    // Pick a crate reward (once per level), will roll for a RNG based drop to power up the spaceship
+    pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> {
+        instructions::pick_crate(ctx, crate_type)
+    }
+    // Switchboard function callback
+    // given the choosen crate, pick the reward using the generated_seed
+    pub fn pick_crate_settle(
+        ctx: Context<PickCrateSettle>,
+        generated_seed: u32,
+        crate_type: CrateType,
+    ) -> Result<()> {
+        instructions::pick_crate_settle(ctx, generated_seed, crate_type)
+    }
 }

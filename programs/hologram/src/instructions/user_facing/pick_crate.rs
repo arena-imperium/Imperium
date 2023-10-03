@@ -1,16 +1,17 @@
-use switchboard_solana::{AttestationQueueAccountData, AttestationProgramState, FunctionAccountData, SWITCHBOARD_ATTESTATION_PROGRAM_ID, FunctionRequestSetConfig, FunctionRequestTrigger};
-
-use crate::{error::HologramError, state::spaceship::SwitchboardFunctionRequestStatus, SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION};
-
 use {
     crate::{
-        instructions::CrateType,
+        error::HologramError,
+        instructions::{CrateType, BMC_PRICE, NI_PRICE, PC_PRICE},
         state::{
-            Realm, SpaceShip, UserAccount,
+            Drone, Module, Mutation, Realm, SpaceShip, SpaceShipLite,
+            SwitchboardFunctionRequestStatus, UserAccount,
         },
     },
     anchor_lang::prelude::*,
-    switchboard_solana,
+    switchboard_solana::{
+        AttestationProgramState, AttestationQueueAccountData, FunctionAccountData,
+        SWITCHBOARD_ATTESTATION_PROGRAM_ID,
+    },
 };
 
 #[derive(Accounts)]
@@ -32,16 +33,22 @@ pub struct PickCrate<'info> {
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
         bump = user_account.bump,
     )]
-    pub user_account: Account<'info, UserAccount>,
+    pub user_account: Box<Account<'info, UserAccount>>,
 
+    // Note: Pre-emptively resize the modules/drones/mutations arrays to avoid reallocating them in the settle instruction
+    // It complicates things to do so in the settle due to the payer required for reallocating
     #[account(
         mut,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
-        bump = spaceship.bump,
+        realloc = SpaceShip::LEN + std::mem::size_of::<Module>() * (spaceship.modules.len() + 1) + std::mem::size_of::<Drone>() * (spaceship.drones.len() + 1) + std::mem::size_of::<Mutation>() * (spaceship.mutations.len() + 1),
+        realloc::payer = user,
+        realloc::zero = false,
+        // seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), unknown index],
+        // bump = spaceship.bump,
+        constraint = user_account.spaceships.iter().map(|s|{s.spaceship}).collect::<Vec<_>>().contains(&spaceship.key()),
     )]
-    pub spaceship: Account<'info, SpaceShip>,
+    pub spaceship: Box<Account<'info, SpaceShip>>,
 
-     /// CHECK: validated by Switchboard CPI
+    /// CHECK: validated by Switchboard CPI
     pub switchboard_state: AccountLoader<'info, AttestationProgramState>,
 
     /// CHECK: validated by Switchboard CPI
@@ -49,7 +56,7 @@ pub struct PickCrate<'info> {
 
     /// CHECK: validated by Switchboard CPI
     #[account(
-        mut, 
+        mut,
         // validate that we use the realm custom switchboard function for the arena matchmaking
         constraint = realm.switchboard_info.crate_picking_function == crate_picking_function.key() && !crate_picking_function.load()?.requests_disabled
     )]
@@ -70,44 +77,101 @@ pub struct PickCrate<'info> {
     pub switchboard_program: AccountInfo<'info>,
 }
 
+#[event]
+pub struct PickCrateRequested {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+    pub crate_type: CrateType,
+}
+
+#[event]
+pub struct PickCrateSuccess {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+    pub crate_type: CrateType,
+    pub seed: u32,
+}
+
+#[event]
+pub struct PickCrateFailed {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+}
+
+#[allow(unused_variables)] // due to #cfg[]
 pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> {
     // cancel pending switchboard function request if stale
     {
         let spaceship = &mut ctx.accounts.spaceship;
         let current_slot = Realm::get_slot()?;
-        if spaceship.crate_picking.switchboard_request_info.request_is_expired(current_slot) {
-            spaceship.crate_picking.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Expired { slot: current_slot  };
+        if spaceship
+            .crate_picking
+            .switchboard_request_info
+            .request_is_expired(current_slot)
+        {
+            spaceship.crate_picking.switchboard_request_info.status =
+                SwitchboardFunctionRequestStatus::Expired { slot: current_slot };
         }
+        emit!(PickCrateFailed {
+            realm_name: ctx.accounts.realm.name.to_string().clone(),
+            user: *ctx.accounts.user.key,
+            spaceship: SpaceShipLite::from_spaceship_account(&ctx.accounts.spaceship),
+        });
     }
 
     // Validations
     {
-        // verify that the user has an available crate
+        // verify that the spaceship.wallet contains the necessary amount of currency matching the price
+        // this is done in the settlement too
+        let crate_price = match crate_type {
+            CrateType::NavyIssue => NI_PRICE,
+            CrateType::PirateContraband => PC_PRICE,
+            CrateType::BiomechanicalCache => BMC_PRICE,
+        };
+        let available_balance = ctx
+            .accounts
+            .spaceship
+            .wallet
+            .get_balance(crate_type.payment_currency());
         require!(
-            ctx.accounts.spaceship.experience.available_crate,
-            HologramError::NoCrateAvailable
+            available_balance >= crate_price as u16,
+            HologramError::InsufficientFunds
         );
 
         // verify that the user is not in the process of requesting to pick a crate already
         require!(
-            !ctx.accounts.spaceship.crate_picking.switchboard_request_info.is_requested(),
+            !ctx.accounts
+                .spaceship
+                .crate_picking
+                .switchboard_request_info
+                .is_requested(),
             HologramError::CratePickingAlreadyRequested
         );
     }
 
     #[cfg(not(any(test, feature = "testing")))]
     {
+        use {
+            crate::SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION,
+            switchboard_solana::{FunctionRequestSetConfig, FunctionRequestTrigger},
+        };
+
         let realm_key = ctx.accounts.realm.key();
         let user_account_seed = &[
             b"user_account",
-            realm_key.as_ref(), ctx.accounts.user.key.as_ref(),
+            realm_key.as_ref(),
+            ctx.accounts.user.key.as_ref(),
             &[ctx.accounts.user_account.bump],
         ];
         // Update the switchboard function parameters
         {
-
-
-            let request_set_config_ctx = FunctionRequestSetConfig { request: ctx.accounts.switchboard_request.clone(), authority: ctx.accounts.admin.clone() };
+            let request_set_config_ctx = FunctionRequestSetConfig {
+                request: ctx.accounts.switchboard_request.clone(),
+                authority: ctx.accounts.admin.clone(),
+            };
             let request_params = format!(
                 "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},CRATE_TYPE{}",
                 crate::id(),
@@ -118,7 +182,12 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
                 crate_type as u8,
             );
 
-            request_set_config_ctx.invoke_signed(ctx.accounts.switchboard_program.clone(), request_params.into_bytes(), false, &[user_account_seed])?;
+            request_set_config_ctx.invoke_signed(
+                ctx.accounts.switchboard_program.clone(),
+                request_params.into_bytes(),
+                false,
+                &[user_account_seed],
+            )?;
         }
 
         // Trigger the request account for the crate_picking_function
@@ -160,7 +229,16 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
             .spaceship
             .crate_picking
             .switchboard_request_info
-            .status = SwitchboardFunctionRequestStatus::Requested { slot: Realm::get_slot()?};
+            .status = SwitchboardFunctionRequestStatus::Requested {
+            slot: Realm::get_slot()?,
+        };
     }
+
+    emit!(PickCrateRequested {
+        realm_name: ctx.accounts.realm.name.to_string().clone(),
+        user: *ctx.accounts.user.key,
+        spaceship: SpaceShipLite::from_spaceship_account(&ctx.accounts.spaceship),
+        crate_type,
+    });
     Ok(())
 }

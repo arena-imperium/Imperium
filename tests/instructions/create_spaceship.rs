@@ -18,12 +18,11 @@ use {
 pub async fn create_spaceship(
     program_test_ctx: &RwLock<ProgramTestContext>,
     user: &Keypair,
+    realm_pda: &Pubkey,
     realm_admin: &Pubkey,
-    realm_name: &String,
     spaceship_name: &String,
 ) -> std::result::Result<(), BanksClientError> {
     // ==== WHEN ==============================================================
-    let (realm_pda, _) = pda::get_realm_pda(realm_name);
     let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
 
     // Fetch the user account
@@ -47,7 +46,7 @@ pub async fn create_spaceship(
     let accounts_meta = {
         let accounts = hologram::accounts::CreateSpaceship {
             user: user.pubkey(),
-            realm: realm_pda,
+            realm: *realm_pda,
             admin: *realm_admin,
             user_account: user_account_pda,
             spaceship: spaceship_pda,
@@ -129,7 +128,7 @@ pub async fn create_spaceship(
         let accounts = hologram::accounts::CreateSpaceshipSettle {
             enclave_signer: enclave_signer.pubkey(), // In the real world this is not called by anyone else than the docker container
             user: user.pubkey(),
-            realm: realm_pda,
+            realm: *realm_pda,
             user_account: user_account_pda,
             spaceship: spaceship_pda,
             spaceship_seed_generation_function: Pubkey::from_str(IMPERIUM_SSGF).unwrap(),

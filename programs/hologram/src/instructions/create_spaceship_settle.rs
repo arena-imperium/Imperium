@@ -1,23 +1,25 @@
-use spaceship::SwitchboardFunctionRequestStatus;
-use switchboard_solana::{FunctionAccountData, FunctionRequestAccountData};
-
+#[allow(unused_imports)]
+use switchboard_solana::FunctionRequestAccountData;
 use {
     crate::{
+        engine::LT_STARTER_WEAPON,
         error::HologramError,
-        state::{spaceship, Realm, SpaceShip, SpaceShipLite, UserAccount},
+        state::{
+            spaceship, Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
+            UserAccount,
+        },
         utils::RandomNumberGenerator,
     },
     anchor_lang::prelude::*,
     spaceship::Hull,
-    switchboard_solana,
+    switchboard_solana::{self, FunctionAccountData},
 };
 
 #[derive(Accounts)]
 pub struct CreateSpaceshipSettle<'info> {
-
     #[account()]
     pub enclave_signer: Signer<'info>,
-    
+
     /// CHECK: forwarded from the create_spaceship IX (and validated by it)
     #[account()]
     pub user: AccountInfo<'info>,
@@ -43,7 +45,7 @@ pub struct CreateSpaceshipSettle<'info> {
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
-    #[account( 
+    #[account(
         // validate that we use the realm custom switchboard function
         constraint = realm.switchboard_info.spaceship_seed_generation_function == spaceship_seed_generation_function.key()
     )]
@@ -76,13 +78,22 @@ pub fn create_spaceship_settle(
         // Disabled during tests
         #[cfg(not(any(test, feature = "testing")))]
         require!(
-            ctx.accounts.switchboard_request.validate_signer(&ctx.accounts.spaceship_seed_generation_function.to_account_info(), &ctx.accounts.enclave_signer.to_account_info()) == Ok(true),
+            ctx.accounts.switchboard_request.validate_signer(
+                &ctx.accounts
+                    .spaceship_seed_generation_function
+                    .to_account_info(),
+                &ctx.accounts.enclave_signer.to_account_info()
+            ) == Ok(true),
             HologramError::FunctionValidationFailed
         );
 
         // verify that the request is pending settlement
         require!(
-            ctx.accounts.spaceship.randomness.switchboard_request_info.is_requested(),
+            ctx.accounts
+                .spaceship
+                .randomness
+                .switchboard_request_info
+                .is_requested(),
             HologramError::SpaceshipRandomnessAlreadySettled
         );
 
@@ -96,7 +107,13 @@ pub fn create_spaceship_settle(
 
     // Finish Spaceship initialization with the generated seed
     {
-        ctx.accounts.spaceship.randomness.switchboard_request_info.status = SwitchboardFunctionRequestStatus::Settled { slot: Realm::get_slot()?};
+        ctx.accounts
+            .spaceship
+            .randomness
+            .switchboard_request_info
+            .status = SwitchboardFunctionRequestStatus::Settled {
+            slot: Realm::get_slot()?,
+        };
         ctx.accounts.spaceship.randomness.original_seed = generated_seed.into();
         ctx.accounts.spaceship.randomness.current_seed = generated_seed.into();
         ctx.accounts.spaceship.randomness.iteration = 1;
@@ -116,11 +133,25 @@ pub fn create_spaceship_settle(
             7 => Hull::UncommonFour,
             8 => Hull::RareOne,
             9 => Hull::RareTwo,
-            10 => Hull::MythicalOne,
+            10 => Hull::FactionOne,
             _ => panic!("Invalid dice roll"),
         };
     }
-    let spaceship_lite =  SpaceShipLite {
+
+    // provide the spaceship with it's first crate and stat points
+    // mount starter weapon
+    {
+        let spaceship = &mut ctx.accounts.spaceship;
+        // provide starter weapon
+        spaceship.modules.push(LT_STARTER_WEAPON.clone());
+        spaceship.powerup_score = 1;
+        // provide 1 stat point
+        spaceship.experience.credit_stat_point(1);
+        // provide currency for 1 NI crate
+        spaceship.wallet.credit(30, Currency::ImperialCredit)?;
+    }
+
+    let spaceship_lite = SpaceShipLite {
         name: ctx.accounts.spaceship.name,
         hull: ctx.accounts.spaceship.hull.clone(),
         spaceship: *ctx.accounts.spaceship.to_account_info().key,

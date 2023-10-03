@@ -1,14 +1,15 @@
 use {
+    super::{Experience, Fuel, SwitchboardFunctionRequestStatus, SwitchboardRequestInfo, Wallet},
     crate::{
         error::HologramError,
         utils::{LimitedString, RandomNumberGenerator},
         ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL, BASE_ARMOR_HITPOINTS, BASE_CELERITY,
         BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE,
         BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP, DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO,
-        HULL_HITPOINTS_PER_LEVEL, JAMMING_NULLIFYING_CHANCE_CAP,
+        FUEL_ALLOWANCE_AMOUNT, FUEL_ALLOWANCE_COOLDOWN, HULL_HITPOINTS_PER_LEVEL,
+        JAMMING_NULLIFYING_CHANCE_CAP,
         JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_LEVEL,
-        MAX_XP_PER_LEVEL, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
-        SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION, XP_REQUIERED_PER_LEVEL_MULT,
+        MAX_POWERUP_SCORE, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
     },
     anchor_lang::prelude::*,
 };
@@ -31,6 +32,9 @@ pub struct SpaceShip {
     // The resource used to join the Arena. Respenish daily.
     pub fuel: Fuel,
     pub experience: Experience,
+    // The "gear level" of the ship. Max of MAX_POWERUP_SCORE
+    pub powerup_score: u8,
+    pub wallet: Wallet,
     pub modules: Vec<Module>,
     pub drones: Vec<Drone>,
     pub mutations: Vec<Mutation>,
@@ -42,7 +46,7 @@ pub struct SpaceShipAnalytics {
     pub total_arena_victories: u16,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum Hull {
     CommonOne,
     CommonTwo,
@@ -53,7 +57,7 @@ pub enum Hull {
     UncommonFour,
     RareOne,
     RareTwo,
-    MythicalOne,
+    FactionOne,
 }
 
 // All bonus described below are per level of the statistic. Players start with 0 level in all stats.
@@ -73,61 +77,6 @@ pub struct Stats {
     // +1% dodge per 2 levels
     // +1 Celerity
     pub manoeuvering: u8,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct Fuel {
-    pub max: u8,
-    pub current: u8,
-    // players can collect DAILY_FUEL_ALLOWANCE once per FUEL_ALLOWANCE_COOLDOWN period, this is the timestamp of their last collection
-    pub daily_allowance_last_collection: i64,
-}
-
-impl Fuel {
-    pub fn consume(&mut self, amount: u8) -> Result<()> {
-        require!(self.current > amount, HologramError::InsufficientFuel);
-        self.current -= amount;
-        Ok(())
-    }
-
-    pub fn refill(&mut self, amount: u8) -> Result<()> {
-        self.current = std::cmp::min(self.current + amount, self.max);
-        Ok(())
-    }
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct Experience {
-    pub current_level: u8,
-    pub current_exp: u16,
-    pub exp_to_next_level: u16,
-    pub available_stats_points: bool,
-    pub available_crate: bool,
-}
-
-impl Experience {
-    pub fn increase(&mut self, amount: u8) {
-        self.current_exp += amount as u16;
-        if self.current_exp >= self.exp_to_next_level {
-            self.level_up();
-        }
-    }
-
-    fn level_up(&mut self) {
-        if self.current_level >= MAX_LEVEL {
-            return;
-        }
-        self.current_level += 1;
-        self.current_exp -= self.exp_to_next_level;
-        self.exp_to_next_level = self.experience_to_next_level();
-        self.available_stats_points = true;
-        self.available_crate = true;
-    }
-
-    pub fn experience_to_next_level(&self) -> u16 {
-        let xp_to_next_level = (self.current_level + 1) * XP_REQUIERED_PER_LEVEL_MULT;
-        std::cmp::min(xp_to_next_level.into(), MAX_XP_PER_LEVEL)
-    }
 }
 
 // Randomness is initially seeded using a Switchboard Function (custom).
@@ -162,31 +111,6 @@ pub struct ArenaMatchmaking {
     pub matchmaking_status: MatchMakingStatus,
 }
 
-impl SwitchboardRequestInfo {
-    pub fn is_requested(&self) -> bool {
-        match self.status {
-            SwitchboardFunctionRequestStatus::Requested { slot: _ } => true,
-            _ => false,
-        }
-    }
-
-    pub fn request_is_expired(&self, current_slot: u64) -> bool {
-        match self.status {
-            SwitchboardFunctionRequestStatus::Requested {
-                slot: requested_slot,
-            } => {
-                if current_slot > requested_slot + SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64
-                {
-                    true
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-}
-
 // Crate picking is handled by a Switchboard Function (custom).
 // github: https://github.com/acamill/@TODO
 // devnet: https://app.switchboard.xyz/solana/devnet/function/@TODO
@@ -197,17 +121,13 @@ pub struct CratePicking {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct SwitchboardRequestInfo {
-    pub account: Pubkey,
-    pub status: SwitchboardFunctionRequestStatus,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub enum MatchMakingStatus {
     // the user is not in the queue
     None,
     // the user is queued and waiting for a match
     InQueue { slot: u64 },
+    // the user is being matched
+    Matching { slot: u64 },
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -231,63 +151,95 @@ pub struct Mutation {
     pub rarity: Rarity,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum SwitchboardFunctionRequestStatus {
-    // No request has been made yet
-    None,
-    // The request has been made but the callback has not been called by the Function yet
-    Requested { slot: u64 },
-    // The request has been settled. the callback has been made
-    Settled { slot: u64 },
-    // The request has expired and was not settled
-    Expired { slot: u64 },
-}
-
-// Ignore specific timestamp
-impl PartialEq for SwitchboardFunctionRequestStatus {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (SwitchboardFunctionRequestStatus::None, SwitchboardFunctionRequestStatus::None) => {
-                true
-            }
-            (
-                SwitchboardFunctionRequestStatus::Requested { slot: _ },
-                SwitchboardFunctionRequestStatus::Requested { slot: _ },
-            ) => true,
-            (
-                SwitchboardFunctionRequestStatus::Settled { slot: _ },
-                SwitchboardFunctionRequestStatus::Settled { slot: _ },
-            ) => true,
-            _ => false,
-        }
-    }
-}
-
 impl SpaceShip {
     pub const LEN: usize = 8 + std::mem::size_of::<SpaceShip>();
 
     // the account has finished the initialization process
     pub fn is_initialized(&self) -> bool {
-        match self.randomness.switchboard_request_info.status {
-            SwitchboardFunctionRequestStatus::Settled { slot: _ } => true,
-            _ => false,
-        }
+        matches!(
+            self.randomness.switchboard_request_info.status,
+            SwitchboardFunctionRequestStatus::Settled { slot: _ }
+        )
+    }
+
+    pub fn fuel_allowance_is_available(&self, current_time: i64) -> Result<bool> {
+        let cooldown = current_time
+            .checked_sub(FUEL_ALLOWANCE_COOLDOWN)
+            .ok_or(HologramError::Overflow)?;
+        Ok(self.fuel.daily_allowance_last_collection < cooldown)
+    }
+
+    // refill fuel + update timestamp
+    pub fn claim_fuel_allowance(&mut self, current_time: i64) -> Result<()> {
+        self.fuel.refill(FUEL_ALLOWANCE_AMOUNT)?;
+        self.fuel.daily_allowance_last_collection = current_time;
+        Ok(())
     }
 
     // informs wether the spaceship has available stat or crate point to spend.
     // Untils these are spent, he is barred from entering the arena
-    pub fn has_no_pending_stats_or_crate(&self) -> bool {
-        !(self.experience.available_stats_points || self.experience.available_crate)
+    pub fn has_available_stat_point(&self) -> bool {
+        self.experience.available_stat_points > 0
+    }
+
+    pub fn gain_experience(&mut self, amount: u8) -> Result<()> {
+        self.experience.current_exp += amount as u16;
+        if self.experience.current_exp >= self.experience.exp_to_next_level {
+            self.level_up()?
+        }
+        Ok(())
+    }
+
+    fn level_up(&mut self) -> Result<()> {
+        if self.experience.current_level >= MAX_LEVEL {
+            msg!("Max level reached, no more XP can be gained");
+            return Ok(());
+        }
+        // increase level
+        self.experience.current_level += 1;
+        // remove XP points that were used to level up
+        self.experience.current_exp -= self.experience.exp_to_next_level;
+        // update xp to next level
+        self.experience.exp_to_next_level = self.experience.experience_to_next_level();
+        // give a stat point
+        self.experience.credit_stat_point(1);
+        Ok(())
+    }
+
+    pub fn mount_module(&mut self, module: Module) -> Result<()> {
+        require!(
+            self.powerup_score < MAX_POWERUP_SCORE,
+            HologramError::MaxPowerupScoreReached
+        );
+        msg!("Module mounted: {:?}", module);
+        self.modules.push(module);
+        self.powerup_score += 1;
+        Ok(())
+    }
+
+    pub fn load_drone(&mut self, drone: Drone) -> Result<()> {
+        require!(
+            self.powerup_score < MAX_POWERUP_SCORE,
+            HologramError::MaxPowerupScoreReached
+        );
+        msg!("Drone loaded: {:?}", drone);
+        self.drones.push(drone);
+        self.powerup_score += 1;
+        Ok(())
+    }
+
+    pub fn apply_mutation(&mut self, mutation: Mutation) -> Result<()> {
+        require!(
+            self.powerup_score < MAX_POWERUP_SCORE,
+            HologramError::MaxPowerupScoreReached
+        );
+        msg!("Mutation applied: {:?}", mutation);
+        self.mutations.push(mutation);
+        self.powerup_score += 1;
+        Ok(())
     }
 
     // --- [Game engine code] ---
-
-    // return the amount of experience a spaceship must earn to reach the next level
-    // formula: next_level * XP_REQUIERED_PER_LEVEL_MULT, capped at MAX_XP_PER_LEVEL
-    pub fn experience_to_next_level(&self) -> u16 {
-        let xp_to_next_level = (self.experience.current_level + 1) * XP_REQUIERED_PER_LEVEL_MULT;
-        std::cmp::min(xp_to_next_level.into(), MAX_XP_PER_LEVEL)
-    }
 
     // return hull hitpoints for a ship - Value are prefight, they will be modified by the fight engine
     // formula: BASE_HULL_HITPOINTS + (current_level * HULL_HITPOINTS_PER_LEVEL)
@@ -359,20 +311,12 @@ impl SpaceShip {
     }
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum Rarity {
     Common,
     Uncommon,
     Rare,
-    Mythical,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum TechTier {
-    One,
-    Two,
-    Three,
-    Four,
+    Faction,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -413,6 +357,7 @@ pub struct DamageProfile {
 pub enum ModuleClass {
     // Weapons
     Turret(WeaponModuleStats),
+    Launcher(WeaponModuleStats),
     Exotic(WeaponModuleStats),
     // Repairers
     ShieldBooster(RepairModuleStats),
@@ -429,32 +374,49 @@ pub enum ModuleClass {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum CycleTime {
+    Short = 6,       // 5:3 (1.67)
+    Accelerated = 8, // 5:4 (1.25)
+    Standard = 10,   // 1:1 (1.0)
+    Extended = 14,   // 5:7 (0.71)
+    Long = 20,       // 1:2 (0.5)
+    VeryLong = 30,   // 1:3 (0.33)
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum ProjectileSpeed {
+    Sluggish = 40,
+    Slow = 50,
+    SubStandard = 60,
+    Standard = 75,
+    Fast = 90,
+    Blazing = 105,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum Shots {
+    Single,
+    Salvo(u8),
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct WeaponModuleStats {
-    pub class: WeaponClass,
+    pub class: AmmoClass,
     pub damage_profile: DamageProfile,
-    pub shots: u8,
-    pub charge_time: u8,
-    pub projectile_speed: u8,
-    // pub range: u8,
-    // pub accuracy: u8,
-    // pub tracking_speed: u8,
-    // pub optimal_falloff: u8,
-    // pub turret_size: u8,
+    pub shots: Shots,
+    pub cycle_time: CycleTime,
+    pub projectile_speed: ProjectileSpeed,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct RepairModuleStats {
     pub repair_amount: u8,
-    pub cycle_time: u8,
+    pub cycle_time: CycleTime,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum WeaponClass {
-    // turrets
-    Energy,
+pub enum AmmoClass {
     Projectile,
-    Hybrid,
-    // exotic
-    EntropicDesintegrator,
     Missile,
+    Energy,
 }

@@ -3,7 +3,7 @@ use {
     crate::{utils::pda, IMPERIUM_AMF, SWITCHBOARD_ATTESTATION_QUEUE},
     anchor_lang::ToAccountMetas,
     hologram::{
-        instructions::roll_opponent_spaceship,
+        instructions::{roll_opponent_spaceship, Faction},
         state::{MatchMakingStatus, Realm, SpaceShip, SwitchboardFunctionRequestStatus},
         utils::RandomNumberGenerator,
     },
@@ -19,12 +19,11 @@ use {
 pub async fn arena_matchmaking(
     program_test_ctx: &RwLock<ProgramTestContext>,
     user: &Keypair,
-    realm_name: &String,
+    realm_pda: &Pubkey,
     realm_admin: &Pubkey,
     spaceship_pda: &Pubkey,
+    faction: Faction,
 ) -> std::result::Result<(), BanksClientError> {
-    let (realm_pda, _) = pda::get_realm_pda(realm_name);
-
     let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
     let realm_before = utils::get_account::<Realm>(program_test_ctx, &realm_pda).await;
     let matchmaking_queue_before = realm_before
@@ -39,7 +38,7 @@ pub async fn arena_matchmaking(
     // ==== WHEN ==============================================================
     let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
 
-    // Fetch the user account
+    // Fetch the spaceship account
     let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
 
     let switchboard_amf_request = spaceship.arena_matchmaking.switchboard_request_info.account;
@@ -50,7 +49,7 @@ pub async fn arena_matchmaking(
     let accounts_meta = {
         let accounts = hologram::accounts::ArenaMatchmaking {
             user: user.pubkey(),
-            realm: realm_pda,
+            realm: *realm_pda,
             admin: *realm_admin,
             user_account: user_account_pda,
             spaceship: *spaceship_pda,
@@ -72,7 +71,7 @@ pub async fn arena_matchmaking(
     utils::create_and_execute_hologram_ix(
         program_test_ctx,
         accounts_meta,
-        hologram::instruction::ArenaMatchmaking {},
+        hologram::instruction::ArenaMatchmaking { faction },
         Some(&user.pubkey()),
         &[user],
         None,
@@ -111,10 +110,17 @@ pub async fn arena_matchmaking(
     assert_eq!(spaceship.fuel.current, spaceship_before.fuel.current - 1);
 
     // matchmaking status updated
-    assert!(matches!(
-        spaceship.arena_matchmaking.matchmaking_status,
-        MatchMakingStatus::InQueue { slot: _ }
-    ));
+    if matchmaking_queue_before.is_filled() {
+        assert!(matches!(
+            spaceship.arena_matchmaking.matchmaking_status,
+            MatchMakingStatus::Matching { slot: _ }
+        ));
+    } else {
+        assert!(matches!(
+            spaceship.arena_matchmaking.matchmaking_status,
+            MatchMakingStatus::InQueue { slot: _ }
+        ));
+    }
 
     // ==== AND ===============================================================
     // Because using the localnet/banksclient setup we cannot rely on switchboard function, we call the settlement directly
@@ -145,7 +151,7 @@ pub async fn arena_matchmaking(
             let accounts = hologram::accounts::ArenaMatchmakingSettle {
                 enclave_signer: enclave_signer.pubkey(), // In the real world this is not called by anyone else than the docker container
                 user: user.pubkey(),
-                realm: realm_pda,
+                realm: *realm_pda,
                 user_account: user_account_pda,
                 spaceship: *spaceship_pda,
                 switchboard_request: switchboard_amf_request,
@@ -167,7 +173,10 @@ pub async fn arena_matchmaking(
         utils::create_and_execute_hologram_ix(
             program_test_ctx,
             accounts_meta,
-            hologram::instruction::ArenaMatchmakingSettle { generated_seed },
+            hologram::instruction::ArenaMatchmakingSettle {
+                generated_seed,
+                faction,
+            },
             Some(&user.pubkey()),
             &[&user, &enclave_signer],
             None,
@@ -213,6 +222,9 @@ pub async fn arena_matchmaking(
             matchmaking_queue.matchmaking_request_count,
             matchmaking_queue_before.matchmaking_request_count - 1
         );
+
+        // XP distributed
+        // Currencies distributed
 
         // matchmaking status updated (for both participants)
         assert!(matches!(

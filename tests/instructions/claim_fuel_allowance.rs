@@ -2,28 +2,31 @@ pub use crate::utils;
 use {
     crate::utils::pda,
     anchor_lang::ToAccountMetas,
-    hologram::state::UserAccount,
+    hologram::{state::SpaceShip, FUEL_ALLOWANCE_AMOUNT},
     solana_program::pubkey::Pubkey,
     solana_program_test::{BanksClientError, ProgramTestContext},
     solana_sdk::signer::{keypair::Keypair, Signer},
+    std::cmp::min,
     tokio::sync::RwLock,
 };
 
-pub async fn create_user_account(
+pub async fn claim_fuel_allowance(
     program_test_ctx: &RwLock<ProgramTestContext>,
     user: &Keypair,
     realm_pda: &Pubkey,
+    spaceship_pda: &Pubkey,
 ) -> std::result::Result<(), BanksClientError> {
+    let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
+
     // ==== WHEN ==============================================================
-    let (user_account_pda, user_account_bump) =
-        pda::get_user_account_pda(&realm_pda, &user.pubkey());
+    let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
 
     let accounts_meta = {
-        let accounts = hologram::accounts::CreateUserAccount {
+        let accounts = hologram::accounts::ClaimFuelAllowance {
             user: user.pubkey(),
             realm: *realm_pda,
             user_account: user_account_pda,
-            system_program: anchor_lang::system_program::ID,
+            spaceship: *spaceship_pda,
         };
 
         let accounts_meta = accounts.to_account_metas(None);
@@ -34,7 +37,7 @@ pub async fn create_user_account(
     utils::create_and_execute_hologram_ix(
         program_test_ctx,
         accounts_meta,
-        hologram::instruction::CreateUserAccount {},
+        hologram::instruction::ClaimFuelAllowance {},
         Some(&user.pubkey()),
         &[user],
         None,
@@ -43,11 +46,22 @@ pub async fn create_user_account(
     .await?;
 
     // ==== THEN ==============================================================
-    let user_account = utils::get_account::<UserAccount>(program_test_ctx, &user_account_pda).await;
+    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
 
-    assert_eq!(user_account.bump, user_account_bump);
-    assert_eq!(user_account.user, user.pubkey());
-    assert_eq!(user_account.spaceships.len(), 0);
+    // verify that the fuel allowance was claimed
+    assert!(
+        spaceship.fuel.current
+            == min(
+                spaceship.fuel.max,
+                spaceship_before.fuel.current + FUEL_ALLOWANCE_AMOUNT
+            ),
+    );
+
+    // verify that the timestamp was updated
+    assert!(
+        spaceship.fuel.daily_allowance_last_collection
+            > spaceship_before.fuel.daily_allowance_last_collection
+    );
 
     Ok(())
 }
