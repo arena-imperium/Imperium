@@ -3,6 +3,10 @@
 ## Smart Contract
 
 - add new drones and mutatio to the LT
+- add anti drone weapons
+- add drone jammers
+
+- look into macro (ask node again) to sideload loot table at compile time from a CSV
 
 - test expired switchboard function request after 75 slots (warp and check it can be called again)
 

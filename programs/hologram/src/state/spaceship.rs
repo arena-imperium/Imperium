@@ -136,12 +136,17 @@ pub struct Module {
     // pub description: LongLimitedString,
     pub rarity: Rarity,
     pub class: ModuleClass,
+    pub is_active: bool,
 }
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct Drone {
     pub name: LimitedString,
     // pub description: LongLimitedString,
     pub rarity: Rarity,
+    pub size: DroneSize,
+    pub class: DroneClass,
+    pub is_active: bool,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -149,6 +154,7 @@ pub struct Mutation {
     pub name: LimitedString,
     // pub description: LongLimitedString,
     pub rarity: Rarity,
+    pub is_active: bool,
 }
 
 impl SpaceShip {
@@ -273,7 +279,7 @@ impl SpaceShip {
 
     // return turret_projectile_speed modifier for a ship - Value are prefight, they will be modified by the fight engine
     // formula: +1 projectile speed per turret_rigging stat level
-    pub fn get_turret_projectile_speed(&self) -> u8 {
+    pub fn get_turret_bonus_projectile_speed(&self) -> u8 {
         self.stats.turret_rigging
     }
 
@@ -339,18 +345,31 @@ impl HitPoints {
             max: initial_value,
         }
     }
+
+    pub fn resplenish(&mut self, amount: u8) {
+        self.current += amount as u16;
+        if self.current > self.max {
+            self.current = self.max;
+        }
+    }
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct DamageProfile {
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
+pub enum Damage {
     // 200% damage to shield, 25% damage to armor
-    pub em: u8,
+    EM(u8),
     // 200% damage to armor
-    pub thermal: u8,
+    Thermal(u8),
     // standard damage
-    pub kinetic: u8,
+    Kinetic(u8),
     // 200% damage to hull, 25% damage to shield
-    pub explosive: u8,
+    Explosive(u8),
+}
+
+impl PartialEq for Damage {
+    fn eq(&self, other: &Self) -> bool {
+        core::mem::discriminant(self) == core::mem::discriminant(other)
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -368,13 +387,35 @@ pub enum ModuleClass {
     NaniteCoating,
     TrackingComputer,
     Gyrostabilizer,
-    // Jammers
+    // Eletronic warfare
     TrackingDisruptor,
-    SensorDampener,
+}
+
+impl PartialEq for ModuleClass {
+    fn eq(&self, other: &Self) -> bool {
+        core::mem::discriminant(self) == core::mem::discriminant(other)
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum CycleTime {
+pub enum DroneClass {
+    // Fighter
+    Turret(WeaponModuleStats),
+    Launcher(WeaponModuleStats),
+    Exotic(WeaponModuleStats),
+    // Eletronic warfare drones
+    ECM(JammerModuleStats),
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum DroneSize {
+    Light,
+    Medium,
+    Heavy,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
+pub enum ChargeTime {
     Short = 6,       // 5:3 (1.67)
     Accelerated = 8, // 5:4 (1.25)
     Standard = 10,   // 1:1 (1.0)
@@ -383,7 +424,7 @@ pub enum CycleTime {
     VeryLong = 30,   // 1:3 (0.33)
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum ProjectileSpeed {
     Sluggish = 40,
     Slow = 50,
@@ -393,7 +434,7 @@ pub enum ProjectileSpeed {
     Blazing = 105,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum Shots {
     Single,
     Salvo(u8),
@@ -402,19 +443,26 @@ pub enum Shots {
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct WeaponModuleStats {
     pub class: AmmoClass,
-    pub damage_profile: DamageProfile,
+    pub damage_profile: [Damage; 4],
     pub shots: Shots,
-    pub cycle_time: CycleTime,
+    pub charge_time: ChargeTime,
     pub projectile_speed: ProjectileSpeed,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct RepairModuleStats {
     pub repair_amount: u8,
-    pub cycle_time: CycleTime,
+    pub charge_time: ChargeTime,
 }
 
+// Jamming works by randomly picking a module/drone, and attempting to jam it, which remove charge time from it
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub struct JammerModuleStats {
+    pub charge_burn: u8,
+    pub charge_time: ChargeTime,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
 pub enum AmmoClass {
     Projectile,
     Missile,

@@ -45,11 +45,14 @@ pub const JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO: u8 = 
 pub const BASE_DODGE_CHANCE: u8 = 5; // 5%
 pub const DODGE_CHANCE_CAP: u8 = 35; // 35%
 
+pub const BASE_JAM_CHANCE: u8 = 100; // 100%
 pub const BASE_JAMMING_NULLIFYING_CHANCE: u8 = 10; // 10%
 pub const JAMMING_NULLIFYING_CHANCE_CAP: u8 = 75; // 75%
 
 // Celerity is the statistic that determine who plays first during a fight (higher is better)
 pub const BASE_CELERITY: u8 = 10;
+
+pub const BASE_CRIT_CHANCE: u8 = 5; // 5%
 
 pub const BASE_HULL_HITPOINTS: u16 = 75;
 pub const BASE_ARMOR_HITPOINTS: u16 = 10;

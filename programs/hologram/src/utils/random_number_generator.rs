@@ -31,6 +31,16 @@ impl RandomNumberGenerator {
         }
         start + self.next() % (end - start)
     }
+
+    // This function chooses a random item from a mutable slice of items.
+    // It returns an optional clone of the item, or None if the slice is empty.
+    pub fn choose_mut<'a, T>(&mut self, items: &'a mut [T]) -> Option<&'a mut T> {
+        if items.is_empty() {
+            return None;
+        }
+        let index = self.next() % (items.len() as u64);
+        Some(&mut items[index as usize])
+    }
 }
 
 #[cfg(test)]
