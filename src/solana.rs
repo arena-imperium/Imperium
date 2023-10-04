@@ -5,12 +5,11 @@ use {
         ClientError, Cluster, Program,
     },
     bevy_tasks::{IoTaskPool, Task},
-    borsh::BorshDeserialize,
     comfy::{hecs::*, log, CommandBuffer},
     futures_lite::future,
     hologram::{
         self,
-        instructions::StatType,
+        instructions::{CrateType, Faction, StatType},
         state::{SpaceShip, UserAccount},
     },
     solana_cli_output::display::println_transaction,
@@ -33,8 +32,8 @@ pub struct SolanaTransactionTask {
     pub task: Task<Result<EncodedConfirmedTransactionWithStatusMeta, SolanaTransactionTaskError>>,
 }
 
-pub fn solana_transaction_task_handler(mut commands: &mut CommandBuffer, mut world: &mut World) {
-    for (entity, (task, &flag)) in world.query_mut::<(&mut SolanaTransactionTask, &bool)>() {
+pub fn solana_transaction_task_handler(commands: &mut CommandBuffer, world: &mut World) {
+    for (entity, (task, &_flag)) in world.query_mut::<(&mut SolanaTransactionTask, &bool)>() {
         match future::block_on(future::poll_once(&mut task.task)) {
             Some(result) => {
                 let status = match result {
@@ -101,6 +100,8 @@ pub struct HologramServer {
     pub spaceship_seed_generation_function: Pubkey,
     pub arena_matchmaking_function: Pubkey,
     pub crate_picking_function: Pubkey,
+    // Switchboard attestation queue
+    pub switchboard_attestation_queue: Pubkey,
 }
 
 impl Default for HologramServer {
@@ -139,6 +140,10 @@ impl Default for HologramServer {
                 "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG",
             )
             .unwrap(), // @HARDCODED
+            switchboard_attestation_queue: Pubkey::from_str(
+                "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE", // @HARDCODED @TODO
+            )
+            .unwrap(),
         }
     }
 }
@@ -154,6 +159,7 @@ impl Default for HologramServer {
 // and examples https://github.com/coral-xyz/anchor/blob/cec9946111a1c651fd21235c2a554eda05c3ffa3/client/example/src/blocking.rs
 
 impl HologramServer {
+    // THESE DEFAULT SHOULD not be here. Better have the debug UI provide field to fill in the parameters at the top level and use these
     pub fn fire_default_initialize_realm_task(&self, commands: &mut CommandBuffer) {
         self.fire_initialize_realm_task(
             commands,
@@ -166,21 +172,37 @@ impl HologramServer {
     }
 
     pub fn fire_default_create_user_account_task(&self, commands: &mut CommandBuffer) {
+        let (realm_pda, _) = Self::get_realm_pda(&self.realm_name);
         self.fire_create_user_account_task(
             commands,
-            self.realm_name.clone(),
+            &realm_pda,
             &self.solana_client.payer.pubkey(),
         );
     }
 
     pub fn fire_default_create_spaceship_task(&self, commands: &mut CommandBuffer) {
+        let (realm_pda, _) = Self::get_realm_pda(&self.realm_name);
         self.fire_create_spaceship_task(
             commands,
             &"Nebuchadnezzar".to_string(),
+            &realm_pda,
             &self.solana_client.payer.pubkey(),
         );
     }
 
+    /// This function fires an initialize realm task.
+    /// This will create a new realm account and set the admin to `admin`.
+    ///
+    /// Anchor events:
+    /// - RealmInitialized: inform that the realm was created
+    ///
+    /// Parameters:
+    /// commands: CommandBuffer
+    /// realm_name: name of the realm to create
+    /// spaceship_seed_generation_function: Pubkey of the switchboard function to use for spaceship seed generation
+    /// arena_matchmaking_function: Pubkey of the switchboard function to use for arena matchmaking
+    /// crate_picking_function: Pubkey of the switchboard function to use for crate picking
+    /// admin: Pubkey of the admin of the realm
     pub fn fire_initialize_realm_task(
         &self,
         commands: &mut CommandBuffer,
@@ -234,20 +256,30 @@ impl HologramServer {
         ));
     }
 
+    /// This function fires a create user account task.
+    /// This will create a new user account in the realm for the provided user (only one per user per realm (wallet))
+    ///
+    /// Anchor events:
+    /// - UserAccountCreated: inform that the user account was created
+    ///
+    /// Parameters:
+    /// commands: CommandBuffer
+    /// realm_name: name of the realm to create the account for
+    /// user: Pubkey
     pub fn fire_create_user_account_task(
         &self,
         commands: &mut CommandBuffer,
-        realm_name: String,
+        realm_pda: &Pubkey,
         user: &Pubkey,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
         let user = user.clone();
         let payer = client.payer().clone();
+        let realm_pda = realm_pda.clone();
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending create_user_account IX");
-            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
 
             let instruction = hologram::instruction::CreateUserAccount {};
@@ -278,26 +310,37 @@ impl HologramServer {
         ));
     }
 
+    /// This function fires a create spaceship task.
+    /// This will add a new spaceship to the user account (max 10).
+    ///
+    /// Anchor events:
+    /// - SpaceshipCreated: inform that the spaceship was created
+    ///
+    /// Parameters:
+    /// commands: CommandBuffer
+    /// spaceship_name: String (max 64 chars)
+    /// user: The user making the call (user_account is derived)
     pub fn fire_create_spaceship_task(
         &self,
         commands: &mut CommandBuffer,
         spaceship_name: &String,
+        realm_pda: &Pubkey,
         user: &Pubkey,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
-        let realm_name = self.realm_name.clone();
         let admin_pubkey = self.admin_pubkey;
+        let realm_pda = realm_pda.clone();
         let user = user.clone();
         let spaceship_seed_generation_function = self.spaceship_seed_generation_function;
         let arena_matchmaking_function = self.arena_matchmaking_function;
         let crate_picking_function = self.crate_picking_function;
         let spaceship_name = spaceship_name.clone();
         let payer = client.payer().clone();
+        let switchboard_attestation_queue = self.switchboard_attestation_queue;
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending create_spaceship IX");
-            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
 
             // @TODO use cache
@@ -336,10 +379,7 @@ impl HologramServer {
                 user_account: user_account_pda,
                 spaceship: spaceship_pda,
                 switchboard_state: switchboard_state_pda,
-                switchboard_attestation_queue: Pubkey::from_str(
-                    "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE",
-                )
-                .unwrap(),
+                switchboard_attestation_queue,
                 spaceship_seed_generation_function,
                 switchboard_ssgf_request: switchboard_ssgf_request_keypair.pubkey(),
                 switchboard_ssgf_request_escrow,
@@ -380,95 +420,32 @@ impl HologramServer {
         ));
     }
 
-    pub fn fire_arena_matchmaking_task(
-        &self,
-        commands: &mut CommandBuffer,
-        user: &Pubkey,
-        spaceship_pda: &Pubkey,
-    ) {
-        let thread_pool = IoTaskPool::get();
-        let client = Arc::clone(&self.solana_client);
-        let realm_name = self.realm_name.clone();
-        let admin_pubkey = self.admin_pubkey;
-        let arena_matchmaking_function = self.arena_matchmaking_function;
-        let user = user.clone();
-        let spaceship_pda = spaceship_pda.clone();
-        let payer = client.payer().clone();
-
-        let task = thread_pool.spawn(async move {
-            log::info!("<Solana> Sending arena_matchmaking IX");
-
-            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
-            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
-            let (switchboard_state_pda, _) = Self::get_switchboard_state();
-            // retrieve the switchboard_amf_request from spaceship (@TODO use cache?)
-            let spaceship: SpaceShip = client
-                .anchor_client
-                .program(hologram::id())?
-                .account(spaceship_pda)?;
-
-            let switchboard_amf_request =
-                spaceship.arena_matchmaking.switchboard_request_info.account;
-            let switchboard_amf_request_escrow =
-                get_associated_token_address(&switchboard_amf_request, &native_mint::ID);
-            let instruction = hologram::instruction::ArenaMatchmaking {};
-
-            let accounts = hologram::accounts::ArenaMatchmaking {
-                user,
-                realm: realm_pda,
-                admin: admin_pubkey,
-                user_account: user_account_pda,
-                spaceship: spaceship_pda,
-                switchboard_state: switchboard_state_pda,
-                switchboard_attestation_queue: Pubkey::from_str(
-                    "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE",
-                )
-                .unwrap(),
-                arena_matchmaking_function,
-                switchboard_request: switchboard_amf_request,
-                switchboard_request_escrow: switchboard_amf_request_escrow,
-                system_program: solana_program::system_program::id(),
-                token_program: switchboard_solana::anchor_spl::token::ID,
-                switchboard_program: switchboard_solana::SWITCHBOARD_ATTESTATION_PROGRAM_ID,
-            };
-
-            Self::send_and_confirm_instruction_blocking(
-                client,
-                hologram::id(),
-                instruction,
-                accounts,
-                payer,
-                vec![],
-                250_000,
-            )
-        });
-
-        commands.spawn((
-            SolanaTransactionTask {
-                description: "arena_matchmaking".to_string(),
-                task,
-            },
-            false,
-        ));
-    }
-
+    /// This function fires a claim_fuel_allowance task.
+    /// This will attempt to get the periodical free fuel allowance for a given spaceship.
+    ///
+    ///  Anchor events:
+    /// - FuelAllowanceClaimed: inform that the fuel allowance was claimed
+    ///
+    /// Parameters:
+    /// commands: CommandBuffer
+    /// spaceship_pda: Pubkey of the spaceship to claim the fuel allowance for
+    /// user: The user making the call (user_account is derived)
     pub fn fire_claim_fuel_allowance_task(
         &self,
         commands: &mut CommandBuffer,
-        spaceship_pda: &Pubkey,
+        realm_pda: &Pubkey,
         user: &Pubkey,
+        spaceship_pda: &Pubkey,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
-        let realm_name = self.realm_name.clone();
+        let realm_pda = realm_pda.clone();
         let user = user.clone();
         let payer = client.payer().clone();
         let spaceship_pda = spaceship_pda.clone();
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending claim_fuel_allowance IX");
-
-            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
             let instruction = hologram::instruction::ClaimFuelAllowance {};
 
@@ -499,16 +476,29 @@ impl HologramServer {
         ));
     }
 
+    /// This function fires a claim_fuel_allowance task.
+    /// This will attempt to get the periodical free fuel allowance for a given spaceship.
+    ///
+    /// Anchor events:
+    /// - StatPointAllocated: inform that the stat point was allocated and to which stat type.
+    ///
+    /// Parameters:
+    /// commands: CommandBuffer
+    /// realm_pda: Pubkey
+    /// user: The user making the call (user_account is derived)
+    /// spaceship_pda: Pubkey of the spaceship to claim the stat point for
+    /// stat_type: the stat type to allocate the point to
     pub fn fire_allocate_stat_point_task(
         &self,
         commands: &mut CommandBuffer,
-        spaceship_pda: &Pubkey,
+        realm_pda: &Pubkey,
         user: &Pubkey,
+        spaceship_pda: &Pubkey,
         stat_type: StatType,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
-        let realm_name = self.realm_name.clone();
+        let realm_pda = realm_pda.clone();
         let user = user.clone();
         let payer = client.payer().clone();
         let spaceship_pda = spaceship_pda.clone();
@@ -516,7 +506,6 @@ impl HologramServer {
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending allocate_stat_point IX");
 
-            let (realm_pda, _) = Self::get_realm_pda(&realm_name);
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
             let instruction = hologram::instruction::AllocateStatPoint { stat_type };
 
@@ -541,6 +530,174 @@ impl HologramServer {
         commands.spawn((
             SolanaTransactionTask {
                 description: "allocate_stat_point".to_string(),
+                task,
+            },
+            false,
+        ));
+    }
+
+    /// This function fires an arena matchmaking task.
+    /// This will register the spaceship in the matchmaking queue.
+    /// It triggers an offchain SBf() for the settlement callback. There is a 30 second timeout.
+    ///
+    /// Anchor events:
+    /// - ArenaMatchmakingQueueJoined: user has joined the queue and is waiting for more participants to join in in order to trigger a match
+    /// - ArenaMatchmakingQueueMatching: user is being matched with a queue participant as the queue is full (call to the async SBf() function)
+    /// - ArenaMatchmakingQueueMatchingFailed: not sent automatically, will be emited if the user re register for the queue after a timeout (30 seconds)
+    /// - ArenaMatchmakingMatchCompleted: the players have been matched, a winner has been decided. Return info about winner/looser
+    ///
+    /// Parameters:
+    /// - commands: Command buffer to execute the task.
+    /// - user: Public key of the user owning the spaceship
+    /// - spaceship_pda: Public key of the spaceship that registers
+    /// - faction: Faction where the fight takes place, will determine the rewards.
+    pub fn fire_arena_matchmaking_task(
+        &self,
+        commands: &mut CommandBuffer,
+        realm_pda: &Pubkey,
+        user: &Pubkey,
+        spaceship_pda: &Pubkey,
+        // Location
+        faction: Faction,
+    ) {
+        let thread_pool = IoTaskPool::get();
+        let client = Arc::clone(&self.solana_client);
+        let admin_pubkey = self.admin_pubkey;
+        let arena_matchmaking_function = self.arena_matchmaking_function;
+        let realm_pda = realm_pda.clone();
+        let user = user.clone();
+        let spaceship_pda = spaceship_pda.clone();
+        let payer = client.payer().clone();
+        let switchboard_attestation_queue = self.switchboard_attestation_queue;
+
+        let task = thread_pool.spawn(async move {
+            log::info!("<Solana> Sending arena_matchmaking IX");
+            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+            let (switchboard_state_pda, _) = Self::get_switchboard_state();
+            // retrieve the switchboard_amf_request from spaceship (@TODO use cache?)
+            let spaceship: SpaceShip = client
+                .anchor_client
+                .program(hologram::id())?
+                .account(spaceship_pda)?;
+
+            let switchboard_amf_request =
+                spaceship.arena_matchmaking.switchboard_request_info.account;
+            let switchboard_amf_request_escrow =
+                get_associated_token_address(&switchboard_amf_request, &native_mint::ID);
+            let instruction = hologram::instruction::ArenaMatchmaking { faction };
+
+            let accounts = hologram::accounts::ArenaMatchmaking {
+                user,
+                realm: realm_pda,
+                admin: admin_pubkey,
+                user_account: user_account_pda,
+                spaceship: spaceship_pda,
+                switchboard_state: switchboard_state_pda,
+                switchboard_attestation_queue,
+                arena_matchmaking_function,
+                switchboard_request: switchboard_amf_request,
+                switchboard_request_escrow: switchboard_amf_request_escrow,
+                system_program: solana_program::system_program::id(),
+                token_program: switchboard_solana::anchor_spl::token::ID,
+                switchboard_program: switchboard_solana::SWITCHBOARD_ATTESTATION_PROGRAM_ID,
+            };
+
+            Self::send_and_confirm_instruction_blocking(
+                client,
+                hologram::id(),
+                instruction,
+                accounts,
+                payer,
+                vec![],
+                250_000,
+            )
+        });
+
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "arena_matchmaking".to_string(),
+                task,
+            },
+            false,
+        ));
+    }
+
+    /// This function fires a crate picking task.
+    ///
+    /// Anchor events:
+    /// - CratePicked: user has picked a crate and received the reward
+    /// - CratePickingFailed: user has failed to pick a crate (no more crates available)
+    /// - CratePickingFailed: user has failed to pick a crate (no more crates available)
+    ///
+    /// Parameters:
+    /// - commands: Command buffer to execute the task.
+    /// - user: Public key of the user owning the spaceship
+    /// - spaceship_pda: Public key of the spaceship that registers
+    /// - crate_type: The type of crate to pick
+    fn fire_pick_crate_task<T: 'static + AccountDeserialize + Send>(
+        &self,
+        commands: &mut CommandBuffer,
+        realm_pda: &Pubkey,
+        user: &Pubkey,
+        spaceship_pda: &Pubkey,
+        // Location
+        crate_type: CrateType,
+    ) {
+        let thread_pool = IoTaskPool::get();
+        let client = Arc::clone(&self.solana_client);
+        let admin_pubkey = self.admin_pubkey;
+        let crate_picking_function = self.crate_picking_function;
+        let realm_pda = realm_pda.clone();
+        let user = user.clone();
+        let spaceship_pda = spaceship_pda.clone();
+        let payer = client.payer().clone();
+        let switchboard_attestation_queue = self.switchboard_attestation_queue;
+
+        let task = thread_pool.spawn(async move {
+            log::info!("<Solana> Sending pick_crate IX");
+            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
+            let (switchboard_state_pda, _) = Self::get_switchboard_state();
+            // retrieve the switchboard_cpf_request from spaceship (@TODO use cache?)
+            let spaceship: SpaceShip = client
+                .anchor_client
+                .program(hologram::id())?
+                .account(spaceship_pda)?;
+
+            let switchboard_cpf_request = spaceship.crate_picking.switchboard_request_info.account;
+            let switchboard_cpf_request_escrow =
+                get_associated_token_address(&switchboard_cpf_request, &native_mint::ID);
+            let instruction = hologram::instruction::PickCrate { crate_type };
+
+            let accounts = hologram::accounts::PickCrate {
+                user,
+                admin: admin_pubkey,
+                realm: realm_pda,
+                user_account: user_account_pda,
+                spaceship: spaceship_pda,
+                switchboard_state: switchboard_state_pda,
+                switchboard_attestation_queue,
+                crate_picking_function,
+                switchboard_request: switchboard_cpf_request,
+                switchboard_request_escrow: switchboard_cpf_request_escrow,
+                system_program: solana_program::system_program::id(),
+                token_program: switchboard_solana::anchor_spl::token::ID,
+                switchboard_program: switchboard_solana::SWITCHBOARD_ATTESTATION_PROGRAM_ID,
+            };
+
+            Self::send_and_confirm_instruction_blocking(
+                client,
+                hologram::id(),
+                instruction,
+                accounts,
+                payer,
+                vec![],
+                250_000,
+            )
+        });
+
+        commands.spawn((
+            SolanaTransactionTask {
+                description: "pick_crate".to_string(),
                 task,
             },
             false,
@@ -606,6 +763,26 @@ impl HologramServer {
             false,
         ));
     }
+
+    // pub async fn events<C: Deref<Target = impl Signer> + Clone>(&self, pid: Pubkey) -> Result<()> {
+    //     let client = Arc::clone(&self.solana_client);
+    //     let program = client.program(pid)?;
+
+    //     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+    //     let event_unsubscriber = program
+    //         .on(move |_, event: MyEvent| {
+    //             if sender.send(event).is_err() {
+    //                 println!("Error while transferring the event.")
+    //             }
+    //         })
+    //         .await?;
+
+    //     let event = receiver.recv().await.unwrap();
+    //     assert_eq!(event.data, 5);
+    //     assert_eq!(event.label, "hello".to_string());
+
+    //     Ok(())
+    // }
 
     /// Sends and confirms an instruction to the Solana cluster
     fn send_and_confirm_instruction_blocking(

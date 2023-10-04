@@ -1,12 +1,13 @@
 use {
     crate::{
         error::HologramError,
-        state::{Realm, SpaceShip, UserAccount},
+        state::{Realm, SpaceShip, SpaceShipLite, UserAccount},
     },
     anchor_lang::prelude::*,
+    std::borrow::BorrowMut,
 };
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum StatType {
     ArmorLayering,
     ShieldSubsystems,
@@ -41,25 +42,45 @@ pub struct AllocateStatPoint<'info> {
     pub spaceship: Account<'info, SpaceShip>,
 }
 
-pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatType) -> Result<()> {
-    ctx.accounts.spaceship.increase_stat(stat_type)?;
-    Ok(())
+#[event]
+pub struct StatPointAllocated {
+    pub realm_name: String,
+    pub user: Pubkey,
+    pub spaceship: SpaceShipLite,
+    pub stat_type: StatType,
 }
 
-impl SpaceShip {
-    pub fn increase_stat(&mut self, stat_type: StatType) -> Result<()> {
+pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatType) -> Result<()> {
+    // validation
+    {
+        // spaceship must have an available stat point to spend
         require!(
-            self.experience.available_stats_points,
+            ctx.accounts.spaceship.experience.available_stat_points > 0,
             HologramError::NoAvailableStatsPoints
         );
-        match stat_type {
-            StatType::ArmorLayering => self.stats.armor_layering += 1,
-            StatType::ShieldSubsystems => self.stats.shield_subsystems += 1,
-            StatType::TurretRigging => self.stats.turret_rigging += 1,
-            StatType::ElectronicSubsystems => self.stats.electronic_subsystems += 1,
-            StatType::Manoeuvering => self.stats.manoeuvering += 1,
-        }
-        self.experience.available_stats_points = false;
-        Ok(())
     }
+
+    // allocate stat point
+    {
+        let spaceship = ctx.accounts.spaceship.borrow_mut();
+        match stat_type {
+            StatType::ArmorLayering => spaceship.stats.armor_layering += 1,
+            StatType::ShieldSubsystems => spaceship.stats.shield_subsystems += 1,
+            StatType::TurretRigging => spaceship.stats.turret_rigging += 1,
+            StatType::ElectronicSubsystems => spaceship.stats.electronic_subsystems += 1,
+            StatType::Manoeuvering => spaceship.stats.manoeuvering += 1,
+        }
+    }
+
+    // spend the stat point
+    {
+        ctx.accounts.spaceship.experience.debit_stat_point(1)?;
+    }
+    emit!(StatPointAllocated {
+        realm_name: String::from(ctx.accounts.realm.name),
+        user: *ctx.accounts.user.key,
+        spaceship: SpaceShipLite::from_spaceship_account(&ctx.accounts.spaceship),
+        stat_type
+    });
+    Ok(())
 }

@@ -30,6 +30,7 @@ solana-security-txt = "1.1.1"
 num-traits = "0.2.16"
 num = "0.4.1"
 switchboard-solana = "0.28.28"
+lazy_static = "1.4.0"
 # anchor-lang = { workspace = true }
 # anchor-spl = { workspace = true }
 # spl-token = { workspace = true }

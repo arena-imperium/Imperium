@@ -26,6 +26,9 @@ impl RandomNumberGenerator {
 
     // Start inclusive, end exlusive
     pub fn range(&mut self, start: u64, end: u64) -> u64 {
+        if start >= end {
+            panic!("End must be greater than start");
+        }
         start + self.next() % (end - start)
     }
 }
