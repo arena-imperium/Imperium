@@ -3,13 +3,11 @@ use {
     crate::{
         error::HologramError,
         utils::{LimitedString, RandomNumberGenerator},
-        ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL, BASE_ARMOR_HITPOINTS, BASE_CELERITY,
-        BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE,
-        BASE_SHIELD_HITPOINTS, DODGE_CHANCE_CAP, DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO,
-        FUEL_ALLOWANCE_AMOUNT, FUEL_ALLOWANCE_COOLDOWN, HULL_HITPOINTS_PER_LEVEL,
-        JAMMING_NULLIFYING_CHANCE_CAP,
-        JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO, MAX_LEVEL,
-        MAX_POWERUP_SCORE, SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL,
+        BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_LAYERS,
+        DODGE_CHANCE_CAP, DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO, FUEL_ALLOWANCE_AMOUNT,
+        FUEL_ALLOWANCE_COOLDOWN, HULL_HITPOINTS_PER_LEVEL, JAMMING_NULLIFYING_CHANCE_CAP,
+        JAMMING_NULLIFYING_CHANCE_PER_WEAPON_RIGGING_LEVEL_RATIO, MAX_LEVEL, MAX_POWERUP_SCORE,
+        SHIELD_LAYER_PER_SHIELD_LEVEL,
     },
     anchor_lang::prelude::*,
 };
@@ -28,7 +26,7 @@ pub struct SpaceShip {
     // The base skin of the Ship
     pub hull: Hull,
     // The statistics of the Ship (RPG like, like Strengh, Agility, etc.)
-    pub stats: Stats,
+    pub subsystems: Subsystems,
     // The resource used to join the Arena. Respenish daily.
     pub fuel: Fuel,
     pub experience: Experience,
@@ -64,23 +62,20 @@ pub enum Hull {
 // Note: We do bonuses per X level in order to avoid floats (emulated on Solana eBPF and very costly in term of computing power)
 // and also to avoid complicated things with basis points (BPS) and percentages calculations. KISS
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
-pub struct Stats {
-    // +20 Armor HP per level
-    pub armor_layering: u8,
-    // +20 Shield HP per level
-    pub shield_subsystems: u8,
-    // -1 charge_time projectile speed for all turrets type weapon per 5 levels
-    // +1 projectile speed for all turrets type weapon per level
-    pub turret_rigging: u8,
-    // +1% Jamming Nullifying per 2 levels
-    pub electronic_subsystems: u8,
+pub struct Subsystems {
+    // +1 shield layer per 2 levels (max 8 levels)
+    pub shield: u8,
+    // +2 Hull HP per level (max 10 levels)
+    pub hull_integrity: u8,
+    // +1% Jamming Nullifying per level
+    pub weapon_rigging: u8,
     // +1% dodge per 2 levels
-    // +1 Celerity
     pub manoeuvering: u8,
 }
 
 // Randomness is initially seeded using a Switchboard Function (custom).
 // The function is called once only. Randomness is then iterated over using Xorshift.
+// This is initially used for the Hull skin roll at spaceship creation, but it's available as an interative RNG for other use cases.
 // github: https://github.com/acamill/spaceship_seed_generation_function
 // devnet: https://app.switchboard.xyz/solana/devnet/function/5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe
 // mainet: @TODO
@@ -136,12 +131,17 @@ pub struct Module {
     // pub description: LongLimitedString,
     pub rarity: Rarity,
     pub class: ModuleClass,
+    pub is_active: bool,
 }
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct Drone {
     pub name: LimitedString,
     // pub description: LongLimitedString,
     pub rarity: Rarity,
+    pub size: DroneSize,
+    pub class: DroneClass,
+    pub is_active: bool,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
@@ -149,6 +149,7 @@ pub struct Mutation {
     pub name: LimitedString,
     // pub description: LongLimitedString,
     pub rarity: Rarity,
+    pub is_active: bool,
 }
 
 impl SpaceShip {
@@ -179,7 +180,7 @@ impl SpaceShip {
     // informs wether the spaceship has available stat or crate point to spend.
     // Untils these are spent, he is barred from entering the arena
     pub fn has_available_stat_point(&self) -> bool {
-        self.experience.available_stat_points > 0
+        self.experience.available_subsystem_upgrade_points > 0
     }
 
     pub fn gain_experience(&mut self, amount: u8) -> Result<()> {
@@ -202,7 +203,7 @@ impl SpaceShip {
         // update xp to next level
         self.experience.exp_to_next_level = self.experience.experience_to_next_level();
         // give a stat point
-        self.experience.credit_stat_point(1);
+        self.experience.credit_subsystem_upgrade_point(1);
         Ok(())
     }
 
@@ -245,43 +246,22 @@ impl SpaceShip {
     // formula: BASE_HULL_HITPOINTS + (current_level * HULL_HITPOINTS_PER_LEVEL)
     pub fn get_hull_hitpoints(&self) -> HitPoints {
         let hull_hitpoints =
-            BASE_HULL_HITPOINTS + (self.experience.current_level as u16 * HULL_HITPOINTS_PER_LEVEL);
+            BASE_HULL_HITPOINTS + (self.experience.current_level * HULL_HITPOINTS_PER_LEVEL);
         HitPoints::init(hull_hitpoints)
     }
 
-    // return armor hitpoints for a ship - Value are prefight, they will be modified by the fight engine
-    // formula: BASE_ARMOR_HITPOINTS + (armor_layering * ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL)
-    pub fn get_armor_hitpoints(&self) -> HitPoints {
-        let armor_hitpoints = BASE_ARMOR_HITPOINTS
-            + self.stats.armor_layering as u16 * ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL;
-        HitPoints::init(armor_hitpoints)
-    }
-
-    // return shield hitpoints for a ship - Value are prefight, they will be modified by the fight engine
-    // formula: BASE_SHIELD_HITPOINTS + (shield_subsystems * SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL)
-    pub fn get_shield_hitpoints(&self) -> HitPoints {
-        let shield_hitpoints = BASE_SHIELD_HITPOINTS
-            + self.stats.shield_subsystems as u16 * SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL;
-        HitPoints::init(shield_hitpoints)
-    }
-
-    // return turret_charge_time modifier for a ship - Value are prefight, they will be modified by the fight engine
-    // formula: -1 charge_time per 5 levels
-    pub fn get_turret_charge_time_reduction(&self) -> u8 {
-        self.stats.turret_rigging / 5
-    }
-
-    // return turret_projectile_speed modifier for a ship - Value are prefight, they will be modified by the fight engine
-    // formula: +1 projectile speed per turret_rigging stat level
-    pub fn get_turret_projectile_speed(&self) -> u8 {
-        self.stats.turret_rigging
+    // the number of shield layers of the ship
+    pub fn get_shield_layers(&self) -> HitPoints {
+        let shield_layers =
+            BASE_SHIELD_LAYERS + self.subsystems.shield * SHIELD_LAYER_PER_SHIELD_LEVEL;
+        HitPoints::init(shield_layers)
     }
 
     // return ships current dodge chance value - Value may be modified by the fight engine
     // formula: (manoeuvering / DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO) + BASE_DODGE_CHANCE. Capped at DODGE_CHANCE_CAP
     pub fn get_dodge_chance(&self) -> u8 {
         std::cmp::min(
-            (self.stats.manoeuvering / DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO)
+            (self.subsystems.manoeuvering / DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO)
                 + BASE_DODGE_CHANCE,
             DODGE_CHANCE_CAP,
         )
@@ -291,23 +271,11 @@ impl SpaceShip {
     // formula: (electronic_subsystems / JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO) + BASE_JAMMING_NULLIFYING_CHANCE. Capped at JAMMING_NULLIFYING_CHANCE_CAP
     pub fn get_jamming_nullifying_chance(&self) -> u8 {
         std::cmp::min(
-            (self.stats.electronic_subsystems
-                / JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO)
+            (self.subsystems.weapon_rigging
+                / JAMMING_NULLIFYING_CHANCE_PER_WEAPON_RIGGING_LEVEL_RATIO)
                 + BASE_JAMMING_NULLIFYING_CHANCE,
             JAMMING_NULLIFYING_CHANCE_CAP,
         )
-    }
-
-    // return ships current celerity value - Value may be modified by the fight engine
-    // formula: BASE_CELERITY + manoeuvering - number of modules, min 0
-    pub fn get_celerity(&self) -> u8 {
-        let celerity = BASE_CELERITY + self.stats.manoeuvering;
-        let celerity_malus = self.modules.len() as u8;
-        if celerity_malus > celerity {
-            0
-        } else {
-            celerity - celerity_malus
-        }
     }
 }
 
@@ -328,72 +296,67 @@ pub enum HitpointLayer {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct HitPoints {
-    pub current: u16,
-    pub max: u16,
+    pub current: u8,
+    pub max: u8,
 }
 
 impl HitPoints {
-    pub fn init(initial_value: u16) -> Self {
+    pub fn init(initial_value: u8) -> Self {
         HitPoints {
             current: initial_value,
             max: initial_value,
         }
     }
-}
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub struct DamageProfile {
-    // 200% damage to shield, 25% damage to armor
-    pub em: u8,
-    // 200% damage to armor
-    pub thermal: u8,
-    // standard damage
-    pub kinetic: u8,
-    // 200% damage to hull, 25% damage to shield
-    pub explosive: u8,
+    pub fn depleted(&self) -> bool {
+        self.current == 0
+    }
+
+    pub fn deplete(&mut self, amount: u8) {
+        self.current.saturating_sub(amount);
+    }
+
+    pub fn resplenish(&mut self, amount: u8) {
+        self.current.saturating_add(amount);
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub enum ModuleClass {
     // Weapons
     Turret(WeaponModuleStats),
-    Launcher(WeaponModuleStats),
     Exotic(WeaponModuleStats),
     // Repairers
-    ShieldBooster(RepairModuleStats),
-    ArmorRepairer(RepairModuleStats),
+    ShieldBooster(RepairModuleStats), // provide a boost of power that instantly regenerate shield layer
     HullRepairer(RepairModuleStats),
     // Passives
-    ShieldAmplifier,
-    NaniteCoating,
-    TrackingComputer,
-    Gyrostabilizer,
-    // Jammers
-    TrackingDisruptor,
-    SensorDampener,
+    ShieldAmplifier,  // reduce shield layer regeneration time
+    TrackingComputer, // reduce opponent dodge chances
+}
+
+impl PartialEq for ModuleClass {
+    fn eq(&self, other: &Self) -> bool {
+        core::mem::discriminant(self) == core::mem::discriminant(other)
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum CycleTime {
-    Short = 6,       // 5:3 (1.67)
-    Accelerated = 8, // 5:4 (1.25)
-    Standard = 10,   // 1:1 (1.0)
-    Extended = 14,   // 5:7 (0.71)
-    Long = 20,       // 1:2 (0.5)
-    VeryLong = 30,   // 1:3 (0.33)
+pub enum DroneClass {
+    // Fighter
+    Turret(WeaponModuleStats),
+    Exotic(WeaponModuleStats),
+    // Eletronic warfare drones
+    ECM(JammerModuleStats),
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum ProjectileSpeed {
-    Sluggish = 40,
-    Slow = 50,
-    SubStandard = 60,
-    Standard = 75,
-    Fast = 90,
-    Blazing = 105,
+pub enum DroneSize {
+    Light,
+    Medium,
+    Heavy,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum Shots {
     Single,
     Salvo(u8),
@@ -401,22 +364,30 @@ pub enum Shots {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct WeaponModuleStats {
-    pub class: AmmoClass,
-    pub damage_profile: DamageProfile,
+    pub weapon_type: WeaponType,
+    pub damage: u8,
     pub shots: Shots,
-    pub cycle_time: CycleTime,
-    pub projectile_speed: ProjectileSpeed,
+    pub charge_time: u8,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct RepairModuleStats {
     pub repair_amount: u8,
-    pub cycle_time: CycleTime,
+    pub charge_time: u8,
 }
 
+// Jamming works by randomly picking a module/drone, and attempting to jam it, which remove charge time from it
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
-pub enum AmmoClass {
+pub struct JammerModuleStats {
+    pub charge_burn: u8,
+    pub chance: u8,
+    pub charge_time: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+pub enum WeaponType {
     Projectile,
     Missile,
-    Energy,
+    Laser,
+    Beam,
 }

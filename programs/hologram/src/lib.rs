@@ -40,27 +40,29 @@ pub const MAX_LEVEL: u8 = 16;
 // 2 level of related stat provide 1% dodge chance
 pub const DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO: u8 = 2;
 // 2 level of related stat provide 1% jamming nullifying
-pub const JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO: u8 = 2;
+pub const JAMMING_NULLIFYING_CHANCE_PER_WEAPON_RIGGING_LEVEL_RATIO: u8 = 1;
+pub const SHIELD_LAYER_PER_SHIELD_LEVEL: u8 = 2;
 
 pub const BASE_DODGE_CHANCE: u8 = 5; // 5%
 pub const DODGE_CHANCE_CAP: u8 = 35; // 35%
 
+pub const BASE_JAM_CHANCE: u8 = 100; // 100%
 pub const BASE_JAMMING_NULLIFYING_CHANCE: u8 = 10; // 10%
 pub const JAMMING_NULLIFYING_CHANCE_CAP: u8 = 75; // 75%
 
-// Celerity is the statistic that determine who plays first during a fight (higher is better)
-pub const BASE_CELERITY: u8 = 10;
+pub const BASE_CRIT_CHANCE: u8 = 5; // 5%
 
-pub const BASE_HULL_HITPOINTS: u16 = 75;
-pub const BASE_ARMOR_HITPOINTS: u16 = 10;
-pub const BASE_SHIELD_HITPOINTS: u16 = 0;
-pub const HULL_HITPOINTS_PER_LEVEL: u16 = 5;
-pub const ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL: u16 = 20;
-pub const SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL: u16 = 15;
+pub const BASE_HULL_HITPOINTS: u8 = 30;
+pub const BASE_SHIELD_LAYERS: u8 = 0;
+pub const MAX_SHIELD_LAYERS: u8 = 4;
+pub const HULL_HITPOINTS_PER_LEVEL: u8 = 2;
 
 pub const ARENA_MATCHMAKING_FUEL_COST: u8 = 1;
 pub const ARENA_MATCHMAKING_LEVEL_PER_RANGE: u8 = 2;
 pub const ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE: u8 = 5;
+
+pub const MAX_SHIELD_SUBSYSTEM_LEVEL: u8 = 8;
+pub const MAX_HULL_INTEGRITY_SUBSYSTEM_LEVEL: u8 = 10;
 
 solana_security_txt::security_txt! {
     name: "Hologram",
@@ -126,9 +128,9 @@ pub mod hologram {
         instructions::claim_fuel_allowance(ctx)
     }
 
-    // Allocates available stat point if any
-    pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatType) -> Result<()> {
-        instructions::allocate_stat_point(ctx, stat_type)
+    // Allocates available subsystem upgrade point if any
+    pub fn upgrade_subsystem(ctx: Context<UpgradeSubsystem>, subsystem: Subsystem) -> Result<()> {
+        instructions::upgrade_subsystem(ctx, subsystem)
     }
 
     // Pick a crate reward (once per level), will roll for a RNG based drop to power up the spaceship

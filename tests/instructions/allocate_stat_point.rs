@@ -2,7 +2,7 @@ pub use crate::utils;
 use {
     crate::utils::pda,
     anchor_lang::ToAccountMetas,
-    hologram::{instructions::StatType, state::SpaceShip},
+    hologram::{instructions::Subsystem, state::SpaceShip},
     solana_program::pubkey::Pubkey,
     solana_program_test::{BanksClientError, ProgramTestContext},
     solana_sdk::signer::{keypair::Keypair, Signer},
@@ -14,7 +14,7 @@ pub async fn allocate_stat_point(
     user: &Keypair,
     realm_pda: &Pubkey,
     spaceship_pda: &Pubkey,
-    stat_type: StatType,
+    stat_type: Subsystem,
 ) -> std::result::Result<(), BanksClientError> {
     let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
 
@@ -50,31 +50,34 @@ pub async fn allocate_stat_point(
 
     // verify that we debited a stat point
     assert_eq!(
-        spaceship.experience.available_stat_points,
-        spaceship_before.experience.available_stat_points - 1
+        spaceship.experience.available_subsystem_upgrade_points,
+        spaceship_before
+            .experience
+            .available_subsystem_upgrade_points
+            - 1
     );
 
     // verify that the stat was increased
     match stat_type {
-        StatType::ArmorLayering => assert_eq!(
-            spaceship.stats.armor_layering,
-            spaceship_before.stats.armor_layering + 1
+        Subsystem::ArmorLayering => assert_eq!(
+            spaceship.subsystems.armor_layering,
+            spaceship_before.subsystems.armor_layering + 1
         ),
-        StatType::ShieldSubsystems => assert_eq!(
-            spaceship.stats.shield_subsystems,
-            spaceship_before.stats.shield_subsystems + 1
+        Subsystem::ShieldSubsystems => assert_eq!(
+            spaceship.subsystems.shield_subsystems,
+            spaceship_before.subsystems.shield_subsystems + 1
         ),
-        StatType::TurretRigging => assert_eq!(
-            spaceship.stats.turret_rigging,
-            spaceship_before.stats.turret_rigging + 1
+        Subsystem::TurretRigging => assert_eq!(
+            spaceship.subsystems.turret_rigging,
+            spaceship_before.subsystems.turret_rigging + 1
         ),
-        StatType::ElectronicSubsystems => assert_eq!(
-            spaceship.stats.electronic_subsystems,
-            spaceship_before.stats.electronic_subsystems + 1
+        Subsystem::ElectronicSubsystems => assert_eq!(
+            spaceship.subsystems.electronic_subsystems,
+            spaceship_before.subsystems.electronic_subsystems + 1
         ),
-        StatType::Manoeuvering => assert_eq!(
-            spaceship.stats.manoeuvering,
-            spaceship_before.stats.manoeuvering + 1
+        Subsystem::Manoeuvering => assert_eq!(
+            spaceship.subsystems.manoeuvering,
+            spaceship_before.subsystems.manoeuvering + 1
         ),
     };
 

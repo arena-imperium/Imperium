@@ -1,4 +1,4 @@
-pub mod allocate_stat_point;
+pub mod upgrade_subsystem;
 pub mod arena_matchmaking;
 pub mod claim_fuel_allowance;
 pub mod create_spaceship;
@@ -6,6 +6,6 @@ pub mod create_user_account;
 pub mod pick_crate;
 
 pub use {
-    allocate_stat_point::*, arena_matchmaking::*, claim_fuel_allowance::*, create_spaceship::*,
+    upgrade_subsystem::*, arena_matchmaking::*, claim_fuel_allowance::*, create_spaceship::*,
     create_user_account::*, pick_crate::*,
 };

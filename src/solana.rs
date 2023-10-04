@@ -9,7 +9,7 @@ use {
     futures_lite::future,
     hologram::{
         self,
-        instructions::{CrateType, Faction, StatType},
+        instructions::{CrateType, Faction, Subsystem},
         state::{SpaceShip, UserAccount},
     },
     solana_cli_output::display::println_transaction,
@@ -494,7 +494,7 @@ impl HologramServer {
         realm_pda: &Pubkey,
         user: &Pubkey,
         spaceship_pda: &Pubkey,
-        stat_type: StatType,
+        stat_type: Subsystem,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);

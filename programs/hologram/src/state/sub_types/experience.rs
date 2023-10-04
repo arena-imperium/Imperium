@@ -8,20 +8,20 @@ pub struct Experience {
     pub current_level: u8,
     pub current_exp: u16,
     pub exp_to_next_level: u16,
-    pub available_stat_points: u8,
+    pub available_subsystem_upgrade_points: u8,
 }
 
 impl Experience {
-    pub fn credit_stat_point(&mut self, amount: u8) {
-        self.available_stat_points += amount;
+    pub fn credit_subsystem_upgrade_point(&mut self, amount: u8) {
+        self.available_subsystem_upgrade_points += amount;
     }
 
-    pub fn debit_stat_point(&mut self, amount: u8) -> Result<()> {
+    pub fn debit_subsystem_upgrade_point(&mut self, amount: u8) -> Result<()> {
         require!(
-            self.available_stat_points >= amount,
-            HologramError::InsufficientStatPoints
+            self.available_subsystem_upgrade_points >= amount,
+            HologramError::InsufficientSubsystemUpgradePoints
         );
-        self.available_stat_points -= amount;
+        self.available_subsystem_upgrade_points -= amount;
         Ok(())
     }
 

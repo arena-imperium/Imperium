@@ -1,7 +1,7 @@
 use {
     crate::utils::pda,
     hologram::{
-        instructions::{CrateType, Faction, StatType},
+        instructions::{CrateType, Faction, Subsystem},
         state::UserAccount,
         FUEL_ALLOWANCE_COOLDOWN,
     },
@@ -196,11 +196,11 @@ pub async fn test_integration() {
     {
         let mut allocate_stat_point_tasks = vec![];
         let stat_types = [
-            StatType::ArmorLayering,
-            StatType::ElectronicSubsystems,
-            StatType::Manoeuvering,
-            StatType::ShieldSubsystems,
-            StatType::TurretRigging,
+            Subsystem::ArmorLayering,
+            Subsystem::ElectronicSubsystems,
+            Subsystem::Manoeuvering,
+            Subsystem::ShieldSubsystems,
+            Subsystem::TurretRigging,
         ];
         [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
             .iter()

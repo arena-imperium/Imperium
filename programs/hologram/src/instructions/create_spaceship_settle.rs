@@ -2,7 +2,7 @@
 use switchboard_solana::FunctionRequestAccountData;
 use {
     crate::{
-        engine::LT_STARTER_WEAPON,
+        engine::LT_STARTER_WEAPONS,
         error::HologramError,
         state::{
             spaceship, Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
@@ -119,9 +119,10 @@ pub fn create_spaceship_settle(
         ctx.accounts.spaceship.randomness.iteration = 1;
     }
 
+    let mut rng = RandomNumberGenerator::new(generated_seed.into());
+
     // Roll the Hull with the first generated seed
     {
-        let mut rng = RandomNumberGenerator::new(generated_seed.into());
         let dice_roll = rng.roll_dice(10); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
         ctx.accounts.spaceship.hull = match dice_roll {
             1 => Hull::CommonOne,
@@ -143,10 +144,13 @@ pub fn create_spaceship_settle(
     {
         let spaceship = &mut ctx.accounts.spaceship;
         // provide starter weapon
-        spaceship.modules.push(LT_STARTER_WEAPON.clone());
+        let roll = rng.roll_dice(LT_STARTER_WEAPONS.len());
+        let starter_weapon = LT_STARTER_WEAPONS[roll as usize].clone();
+        msg!("Starter weapon: {:?}", starter_weapon);
+        spaceship.modules.push(starter_weapon);
         spaceship.powerup_score = 1;
         // provide 1 stat point
-        spaceship.experience.credit_stat_point(1);
+        spaceship.experience.credit_subsystem_upgrade_point(1);
         // provide currency for 1 NI crate
         spaceship.wallet.credit(30, Currency::ImperialCredit)?;
     }

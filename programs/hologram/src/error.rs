@@ -40,14 +40,12 @@ pub enum HologramError {
     MatchmakingQueueFull, // 15
     #[msg("The matchmaking queue cannot handle more requests at the moment. Please retry later")]
     MatchmakingTooManyRequests,
-    #[msg("The spaceship must allocate his level up stats and powerup before being able to join the arena")]
-    PendingStatOrPowerup,
     #[msg("The queue is currently empty, please retry later")] // concurrency issue
     NoSpaceshipsInQueue,
     #[msg("The spaceship fuel allowance is not available yet")]
     FuelAllowanceOnCooldown,
-    #[msg("The spaceship has no available stats points to spend")]
-    NoAvailableStatsPoints,
+    #[msg("The spaceship has no available subsystem upgrade points to spend")]
+    NoAvailableSubsystemUpgradePoint,
     #[msg("The spaceship has no available crate to pick at this moment")]
     NoCrateAvailable,
     #[msg("The switchboard function wasn't signed by the enclave")]
@@ -56,10 +54,12 @@ pub enum HologramError {
     InvalidLootTable,
     #[msg("The ingame spaceship wallet doesn't have enough funds to pay for the transaction")]
     InsufficientFunds,
-    #[msg("The spaceship does not have sufficient unspent stat points to allocate")]
-    InsufficientStatPoints,
+    #[msg("The spaceship does not have sufficient unspent subsystem upgrade points to allocate")]
+    InsufficientSubsystemUpgradePoints,
     #[msg("The spaceship is decked out with the maximum amount of powerups")]
     MaxPowerupScoreReached,
+    #[msg("The spaceship's subsystem is at max level")]
+    MaxSubsystemLevelReached,
     #[msg("The game state does not permit this action")]
     InvalidAction,
 }

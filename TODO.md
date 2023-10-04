@@ -2,7 +2,19 @@
 
 ## Smart Contract
 
+- handle shield layer regen
+        - in the battlecard, define each layer regen time
+        - add an "active module" to each ship that for shield regeneration
+        - add an effect "shield regen" in the ActiveEffects triggered by that module, it also update the regen time depending of the current layer status
+
+- handle passive powerups (in fight_engine.rs)
+
 - add new drones and mutatio to the LT
+- add anti drone weapons
+- add anti missiles drones
+- add drone jammers
+
+- look into macro (ask node again) to sideload loot table at compile time from a CSV
 
 - test expired switchboard function request after 75 slots (warp and check it can be called again)
 
