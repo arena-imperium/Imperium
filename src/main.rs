@@ -30,10 +30,8 @@ pub enum Scene {
     Loading,
     // Starting scene, where the player can setup a connection with their wallet
     Login,
-    // During this State the actual game logic is executed
-    Playing,
     // Here the menu is drawn and waiting for player interaction
-    Menu,
+    MainMenu,
 }
 
 pub struct GameState {
@@ -96,6 +94,15 @@ fn setup(_c: &mut GameContext) {
 /// Drawing and most things are immediate mode; so can be very
 /// quick to setup ui for debugging state.
 fn update(c: &mut GameContext) {
+    clear_background(BLACK);
+    egui::Window::new("Dev Test Window")
+        .default_pos(egui::Pos2::new(0.0, 0.0))
+        .show(c.egui, |ui| {
+            dev_menu(ui, c);
+            if ui.button("Reset").clicked(){
+                *c.scene = Scene::Loading
+            }
+        });
     match c.scene {
         Scene::Loading => {
             draw_text(
@@ -107,11 +114,18 @@ fn update(c: &mut GameContext) {
             *c.scene = Scene::Login
         }
         Scene::Login => {
-            // Currently hardcoded?
-            *c.scene = Scene::Menu
+            let size = 2.0;
+            draw_circle(vec2(0.0, 0.0), size, RED*0.5, 2);
+            draw_quad(vec2(0.0, 0.0), vec2(1.75, 0.25), get_time() as f32, GREEN*0.5, 3, texture_id("1px"), Vec2::ZERO);
+
+            if screen_to_world(mouse_screen()).distance(vec2(0.0, 0.0)) < size{
+                draw_circle_outline(vec2(0.0, 0.0), size, 0.1, ORANGE, 0);
+                if is_mouse_button_down(MouseButton::Left){
+                    *c.scene = Scene::MainMenu
+                }
+            }
         }
-        Scene::Playing => {}
-        Scene::Menu => {
+        Scene::MainMenu => {
             let top_pos = Position::screen_percent(0.95, 0.05).to_world();
             draw_text(
                 &format!("Connected Wallet: {}", c.solana_server.admin_pubkey),
@@ -131,12 +145,6 @@ fn update(c: &mut GameContext) {
                 WHITE,
                 TextAlign::Center,
             );
-
-            egui::Window::new("Dev Test Window")
-                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
-                .show(c.egui, |ui| {
-                    dev_menu(ui, c);
-                });
         }
     }
 
