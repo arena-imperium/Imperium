@@ -13,6 +13,7 @@ use {
     bevy_tasks::{IoTaskPool, TaskPool, TaskPoolBuilder},
     comfy::*,
 };
+use crate::menu::login_window;
 
 comfy_game!(
     "Imperium",
@@ -29,9 +30,16 @@ pub enum Scene {
     #[default]
     Loading,
     // Starting scene, where the player can setup a connection with their wallet
-    Login,
+    Login(Login),
     // Here the menu is drawn and waiting for player interaction
     MainMenu,
+}
+
+#[derive(Default, Clone, Eq, PartialEq, Debug, Hash)]
+pub enum Login{
+    #[default]
+    NotLoggedIn,
+    LoginWindow,
 }
 
 pub struct GameState {
@@ -94,7 +102,6 @@ fn setup(_c: &mut GameContext) {
 /// Drawing and most things are immediate mode; so can be very
 /// quick to setup ui for debugging state.
 fn update(c: &mut GameContext) {
-    clear_background(BLACK);
     egui::Window::new("Dev Test Window")
         .default_pos(egui::Pos2::new(0.0, 0.0))
         .show(c.egui, |ui| {
@@ -103,6 +110,7 @@ fn update(c: &mut GameContext) {
                 *c.scene = Scene::Loading
             }
         });
+    clear_background(BLACK);
     match c.scene {
         Scene::Loading => {
             draw_text(
@@ -111,17 +119,39 @@ fn update(c: &mut GameContext) {
                 WHITE,
                 TextAlign::Center,
             );
-            *c.scene = Scene::Login
+            *c.scene = Scene::Login(Login::NotLoggedIn)
         }
-        Scene::Login => {
+        Scene::Login(login_state) => {
+            clear_background(BLACK);
             let size = 2.0;
-            draw_circle(vec2(0.0, 0.0), size, RED*0.5, 2);
-            draw_quad(vec2(0.0, 0.0), vec2(1.75, 0.25), get_time() as f32, GREEN*0.5, 3, texture_id("1px"), Vec2::ZERO);
 
-            if screen_to_world(mouse_screen()).distance(vec2(0.0, 0.0)) < size{
-                draw_circle_outline(vec2(0.0, 0.0), size, 0.1, ORANGE, 0);
-                if is_mouse_button_down(MouseButton::Left){
-                    *c.scene = Scene::MainMenu
+            draw_circle(vec2(0.0, 0.0), size, Color::new(0.45, 0.8, 0.11, 1.00), 2);
+            draw_quad(vec2(0.0, 0.0), vec2(1.75, 0.25), get_time() as f32, Color::new(0.41, 0.46, 0.47, 1.00), 3, texture_id("1px"), Vec2::ZERO);
+
+
+            match login_state {
+                Login::NotLoggedIn => {
+                    if screen_to_world(mouse_screen()).distance(vec2(0.0, 0.0)) < size{
+                        draw_circle_outline(vec2(0.0, 0.0), size, 0.1, ORANGE, 0);
+                        if is_mouse_button_pressed(MouseButton::Left){
+                            *c.scene = Scene::Login(Login::LoginWindow)
+                        }
+                    }
+                }
+                Login::LoginWindow => {
+                    let window_scale = Position::screen_percent(0.25, 0.5).to_world();
+                    // Todo: add a ui_utils struct to context, put useful variables there like padding
+                    // and functions for making buttons etc.
+                    let padding = egui_scale_factor()*0.35;
+                    // Todo: replace with ui panel art
+                    /*draw_sprite(texture_id("1px"), vec2(0.0, 0.0), Color::new(0.31, 0.31, 0.31, 1.00), 5, window_scale);*/
+                    /*draw_text_ex(
+                        &format!("Hanger Entry Id Request"),
+                        window_scale*0.5 - Vec2::new(0.0, padding),
+                        TextAlign::TopRight,
+                        TextParams::default()
+                    );*/
+                    login_window(c);
                 }
             }
         }
