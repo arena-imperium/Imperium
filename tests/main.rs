@@ -190,17 +190,16 @@ pub async fn test_integration() {
             .unwrap();
     }
 
-    // [5] -------------------- ALLOCATE STAT POINT ------------------------------------------------
-    // Allocate the stat point of each user (we vary the type of stat)
+    // [5] -------------------- UPGRADE SUBSYSTEM --------------------------------------------------
+    // Upgrade ship subsystem (varied ones)
     // ---------------------------------------------------------------------------------------------
     {
-        let mut allocate_stat_point_tasks = vec![];
-        let stat_types = [
-            Subsystem::ArmorLayering,
-            Subsystem::ElectronicSubsystems,
+        let mut upgrade_subsystem_tasks = vec![];
+        let subsystems = [
+            Subsystem::HullIntegrity,
+            Subsystem::Shield,
+            Subsystem::WeaponRigging,
             Subsystem::Manoeuvering,
-            Subsystem::ShieldSubsystems,
-            Subsystem::TurretRigging,
         ];
         [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
             .iter()
@@ -214,20 +213,20 @@ pub async fn test_integration() {
                         utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
                     // we pick the first spaceship of the player for these tests
                     let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
-                    instructions::allocate_stat_point(
+                    instructions::upgrade_subsystem(
                         &ctx,
                         &user,
                         &realm_pda,
                         &spaceship_pda,
-                        stat_types[i % stat_types.len()],
+                        subsystems[i % subsystems.len()],
                     )
                     .await
                     .unwrap();
                 });
-                allocate_stat_point_tasks.push(task);
+                upgrade_subsystem_tasks.push(task);
             });
         // Wait for all tasks to finish
-        for task in allocate_stat_point_tasks {
+        for task in upgrade_subsystem_tasks {
             task.await.unwrap();
         }
     }

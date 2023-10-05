@@ -202,7 +202,7 @@ impl SpaceShip {
         self.experience.current_exp -= self.experience.exp_to_next_level;
         // update xp to next level
         self.experience.exp_to_next_level = self.experience.experience_to_next_level();
-        // give a stat point
+        // give an upgrade subsystem point
         self.experience.credit_subsystem_upgrade_point(1);
         Ok(())
     }
@@ -313,11 +313,11 @@ impl HitPoints {
     }
 
     pub fn deplete(&mut self, amount: u8) {
-        self.current.saturating_sub(amount);
+        self.current = self.current.saturating_sub(amount);
     }
 
     pub fn resplenish(&mut self, amount: u8) {
-        self.current.saturating_add(amount);
+        self.current = self.current.saturating_add(amount);
     }
 }
 
@@ -384,7 +384,7 @@ pub struct JammerModuleStats {
     pub charge_time: u8,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy, PartialEq)]
 pub enum WeaponType {
     Projectile,
     Missile,

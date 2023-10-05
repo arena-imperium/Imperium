@@ -78,7 +78,7 @@ impl SpaceShipBattleCard {
 
             let roll = rng.roll_dice(active_powerups_with_charge_indexes.len());
             let index = active_powerups_with_charge_indexes[roll as usize];
-            target.active_powerups[index]
+            target.active_powerups[index].accumulated_charge = target.active_powerups[index]
                 .accumulated_charge
                 .saturating_sub(charge_burn);
         }

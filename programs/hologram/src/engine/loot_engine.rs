@@ -135,17 +135,151 @@ lazy_static! {
             }),
             is_active: true,
         }];
-    pub static ref LT_MODULES_OFFENSIVE_COMMON: [Module; 2] = [
 
+    pub static ref LT_MODULES_OFFENSIVE_COMMON: [Module; 5] = [
+        Module {
+            name: LimitedString::new("Pulse Laser"),
+            rarity: Common,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Laser,
+                damage: 1,
+                charge_time: 10,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        },
+        Module {
+            name: LimitedString::new("Dual Pulse Laser"),
+            rarity: Common,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Laser,
+                damage: 1,
+                charge_time: 21,
+                shots: Shots::Salvo(2),
+            }),
+            is_active: true,
+        },
+        Module {
+            name: LimitedString::new("Slicer"),
+            rarity: Common,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Beam,
+                damage: 2,
+                charge_time: 18,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        },
+        Module {
+            name: LimitedString::new("175mm Artillery"),
+            rarity: Common,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Projectile,
+                damage: 3,
+                charge_time: 28,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        },
+        Module {
+            name: LimitedString::new("Light Missile Launcher I"),
+            rarity: Common,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Missile,
+                damage: 2,
+                charge_time: 19,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        }
     ];
+
     pub static ref LT_MODULES_OFFENSIVE_UNCOMMON: [Module; 3] = [
+        Module {
+            name: LimitedString::new("Heavy Pulse Laser"),
+            rarity: Uncommon,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Laser,
+                damage: 2,
+                charge_time: 16,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        },
+        Module {
+            name: LimitedString::new("125mm Dual Autocannon"),
+            rarity: Uncommon,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Projectile,
+                damage: 1,
+                charge_time: 18,
+                shots: Shots::Salvo(2),
+            }),
+            is_active: true,
+        },
+        Module {
+            name: LimitedString::new("Assault Missile Launcher"),
+            rarity: Uncommon,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Missile,
+                damage: 4,
+                charge_time: 30,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        },
+    ];
+
+    pub static ref LT_MODULES_OFFENSIVE_RARE: [Module; 3] = [
+        Module {
+            name: LimitedString::new("280mm 'Howitzer' Artillery"),
+            rarity: Rare,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Projectile,
+                damage: 5,
+                charge_time: 30,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        },
+        Module {
+            name: LimitedString::new("'Halberd' Slicer"),
+            rarity: Rare,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Laser,
+                damage: 4,
+                charge_time: 23,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        },
+        Module {
+            name: LimitedString::new("Rapid Light Missile Launcher"),
+            rarity: Rare,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Missile,
+                damage: 2,
+                charge_time: 12,
+                shots: Shots::Single,
+            }),
+            is_active: true,
+        }
 
     ];
-    pub static ref LT_MODULES_OFFENSIVE_RARE: [Module; 4] = [
 
+    pub static ref LT_MODULES_OFFENSIVE_FACTION: [Module; 1] = [
+        Module {
+            name: LimitedString::new("Polarised Repeating Laser"),
+            rarity: Faction,
+            class: ModuleClass::Turret(WeaponModuleStats {
+                weapon_type: WeaponType::Laser,
+                damage: 1,
+                charge_time: 16,
+                shots: Shots::Salvo(3),
+            }),
+            is_active: true,
+        }
     ];
-
-    pub static ref LT_MODULES_OFFENSIVE_FACTION: [Module; 1] = [];
 
     // ------------------ DRONES ------------------
     pub static ref LT_DRONE_OFFENSIVE_COMMON: [Drone; 2] = [Drone {
@@ -167,58 +301,58 @@ lazy_static! {
         class: DroneClass::Turret(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 1,
-            charge_time: 10,
+            charge_time: 20,
             shots: Shots::Salvo(2),
         }),
         is_active: true,
     }];
 
     pub static ref LT_DRONE_OFFENSIVE_UNCOMMON: [Drone; 2] = [Drone {
-        name: LimitedString::new("Vespa"),
-        rarity: Uncommon,
-        size: DroneSize::Medium,
-        class: DroneClass::Turret(WeaponModuleStats {
-            weapon_type: WeaponType::Projectile,
-            damage: 1,
-            charge_time: 10,
-            shots: Shots::Single,
-        }),
-        is_active: true,
-    }
-    ,Drone {
-        name: LimitedString::new("Infiltrator"),
-        rarity: Uncommon,
-        size: DroneSize::Medium,
-        class: DroneClass::Turret(WeaponModuleStats {
-            weapon_type: WeaponType::Laser,
-            damage: 1,
-            charge_time: 10,
-            shots: Shots::Salvo(4),
-        }),
-        is_active: true,
-    }];
-
-    pub static ref LT_DRONE_OFFENSIVE_RARE: [Drone; 2] = [Drone {
         name: LimitedString::new("Augmented Hornet"),
-        rarity: Rare,
+        rarity: Uncommon,
         size: DroneSize::Light,
         class: DroneClass::Turret(WeaponModuleStats {
             weapon_type: WeaponType::Projectile,
             damage: 1,
-            charge_time: 10,
+            charge_time: 9,
             shots: Shots::Single,
         }),
         is_active: true,
     },
     Drone {
         name: LimitedString::new("Augmented Acolyte"),
-        rarity: Rare,
+        rarity: Uncommon,
         size: DroneSize::Light,
         class: DroneClass::Turret(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 1,
-            charge_time: 10,
+            charge_time: 17,
             shots: Shots::Salvo(2),
+        }),
+        is_active: true,
+    }];
+
+    pub static ref LT_DRONE_OFFENSIVE_RARE: [Drone; 2] = [Drone {
+        name: LimitedString::new("Vespa"),
+        rarity: Rare,
+        size: DroneSize::Medium,
+        class: DroneClass::Turret(WeaponModuleStats {
+            weapon_type: WeaponType::Projectile,
+            damage: 2,
+            charge_time: 13,
+            shots: Shots::Single,
+        }),
+        is_active: true,
+    }
+    ,Drone {
+        name: LimitedString::new("Infiltrator"),
+        rarity: Rare,
+        size: DroneSize::Medium,
+        class: DroneClass::Turret(WeaponModuleStats {
+            weapon_type: WeaponType::Laser,
+            damage: 1,
+            charge_time: 18,
+            shots: Shots::Salvo(3),
         }),
         is_active: true,
     }];
@@ -230,21 +364,16 @@ lazy_static! {
         class: DroneClass::Turret(WeaponModuleStats {
             weapon_type: WeaponType::Missile,
             damage: 2,
-            charge_time: 18,
-            shots: Shots::Salvo(2),
+            charge_time: 30,
+            shots: Shots::Salvo(3),
         }),
         is_active: true,
     }];
 
     // ------------------ MUTATIONS ------------------
-    pub static ref LT_MUTATIONS_UNCOMMON: [Mutation; 2] = [
+    pub static ref LT_MUTATIONS_UNCOMMON: [Mutation; 1] = [
         Mutation {
-            name: LimitedString::new("Reverse Gravity Field"),
-            rarity: Uncommon,
-            is_active: false,
-        },
-        Mutation {
-            name: LimitedString::new("Shield Polarisation"),
+            name: LimitedString::new("Nanite Coating"),
             rarity: Uncommon,
             is_active: false,
         }

@@ -476,25 +476,24 @@ impl HologramServer {
         ));
     }
 
-    /// This function fires a claim_fuel_allowance task.
-    /// This will attempt to get the periodical free fuel allowance for a given spaceship.
+    /// This function fires a upgrade_subsystem task.
     ///
     /// Anchor events:
-    /// - StatPointAllocated: inform that the stat point was allocated and to which stat type.
+    /// - SubsystemUpgraded: inform that the request was successful
     ///
     /// Parameters:
     /// commands: CommandBuffer
     /// realm_pda: Pubkey
     /// user: The user making the call (user_account is derived)
-    /// spaceship_pda: Pubkey of the spaceship to claim the stat point for
-    /// stat_type: the stat type to allocate the point to
-    pub fn fire_allocate_stat_point_task(
+    /// spaceship_pda: Pubkey of the spaceship to claim upgrade for
+    /// sybsystem: the sybsystem to upgrade
+    pub fn fire_upgrade_subsystem_task(
         &self,
         commands: &mut CommandBuffer,
         realm_pda: &Pubkey,
         user: &Pubkey,
         spaceship_pda: &Pubkey,
-        stat_type: Subsystem,
+        subsystem: Subsystem,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
@@ -504,12 +503,12 @@ impl HologramServer {
         let spaceship_pda = spaceship_pda.clone();
 
         let task = thread_pool.spawn(async move {
-            log::info!("<Solana> Sending allocate_stat_point IX");
+            log::info!("<Solana> Sending upgrade_subsystem IX");
 
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
-            let instruction = hologram::instruction::AllocateStatPoint { stat_type };
+            let instruction = hologram::instruction::UpgradeSubsystem { subsystem };
 
-            let accounts = hologram::accounts::AllocateStatPoint {
+            let accounts = hologram::accounts::UpgradeSubsystem {
                 user,
                 realm: realm_pda,
                 user_account: user_account_pda,
@@ -529,7 +528,7 @@ impl HologramServer {
 
         commands.spawn((
             SolanaTransactionTask {
-                description: "allocate_stat_point".to_string(),
+                description: "upgrade_subsystem".to_string(),
                 task,
             },
             false,

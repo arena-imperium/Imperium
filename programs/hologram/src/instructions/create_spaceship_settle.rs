@@ -139,17 +139,17 @@ pub fn create_spaceship_settle(
         };
     }
 
-    // provide the spaceship with it's first crate and stat points
+    // provide the spaceship with it's first crate and subsystem upgrade point
     // mount starter weapon
     {
         let spaceship = &mut ctx.accounts.spaceship;
         // provide starter weapon
         let roll = rng.roll_dice(LT_STARTER_WEAPONS.len());
-        let starter_weapon = LT_STARTER_WEAPONS[roll as usize].clone();
+        let starter_weapon = LT_STARTER_WEAPONS[roll as usize - 1].clone();
         msg!("Starter weapon: {:?}", starter_weapon);
         spaceship.modules.push(starter_weapon);
         spaceship.powerup_score = 1;
-        // provide 1 stat point
+        // provide 1 subsystem upgrade point
         spaceship.experience.credit_subsystem_upgrade_point(1);
         // provide currency for 1 NI crate
         spaceship.wallet.credit(30, Currency::ImperialCredit)?;

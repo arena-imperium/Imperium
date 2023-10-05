@@ -7,7 +7,7 @@ use {
     anchor_lang::prelude::*,
 };
 
-pub const MATCH_MAX_TURN: u8 = 1000;
+pub const MATCH_MAX_TURN: u16 = 1000;
 pub const CHARGE_PER_TURN: u8 = 1;
 
 pub struct FightEngine {}
@@ -56,7 +56,6 @@ impl FightEngine {
 
         // Second loop through remaining powerups, find all ActivePowerups, and add them to the battlecard
         let mut turn = 0;
-        let winner: SpaceShipBattleCard;
         while turn < MATCH_MAX_TURN {
             if s.is_defeated() || os.is_defeated() {
                 break;
@@ -160,7 +159,7 @@ impl FightEngine {
             .collect::<Vec<_>>();
 
         // add powerups to the spaceship battlecard
-        let mut battlecard = SpaceShipBattleCard {
+        let battlecard = SpaceShipBattleCard {
             hull_hitpoints: spaceship.get_hull_hitpoints(),
             shield_layers: spaceship.get_shield_layers(),
             dodge_chance: spaceship.get_dodge_chance(),

@@ -54,7 +54,7 @@ pub struct SubsystemUpgraded {
 pub fn upgrade_subsystem(ctx: Context<UpgradeSubsystem>, subsystem: Subsystem) -> Result<()> {
     // validation
     {
-        // spaceship must have an available upgrade point to spend
+        // spaceship must have an available subsystem upgrade point to spend
         require!(
             ctx.accounts
                 .spaceship
