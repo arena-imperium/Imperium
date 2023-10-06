@@ -1,6 +1,6 @@
 pub use anchor_client::Client as AnchorClient;
 use bevy::log;
-use bevy::prelude::{App, Commands, Component, Entity, Plugin, PostUpdate, Query, Resource, Update};
+use bevy::prelude::{App, Commands, Component, Entity, Plugin, PostUpdate, Query, Resource};
 use bevy::tasks::{IoTaskPool, Task};
 use {
     anchor_client::{

@@ -15,13 +15,10 @@ use {
     bevy_inspector_egui::quick::WorldInspectorPlugin,
     std::io::Cursor,
     winit::window::Icon,
-    crate::{
-        menu::dev_menu,
-        solana::{solana_transaction_task_handler, HologramServer},
-    },
 };
 use crate::asset_loading::AssetLoadingPlugin;
-use crate::menu::login_window;
+use crate::menu::{DevUI};
+use crate::solana::SolanaPlugin;
 
 fn main() {
     let mut app = App::new();
@@ -42,7 +39,9 @@ fn main() {
     app.add_systems(Startup, set_window_icon);
     app.add_plugins(WorldInspectorPlugin::new());
     app.add_plugins(AssetLoadingPlugin);
+    app.add_plugins(SolanaPlugin);
     app.add_plugins(GamePlugin);
+    app.add_plugins(DevUI);
     #[cfg(debug_assertions)]
     {
         app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
@@ -93,20 +92,12 @@ impl Plugin for GamePlugin {
 }
 
 fn loading_screen() {}
+/*
 /// Called every frame; our main loop.
 ///
 /// Drawing and most things are immediate mode; so can be very
 /// quick to setup ui for debugging state.
 fn update() {
-    /*egui::Window::new("Dev Test Window")
-        .default_pos(egui::Pos2::new(0.0, 0.0))
-        .show(c.egui, |ui| {
-            dev_menu(ui, c);
-            if ui.button("Reset").clicked(){
-                *c.scene = Scene::Loading
-            }
-        });
-
     match c.scene {
         Scene::Loading => {
 
@@ -128,5 +119,6 @@ fn update() {
                 &format!("Account: {:05}", (random()*10000.0) as u32),
                 "Welcome to the Imperium galactic Arena!" */
         }
-    }*/
+    }
 }
+ */
