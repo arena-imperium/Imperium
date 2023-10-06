@@ -1,7 +1,9 @@
 use {
     super::{ActiveEffect, ActivePowerup, PassivePowerup, PowerUp, SpaceShipBattleCard},
     crate::{
-        instructions::user_facing::Faction, state::SpaceShip, utils::RandomNumberGenerator,
+        instructions::user_facing::Faction,
+        state::{RepairTarget, SpaceShip},
+        utils::RandomNumberGenerator,
         CURRENCY_REWARD_FOR_ARENA_WINNER,
     },
     anchor_lang::prelude::*,
@@ -51,12 +53,23 @@ impl FightEngine {
         let mut s = Self::generate_spaceship_battlecard(&spaceship);
         let mut os = Self::generate_spaceship_battlecard(&opponent_spaceship);
 
+        #[cfg(not(any(test, feature = "testing")))]
+        msg!("s actives: {:?}", s.active_powerups.iter().map(|a| a.name));
+
+        #[cfg(not(any(test, feature = "testing")))]
+        msg!(
+            "os actives: {:?}",
+            os.active_powerups.iter().map(|a| a.name)
+        );
+
         // First loop through each player powerups, find all PassivePowerups, and apply them to the battlecards
         // @TODO
 
         // Second loop through remaining powerups, find all ActivePowerups, and add them to the battlecard
         let mut turn = 0;
         while turn < MATCH_MAX_TURN {
+            #[cfg(not(any(test, feature = "testing")))]
+            msg!("turn: {} ----------------", turn);
             if s.is_defeated() || os.is_defeated() {
                 break;
             }
@@ -83,40 +96,8 @@ impl FightEngine {
                 }
             });
 
-            for effect in s_effects_to_apply {
-                match effect {
-                    ActiveEffect::Fire {
-                        damage,
-                        shots,
-                        weapon_type,
-                    } => s.fire_at(&mut os, &mut rng, damage, shots, weapon_type),
-                    ActiveEffect::RepairHull { amount } => {
-                        s.hull_hitpoints.resplenish(amount);
-                    }
-                    ActiveEffect::BoostShield { amount } => {
-                        s.shield_layers.resplenish(amount);
-                    }
-                    ActiveEffect::Jam {
-                        chance,
-                        charge_burn,
-                    } => {
-                        s.jam(&mut os, &mut rng, chance, charge_burn);
-                    }
-                    ActiveEffect::Composite {
-                        effect1,
-                        effect2,
-                        probability1,
-                        probability2,
-                    } => {
-                        // @TODO: Implement the logic for the Composite effect
-                        // This is just a placeholder
-                        println!(
-                            "effect1: {:?}, effect2: {:?}, probability1: {}, probability2: {}",
-                            effect1, effect2, probability1, probability2
-                        );
-                    }
-                }
-            }
+            apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
+            apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
 
             // advance turn
             turn += 1;
@@ -160,6 +141,7 @@ impl FightEngine {
 
         // add powerups to the spaceship battlecard
         let battlecard = SpaceShipBattleCard {
+            name: spaceship.name.to_string(),
             hull_hitpoints: spaceship.get_hull_hitpoints(),
             shield_layers: spaceship.get_shield_layers(),
             dodge_chance: spaceship.get_dodge_chance(),
@@ -169,5 +151,55 @@ impl FightEngine {
         };
 
         battlecard
+    }
+}
+
+fn apply_effects(
+    effects: Vec<ActiveEffect>,
+    s_origin: &mut SpaceShipBattleCard,
+    s_target: &mut SpaceShipBattleCard,
+    rng: &mut RandomNumberGenerator,
+) {
+    for effect in effects {
+        apply_effect(effect, s_origin, s_target, rng);
+    }
+}
+
+fn apply_effect(
+    effect: ActiveEffect,
+    s_origin: &mut SpaceShipBattleCard,
+    s_target: &mut SpaceShipBattleCard,
+    rng: &mut RandomNumberGenerator,
+) {
+    match effect {
+        ActiveEffect::Fire {
+            damage,
+            shots,
+            weapon_type,
+        } => s_origin.fire_at(s_target, rng, damage, shots, weapon_type),
+        ActiveEffect::Repair { target, amount } => match target {
+            RepairTarget::Hull => s_origin.hull_hitpoints.resplenish(amount),
+            RepairTarget::Shield => s_origin.shield_layers.resplenish(amount),
+        },
+        ActiveEffect::Jam {
+            chance,
+            charge_burn,
+        } => {
+            s_origin.jam(s_target, rng, chance, charge_burn);
+        }
+        ActiveEffect::Composite {
+            effect1,
+            effect2,
+            probability1,
+            probability2,
+        } => {
+            let total_probabilities = probability1 + probability2;
+            let roll = rng.roll_dice(total_probabilities as usize) as u8;
+            if roll <= probability1 {
+                apply_effect(*effect1, s_origin, s_target, rng);
+            } else {
+                apply_effect(*effect2, s_origin, s_target, rng);
+            }
+        }
     }
 }

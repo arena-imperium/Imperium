@@ -194,7 +194,7 @@ pub fn arena_matchmaking_settle(
 
     // FIGHT
     let spaceship = &mut ctx.accounts.spaceship;
-    let outcome = { FightEngine::fight(spaceship, opponent_spaceship, generated_seed) };
+    let outcome = FightEngine::fight(spaceship, opponent_spaceship, generated_seed);
     let (winner, looser) = match outcome {
         crate::engine::FightOutcome::UserWon => {
             msg!("user won");
@@ -214,12 +214,6 @@ pub fn arena_matchmaking_settle(
     {
         FightEngine::distribute_arena_experience(winner, looser)?;
         FightEngine::distribute_arena_currency(winner, faction)?;
-    }
-
-    // advance seeds
-    {
-        winner.randomness.advance_seed();
-        looser.randomness.advance_seed();
     }
 
     // analytics

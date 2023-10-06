@@ -18,7 +18,7 @@ pub const SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION: u8 = 75;
 pub const SHORT_LIMITED_STRING_MAX_LENGTH: usize = 64;
 
 // PowerUp score is the sum of all the powerups for a ship.
-pub const MAX_POWERUP_SCORE: u8 = MAX_LEVEL;
+pub const MAX_POWERUP_SCORE: u8 = MAX_LEVEL + 2; // offset for the 2 base civilian modules
 pub const CURRENCY_REWARD_FOR_ARENA_WINNER: u8 = 3;
 
 pub const RANDOMNESS_LOWER_BOUND: u32 = 1;
@@ -53,8 +53,8 @@ pub const JAMMING_NULLIFYING_CHANCE_CAP: u8 = 75; // 75%
 pub const BASE_CRIT_CHANCE: u8 = 5; // 5%
 
 pub const BASE_HULL_HITPOINTS: u8 = 30;
-pub const BASE_SHIELD_LAYERS: u8 = 0;
-pub const MAX_SHIELD_LAYERS: u8 = 4;
+pub const BASE_SHIELD_LAYERS: u8 = 1;
+// pub const MAX_SHIELD_LAYERS: u8 = 5;
 pub const HULL_HITPOINTS_PER_LEVEL: u8 = 2;
 
 pub const ARENA_MATCHMAKING_FUEL_COST: u8 = 1;

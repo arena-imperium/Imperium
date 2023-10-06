@@ -23,10 +23,7 @@ impl PowerUp for Module {
 
     fn is_active(&self) -> bool {
         match &self.class {
-            ModuleClass::Turret(_)
-            | ModuleClass::Exotic(_)
-            | ModuleClass::ShieldBooster(_)
-            | ModuleClass::HullRepairer(_) => true,
+            ModuleClass::Turret(_) | ModuleClass::Exotic(_) | ModuleClass::Repairer(_) => true,
             ModuleClass::ShieldAmplifier | ModuleClass::TrackingComputer => false,
         }
     }
@@ -34,9 +31,7 @@ impl PowerUp for Module {
     fn get_charge_time(&self) -> Option<u8> {
         match &self.class {
             ModuleClass::Turret(m) | ModuleClass::Exotic(m) => Some(m.charge_time as u8),
-            ModuleClass::ShieldBooster(m) | ModuleClass::HullRepairer(m) => {
-                Some(m.charge_time as u8)
-            }
+            ModuleClass::Repairer(m) => Some(m.charge_time as u8),
             ModuleClass::ShieldAmplifier | ModuleClass::TrackingComputer => None,
         }
     }
@@ -49,10 +44,8 @@ impl PowerUp for Module {
                     weapon_type: wms.weapon_type,
                 }]
             }
-            ModuleClass::ShieldBooster(rms) => vec![ActiveEffect::BoostShield {
-                amount: rms.repair_amount,
-            }],
-            ModuleClass::HullRepairer(rms) => vec![ActiveEffect::RepairHull {
+            ModuleClass::Repairer(rms) => vec![ActiveEffect::Repair {
+                target: rms.target,
                 amount: rms.repair_amount,
             }],
             ModuleClass::ShieldAmplifier | ModuleClass::TrackingComputer => vec![],
@@ -60,10 +53,7 @@ impl PowerUp for Module {
     }
     fn get_modifiers(&self) -> Vec<PassiveModifier> {
         match &self.class {
-            ModuleClass::Turret(_)
-            | ModuleClass::Exotic(_)
-            | ModuleClass::ShieldBooster(_)
-            | ModuleClass::HullRepairer(_) => vec![],
+            ModuleClass::Turret(_) | ModuleClass::Exotic(_) | ModuleClass::Repairer(_) => vec![],
             ModuleClass::ShieldAmplifier => todo!(),
             ModuleClass::TrackingComputer => todo!(),
         }

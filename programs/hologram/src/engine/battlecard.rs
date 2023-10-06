@@ -6,7 +6,9 @@ use {
     },
 };
 
+#[derive(Debug)]
 pub struct SpaceShipBattleCard {
+    pub name: String,
     // stats ----------------------------------------
     // Hitpoints
     pub hull_hitpoints: HitPoints,

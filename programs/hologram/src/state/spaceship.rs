@@ -327,8 +327,7 @@ pub enum ModuleClass {
     Turret(WeaponModuleStats),
     Exotic(WeaponModuleStats),
     // Repairers
-    ShieldBooster(RepairModuleStats), // provide a boost of power that instantly regenerate shield layer
-    HullRepairer(RepairModuleStats),
+    Repairer(RepairModuleStats),
     // Passives
     ShieldAmplifier,  // reduce shield layer regeneration time
     TrackingComputer, // reduce opponent dodge chances
@@ -370,8 +369,15 @@ pub struct WeaponModuleStats {
     pub charge_time: u8,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
+pub enum RepairTarget {
+    Hull,
+    Shield,
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct RepairModuleStats {
+    pub target: RepairTarget,
     pub repair_amount: u8,
     pub charge_time: u8,
 }

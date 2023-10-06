@@ -1,8 +1,10 @@
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
+
+use crate::engine::LT_STARTER_DEFFENSIVE_MODULES;
 use {
     crate::{
-        engine::LT_STARTER_WEAPONS,
+        engine::LT_STARTER_OFFENSIVE_MODULES,
         error::HologramError,
         state::{
             spaceship, Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
@@ -140,15 +142,22 @@ pub fn create_spaceship_settle(
     }
 
     // provide the spaceship with it's first crate and subsystem upgrade point
-    // mount starter weapon
+    // mount starter weapon (picked at random)
+    // mount starter repairer (piced at random)
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        // provide starter weapon
-        let roll = rng.roll_dice(LT_STARTER_WEAPONS.len());
-        let starter_weapon = LT_STARTER_WEAPONS[roll as usize - 1].clone();
-        msg!("Starter weapon: {:?}", starter_weapon);
-        spaceship.modules.push(starter_weapon);
-        spaceship.powerup_score = 1;
+        // provide starter offensive_module
+        let roll = rng.roll_dice(LT_STARTER_OFFENSIVE_MODULES.len());
+        let starter_offensive_module = LT_STARTER_OFFENSIVE_MODULES[roll as usize - 1].clone();
+        msg!("Starter offensive module: {:?}", starter_offensive_module);
+        spaceship.modules.push(starter_offensive_module);
+        spaceship.powerup_score += 1;
+        // provide starter defensive_module
+        let roll = rng.roll_dice(LT_STARTER_DEFFENSIVE_MODULES.len());
+        let starter_defensive_module = LT_STARTER_DEFFENSIVE_MODULES[roll as usize - 1].clone();
+        msg!("Starter defensive module: {:?}", starter_defensive_module);
+        spaceship.modules.push(starter_defensive_module);
+        spaceship.powerup_score += 1;
         // provide 1 subsystem upgrade point
         spaceship.experience.credit_subsystem_upgrade_point(1);
         // provide currency for 1 NI crate

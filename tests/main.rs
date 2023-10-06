@@ -100,7 +100,7 @@ pub async fn test_integration() {
         .unwrap();
     }
 
-    // [2] --------------------------------- CREATE USERs ACCOUNT ---------------------------------
+    // [2] --------------------------------- CREATE USER ACCOUNT ---------------------------------
     {
         let mut create_user_account_tasks = vec![];
         [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
@@ -124,13 +124,21 @@ pub async fn test_integration() {
 
     // [3] --------------------------------- CREATE SPACESHIP ------------------------------------
     {
+        let names = [
+            "HoloShip",
+            "xXx_shadow_xXx",
+            "El_Spashipo",
+            "Ships",
+            "Bambooship",
+            "JeanMichelShip",
+        ];
         let mut create_spaceships_tasks = vec![];
         [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
             .iter()
-            .for_each(|user| {
+            .enumerate()
+            .for_each(|(i, user)| {
                 let user = Arc::clone(&keypairs[*user]);
                 let ctx = Arc::clone(&program_test_ctx);
-                let spaceship_name = "HoloShip".to_string();
                 let admin_key = keypairs[ADMIN].pubkey();
                 let task = tokio::spawn(async move {
                     instructions::create_spaceship(
@@ -138,7 +146,7 @@ pub async fn test_integration() {
                         &user,
                         &realm_pda,
                         &admin_key,
-                        &spaceship_name.to_string(),
+                        &names[i % names.len()].to_string(),
                     )
                     .await
                     .unwrap();

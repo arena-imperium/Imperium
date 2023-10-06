@@ -1,7 +1,7 @@
 use {
     super::{PowerUp, PowerupKind},
     crate::{
-        state::{Shots, WeaponType},
+        state::{RepairTarget, Shots, WeaponType},
         utils::LimitedString,
     },
 };
@@ -59,10 +59,8 @@ pub enum ActiveEffect {
         shots: Shots,
         weapon_type: WeaponType,
     },
-    RepairHull {
-        amount: u8,
-    },
-    BoostShield {
+    Repair {
+        target: RepairTarget,
         amount: u8,
     },
     // attempt to disrupt opponent active powerups

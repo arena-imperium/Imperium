@@ -1,10 +1,12 @@
+use crate::state::RepairTarget;
+
 use {
     crate::{
         error::HologramError,
         state::{
             Drone, DroneClass, DroneSize, Module, ModuleClass, Mutation,
             Rarity::{self, *},
-            Shots, WeaponModuleStats, WeaponType,
+            RepairModuleStats, Shots, WeaponModuleStats, WeaponType,
         },
         utils::{LimitedString, RandomNumberGenerator},
     },
@@ -113,7 +115,30 @@ impl LootEngine {
 
 // lazy_static! {
 // ------------------ MODULES ------------------
-pub const LT_STARTER_WEAPONS: [Module; 2] = [
+pub const LT_STARTER_DEFFENSIVE_MODULES: [Module; 2] = [
+    Module {
+        name: LimitedString::new_const("Civilian Shield Booster"),
+        rarity: Common,
+        class: ModuleClass::Repairer(RepairModuleStats {
+            repair_amount: 1,
+            charge_time: 25,
+            target: RepairTarget::Shield,
+        }),
+        is_active: true,
+    },
+    Module {
+        name: LimitedString::new_const("Civilian Hull Repairer"),
+        rarity: Common,
+        class: ModuleClass::Repairer(RepairModuleStats {
+            repair_amount: 2,
+            charge_time: 35,
+            target: RepairTarget::Hull,
+        }),
+        is_active: true,
+    },
+];
+
+pub const LT_STARTER_OFFENSIVE_MODULES: [Module; 2] = [
     Module {
         name: LimitedString::new_const("Civilian Autocannon"),
         rarity: Common,
