@@ -73,25 +73,44 @@ fn set_window_icon(
 pub enum Scene {
     #[default]
     Loading,
-    // Starting scene, where the player can setup a connection with their wallet
-    NotLoggedIn,
-    LoginWindow,
-    // Here the menu is drawn and waiting for player interaction
+    /// Starting scene, where the player can setup a connection with their wallet
+    Station,
+    /// Here the menu is drawn and waiting for player interaction
     Hanger,
 }
+
+#[derive(Default, Resource)]
+pub struct LoginState(bool);
 
 pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<Scene>();
+        app.add_resource::<LoginState>();
         app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::NotLoggedIn)));
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
+        // run_if(in_state()).or_else(run_if(in_state()))
+        app.add_systems(Update, station_login.run_if(in_state(Scene::Station)));
+        app.add_systems(Update, loading_screen.run_if(in_state(Scene::Hanger)));
     }
 }
 
-fn loading_screen() {}
+fn loading_screen(mut next_state: ResMut<NextState<Scene>>,) {
+    // Todo: when UI is decided on, draw bar showing loaded assets
+    let loaded = true;
+    if loaded {
+        next_state.set(Scene::Station);
+    }
+}
+
+fn station_login(mut next_state: ResMut<NextState<Scene>>,) {
+
+    //next_state.set(Scene::Hanger);
+}
+
+fn hanger(mut next_state: ResMut<NextState<Scene>>,) {
+    //next_state.set(Scene::Hanger);
+}
+
 /*
 /// Called every frame; our main loop.
 ///
