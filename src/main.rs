@@ -1,7 +1,7 @@
 // disable console on windows for release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod menu;
+mod dev_ui;
 mod solana;
 mod asset_loading;
 
@@ -17,7 +17,7 @@ use {
     winit::window::Icon,
 };
 use crate::asset_loading::AssetLoadingPlugin;
-use crate::menu::{DevUI};
+use crate::dev_ui::{DevUI};
 use crate::solana::SolanaPlugin;
 
 fn main() {
