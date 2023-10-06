@@ -201,7 +201,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
         let realm_key = ctx.accounts.realm.key();
         let realm = &mut ctx.accounts.realm;
 
-        // find the queue matching spaceship level
+        // find the queue matching spaceship Ordnance
         let queue = realm.get_matching_matchmaking_queue_mut(spaceship)?;
 
         // check that the system is not processing more matchmaking requests than there is spaceships in the queue (due to the concurrency issue described above)

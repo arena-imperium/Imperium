@@ -1,9 +1,12 @@
 use {
     super::{ActivePowerup, PassivePowerup},
     crate::{
-        state::{HitPoints, Shots, WeaponType},
+        state::{HitPoints, Shots, SpaceShip, WeaponType},
         utils::RandomNumberGenerator,
+        BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_LAYERS,
+        DODGE_CHANCE_CAP, JAMMING_NULLIFYING_CHANCE_CAP,
     },
+    std::cmp::max,
 };
 
 #[derive(Debug)]
@@ -24,6 +27,31 @@ pub struct SpaceShipBattleCard {
 }
 
 impl SpaceShipBattleCard {
+    pub fn new(
+        spaceship: &SpaceShip,
+        active_powerups: Vec<ActivePowerup>,
+        passive_powerups: Vec<PassivePowerup>,
+    ) -> Self {
+        let mut hull_hitpoints = HitPoints::init(BASE_HULL_HITPOINTS);
+        let mut shield_layers = HitPoints::init(BASE_SHIELD_LAYERS);
+        let mut dodge_chance = BASE_DODGE_CHANCE;
+        let mut jamming_nullifying_chance = BASE_JAMMING_NULLIFYING_CHANCE;
+
+        // @TODO add powerups effects to the stats
+
+        dodge_chance = max(dodge_chance, DODGE_CHANCE_CAP);
+        jamming_nullifying_chance = max(jamming_nullifying_chance, JAMMING_NULLIFYING_CHANCE_CAP);
+        Self {
+            name: spaceship.name.to_string(),
+            hull_hitpoints,
+            shield_layers,
+            dodge_chance,
+            jamming_nullifying_chance,
+            active_powerups,
+            passive_powerups,
+        }
+    }
+
     // A spaceship is defeated when his Hull HP reaches 0
     pub fn is_defeated(&self) -> bool {
         self.hull_hitpoints.depleted()

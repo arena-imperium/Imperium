@@ -2,12 +2,19 @@
 
 ## Smart Contract
 
-- handle shield layer regen
-        - in the battlecard, define each layer regen time
-        - add an "active module" to each ship that for shield regeneration
-        - add an effect "shield regen" in the ActiveEffects triggered by that module, it also update the regen time depending of the current layer status
-
 - handle passive powerups (in fight_engine.rs)
+
+- make shield have 1 layer by default
+
+- add passive power ups
+        - afterburner (increase dodge chances)
+        - Burst Projector (chance to jam either module)
+        - EM smartbombs (missile that disable all drones for X turns)
+        - shield booster: recharge a shield layer instantly
+        - passive modules that increase stats:
+                - armor plates : + 10 hull HP
+                - capacitor battery: add a shield layer + reduce laser weapon charge time or smthg
+
 
 - add new drones and mutatio to the LT
 - add anti drone weapons
@@ -23,6 +30,6 @@
 
 -- add a way to monitor anchor events
 
-- think about replayability of fight (check tg chat with Aleph.im)
+- Implement more shop items
 
-- add a draw mechanic for endless fights (both get 1 xp) (update doc too)
+- think about replayability of fight (check tg chat with Aleph.im)

@@ -1,12 +1,10 @@
-use crate::state::RepairTarget;
-
 use {
     crate::{
         error::HologramError,
         state::{
             Drone, DroneClass, DroneSize, Module, ModuleClass, Mutation,
             Rarity::{self, *},
-            RepairModuleStats, Shots, WeaponModuleStats, WeaponType,
+            RepairModuleStats, RepairTarget, Shots, WeaponModuleStats, WeaponType,
         },
         utils::{LimitedString, RandomNumberGenerator},
     },
@@ -15,9 +13,9 @@ use {
 
 // Totalling 100
 pub const COMMON_RARITY_CHANCE: u8 = 55;
-pub const UNCOMMON_RARITY_CHANCE: u8 = 20;
+pub const UNCOMMON_RARITY_CHANCE: u8 = 25;
 pub const RARE_RARITY_CHANCE: u8 = 15;
-pub const FACTION_RARITY_CHANCE: u8 = 10;
+pub const FACTION_RARITY_CHANCE: u8 = 5;
 
 pub struct LootEngine {}
 
@@ -25,24 +23,18 @@ impl LootEngine {
     pub fn drop_module(
         rng: &mut RandomNumberGenerator,
         faction_rarity_enabled: bool,
-        exotic_weapon_enabled: bool,
     ) -> Result<Module> {
         let drop_rarity = Self::get_drop_rarity(rng, faction_rarity_enabled);
 
         // For now only offensive modules, later on make a first roll to choose if offensive, defensive, bonuses etc.
-        let mut loot_table = match drop_rarity {
+        let loot_table = match drop_rarity {
             Common => LT_MODULES_OFFENSIVE_COMMON.to_vec(),
             Uncommon => LT_MODULES_OFFENSIVE_UNCOMMON.to_vec(),
             Rare => LT_MODULES_OFFENSIVE_RARE.to_vec(),
             Faction => LT_MODULES_OFFENSIVE_FACTION.to_vec(),
         };
-
-        // remove exotic drops if not enabled
-        if exotic_weapon_enabled {
-            loot_table.retain(|m| !matches!(m.class, ModuleClass::Exotic(_)))
-        }
-
         require!(!loot_table.is_empty(), HologramError::InvalidLootTable);
+
         let roll = rng.roll_dice(loot_table.len()) as usize;
         Ok(loot_table[roll - 1].clone())
     }
@@ -142,7 +134,7 @@ pub const LT_STARTER_OFFENSIVE_MODULES: [Module; 2] = [
     Module {
         name: LimitedString::new_const("Civilian Autocannon"),
         rarity: Common,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Projectile,
             damage: 1,
             charge_time: 11,
@@ -153,7 +145,7 @@ pub const LT_STARTER_OFFENSIVE_MODULES: [Module; 2] = [
     Module {
         name: LimitedString::new_const("Civilian Mining Laser"),
         rarity: Common,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 1,
             charge_time: 11,
@@ -167,7 +159,7 @@ pub const LT_MODULES_OFFENSIVE_COMMON: [Module; 5] = [
     Module {
         name: LimitedString::new_const("Pulse Laser"),
         rarity: Common,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 1,
             charge_time: 10,
@@ -178,7 +170,7 @@ pub const LT_MODULES_OFFENSIVE_COMMON: [Module; 5] = [
     Module {
         name: LimitedString::new_const("Dual Pulse Laser"),
         rarity: Common,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 1,
             charge_time: 21,
@@ -189,7 +181,7 @@ pub const LT_MODULES_OFFENSIVE_COMMON: [Module; 5] = [
     Module {
         name: LimitedString::new_const("Slicer"),
         rarity: Common,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Beam,
             damage: 2,
             charge_time: 18,
@@ -200,7 +192,7 @@ pub const LT_MODULES_OFFENSIVE_COMMON: [Module; 5] = [
     Module {
         name: LimitedString::new_const("175mm Artillery"),
         rarity: Common,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Projectile,
             damage: 3,
             charge_time: 28,
@@ -211,7 +203,7 @@ pub const LT_MODULES_OFFENSIVE_COMMON: [Module; 5] = [
     Module {
         name: LimitedString::new_const("Light Missile Launcher I"),
         rarity: Common,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Missile,
             damage: 2,
             charge_time: 19,
@@ -225,7 +217,7 @@ pub const LT_MODULES_OFFENSIVE_UNCOMMON: [Module; 3] = [
     Module {
         name: LimitedString::new_const("Heavy Pulse Laser"),
         rarity: Uncommon,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 2,
             charge_time: 16,
@@ -236,7 +228,7 @@ pub const LT_MODULES_OFFENSIVE_UNCOMMON: [Module; 3] = [
     Module {
         name: LimitedString::new_const("125mm Dual Autocannon"),
         rarity: Uncommon,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Projectile,
             damage: 1,
             charge_time: 18,
@@ -247,7 +239,7 @@ pub const LT_MODULES_OFFENSIVE_UNCOMMON: [Module; 3] = [
     Module {
         name: LimitedString::new_const("Assault Missile Launcher"),
         rarity: Uncommon,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Missile,
             damage: 4,
             charge_time: 30,
@@ -261,7 +253,7 @@ pub const LT_MODULES_OFFENSIVE_RARE: [Module; 3] = [
     Module {
         name: LimitedString::new_const("280mm 'Howitzer' Artillery"),
         rarity: Rare,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Projectile,
             damage: 5,
             charge_time: 30,
@@ -272,7 +264,7 @@ pub const LT_MODULES_OFFENSIVE_RARE: [Module; 3] = [
     Module {
         name: LimitedString::new_const("'Halberd' Slicer"),
         rarity: Rare,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 4,
             charge_time: 23,
@@ -283,7 +275,7 @@ pub const LT_MODULES_OFFENSIVE_RARE: [Module; 3] = [
     Module {
         name: LimitedString::new_const("Rapid Light Missile Launcher"),
         rarity: Rare,
-        class: ModuleClass::Turret(WeaponModuleStats {
+        class: ModuleClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Missile,
             damage: 2,
             charge_time: 12,
@@ -296,7 +288,7 @@ pub const LT_MODULES_OFFENSIVE_RARE: [Module; 3] = [
 pub const LT_MODULES_OFFENSIVE_FACTION: [Module; 1] = [Module {
     name: LimitedString::new_const("Polarised Repeating Laser"),
     rarity: Faction,
-    class: ModuleClass::Turret(WeaponModuleStats {
+    class: ModuleClass::Weapon(WeaponModuleStats {
         weapon_type: WeaponType::Laser,
         damage: 1,
         charge_time: 16,
@@ -311,7 +303,7 @@ pub const LT_DRONE_OFFENSIVE_COMMON: [Drone; 2] = [
         name: LimitedString::new_const("Hornet"),
         rarity: Common,
         size: DroneSize::Light,
-        class: DroneClass::Turret(WeaponModuleStats {
+        class: DroneClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Projectile,
             damage: 1,
             charge_time: 10,
@@ -323,7 +315,7 @@ pub const LT_DRONE_OFFENSIVE_COMMON: [Drone; 2] = [
         name: LimitedString::new_const("Acolyte"),
         rarity: Common,
         size: DroneSize::Light,
-        class: DroneClass::Turret(WeaponModuleStats {
+        class: DroneClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 1,
             charge_time: 20,
@@ -338,7 +330,7 @@ pub const LT_DRONE_OFFENSIVE_UNCOMMON: [Drone; 2] = [
         name: LimitedString::new_const("Augmented Hornet"),
         rarity: Uncommon,
         size: DroneSize::Light,
-        class: DroneClass::Turret(WeaponModuleStats {
+        class: DroneClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Projectile,
             damage: 1,
             charge_time: 9,
@@ -350,7 +342,7 @@ pub const LT_DRONE_OFFENSIVE_UNCOMMON: [Drone; 2] = [
         name: LimitedString::new_const("Augmented Acolyte"),
         rarity: Uncommon,
         size: DroneSize::Light,
-        class: DroneClass::Turret(WeaponModuleStats {
+        class: DroneClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 1,
             charge_time: 17,
@@ -365,7 +357,7 @@ pub const LT_DRONE_OFFENSIVE_RARE: [Drone; 2] = [
         name: LimitedString::new_const("Vespa"),
         rarity: Rare,
         size: DroneSize::Medium,
-        class: DroneClass::Turret(WeaponModuleStats {
+        class: DroneClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Projectile,
             damage: 2,
             charge_time: 13,
@@ -377,7 +369,7 @@ pub const LT_DRONE_OFFENSIVE_RARE: [Drone; 2] = [
         name: LimitedString::new_const("Infiltrator"),
         rarity: Rare,
         size: DroneSize::Medium,
-        class: DroneClass::Turret(WeaponModuleStats {
+        class: DroneClass::Weapon(WeaponModuleStats {
             weapon_type: WeaponType::Laser,
             damage: 1,
             charge_time: 18,
@@ -391,7 +383,7 @@ pub const LT_DRONE_OFFENSIVE_FACTION: [Drone; 1] = [Drone {
     name: LimitedString::new_const("Prophet Mk.II"),
     rarity: Faction,
     size: DroneSize::Light,
-    class: DroneClass::Turret(WeaponModuleStats {
+    class: DroneClass::Weapon(WeaponModuleStats {
         weapon_type: WeaponType::Missile,
         damage: 2,
         charge_time: 30,

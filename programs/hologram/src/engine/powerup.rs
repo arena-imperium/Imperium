@@ -23,21 +23,21 @@ impl PowerUp for Module {
 
     fn is_active(&self) -> bool {
         match &self.class {
-            ModuleClass::Turret(_) | ModuleClass::Exotic(_) | ModuleClass::Repairer(_) => true,
+            ModuleClass::Weapon(_) | ModuleClass::Repairer(_) => true,
             ModuleClass::ShieldAmplifier | ModuleClass::TrackingComputer => false,
         }
     }
 
     fn get_charge_time(&self) -> Option<u8> {
         match &self.class {
-            ModuleClass::Turret(m) | ModuleClass::Exotic(m) => Some(m.charge_time as u8),
+            ModuleClass::Weapon(m) => Some(m.charge_time as u8),
             ModuleClass::Repairer(m) => Some(m.charge_time as u8),
             ModuleClass::ShieldAmplifier | ModuleClass::TrackingComputer => None,
         }
     }
     fn get_effects(&self) -> Vec<ActiveEffect> {
         match &self.class {
-            ModuleClass::Turret(wms) | ModuleClass::Exotic(wms) => {
+            ModuleClass::Weapon(wms) => {
                 vec![ActiveEffect::Fire {
                     damage: wms.damage,
                     shots: wms.shots,
@@ -53,7 +53,7 @@ impl PowerUp for Module {
     }
     fn get_modifiers(&self) -> Vec<PassiveModifier> {
         match &self.class {
-            ModuleClass::Turret(_) | ModuleClass::Exotic(_) | ModuleClass::Repairer(_) => vec![],
+            ModuleClass::Weapon(_) | ModuleClass::Repairer(_) => vec![],
             ModuleClass::ShieldAmplifier => todo!(),
             ModuleClass::TrackingComputer => todo!(),
         }
@@ -72,19 +72,19 @@ impl PowerUp for Drone {
 
     fn is_active(&self) -> bool {
         match &self.class {
-            DroneClass::Turret(_) | DroneClass::Exotic(_) | DroneClass::ECM(_) => true,
+            DroneClass::Weapon(_) | DroneClass::ECM(_) => true,
         }
     }
 
     fn get_charge_time(&self) -> Option<u8> {
         match &self.class {
-            DroneClass::Turret(wms) | DroneClass::Exotic(wms) => Some(wms.charge_time as u8),
+            DroneClass::Weapon(wms) => Some(wms.charge_time as u8),
             DroneClass::ECM(jms) => Some(jms.charge_time as u8),
         }
     }
     fn get_effects(&self) -> Vec<ActiveEffect> {
         match &self.class {
-            DroneClass::Turret(wms) | DroneClass::Exotic(wms) => {
+            DroneClass::Weapon(wms) => {
                 vec![ActiveEffect::Fire {
                     damage: wms.damage,
                     shots: wms.shots,

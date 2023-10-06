@@ -4,17 +4,15 @@ use {
         instructions::user_facing::Faction,
         state::{RepairTarget, SpaceShip},
         utils::RandomNumberGenerator,
-        CURRENCY_REWARD_FOR_ARENA_WINNER,
+        CHARGE_PER_TURN, CURRENCY_REWARD_FOR_ARENA_LOOSER, CURRENCY_REWARD_FOR_ARENA_WINNER,
+        MATCH_MAX_TURN,
     },
     anchor_lang::prelude::*,
 };
 
-pub const MATCH_MAX_TURN: u16 = 1000;
-pub const CHARGE_PER_TURN: u8 = 1;
-
 pub struct FightEngine {}
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum FightOutcome {
     UserWon,
     OpponentWon,
@@ -22,24 +20,42 @@ pub enum FightOutcome {
 }
 
 impl FightEngine {
-    // This function is used to distribute experience points to the winner of an arena match.
-    // The winner gains experience points equal to the maximum between 1 and the difference between the loser's level and their own.
-    // This is to reward winning against the odds (lvl 0 winning against level 2 will get 2xp instead of 1)
-    pub fn distribute_arena_experience(winner: &mut SpaceShip, looser: &SpaceShip) -> Result<()> {
-        let winner_lvl = winner.experience.current_level;
-        let looser_lvl = looser.experience.current_level;
-
-        // Winning in the Arena will grant you max(1, looser_level - winner_level) XP points
-        let xp_gain = std::cmp::max(1, looser_lvl - winner_lvl);
-        winner.gain_experience(xp_gain)
-    }
-
-    // This function is used to distribute currency to the winner of an arena match.
-    pub fn distribute_arena_currency(winner: &mut SpaceShip, faction: Faction) -> Result<()> {
+    // This function is used to distribute currency to the winner and looser of an arena match.
+    pub fn distribute_arena_currency(
+        spaceship: &mut SpaceShip,
+        opponent_spaceship: &mut SpaceShip,
+        faction: Faction,
+        outcome: FightOutcome,
+    ) -> Result<()> {
         let currency = faction.legal_tender();
-        winner
-            .wallet
-            .credit(CURRENCY_REWARD_FOR_ARENA_WINNER as u16, currency)
+
+        match outcome {
+            FightOutcome::UserWon => {
+                spaceship
+                    .wallet
+                    .credit(CURRENCY_REWARD_FOR_ARENA_WINNER, currency)?;
+                opponent_spaceship
+                    .wallet
+                    .credit(CURRENCY_REWARD_FOR_ARENA_LOOSER, currency)?;
+            }
+            FightOutcome::OpponentWon => {
+                spaceship
+                    .wallet
+                    .credit(CURRENCY_REWARD_FOR_ARENA_LOOSER, currency)?;
+                opponent_spaceship
+                    .wallet
+                    .credit(CURRENCY_REWARD_FOR_ARENA_WINNER, currency)?;
+            }
+            FightOutcome::Draw => {
+                spaceship
+                    .wallet
+                    .credit(CURRENCY_REWARD_FOR_ARENA_LOOSER, currency)?;
+                opponent_spaceship
+                    .wallet
+                    .credit(CURRENCY_REWARD_FOR_ARENA_LOOSER, currency)?;
+            }
+        }
+        Ok(())
     }
 
     // Return true if the spaceship won the fight against opponent_spaceship
@@ -141,17 +157,7 @@ impl FightEngine {
             .collect::<Vec<_>>();
 
         // add powerups to the spaceship battlecard
-        let battlecard = SpaceShipBattleCard {
-            name: spaceship.name.to_string(),
-            hull_hitpoints: spaceship.get_hull_hitpoints(),
-            shield_layers: spaceship.get_shield_layers(),
-            dodge_chance: spaceship.get_dodge_chance(),
-            jamming_nullifying_chance: spaceship.get_jamming_nullifying_chance(),
-            active_powerups,
-            passive_powerups,
-        };
-
-        battlecard
+        SpaceShipBattleCard::new(&spaceship, active_powerups, passive_powerups)
     }
 }
 

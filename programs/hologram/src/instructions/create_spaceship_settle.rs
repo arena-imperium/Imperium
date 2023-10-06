@@ -1,16 +1,15 @@
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
-
-use crate::engine::LT_STARTER_DEFFENSIVE_MODULES;
 use {
     crate::{
-        engine::LT_STARTER_OFFENSIVE_MODULES,
+        engine::{LT_STARTER_DEFFENSIVE_MODULES, LT_STARTER_OFFENSIVE_MODULES},
         error::HologramError,
         state::{
             spaceship, Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
             UserAccount,
         },
         utils::RandomNumberGenerator,
+        STARTING_IMPERIAL_CREDITS,
     },
     anchor_lang::prelude::*,
     spaceship::Hull,
@@ -141,27 +140,29 @@ pub fn create_spaceship_settle(
         };
     }
 
-    // provide the spaceship with it's first crate and subsystem upgrade point
-    // mount starter weapon (picked at random)
-    // mount starter repairer (piced at random)
+    // provide spaceship with starting modules and credits
     {
         let spaceship = &mut ctx.accounts.spaceship;
         // provide starter offensive_module
-        let roll = rng.roll_dice(LT_STARTER_OFFENSIVE_MODULES.len());
-        let starter_offensive_module = LT_STARTER_OFFENSIVE_MODULES[roll as usize - 1].clone();
-        msg!("Starter offensive module: {:?}", starter_offensive_module);
-        spaceship.modules.push(starter_offensive_module);
-        spaceship.powerup_score += 1;
+        {
+            let roll = rng.roll_dice(LT_STARTER_OFFENSIVE_MODULES.len());
+            let starter_offensive_module = LT_STARTER_OFFENSIVE_MODULES[roll as usize - 1].clone();
+            msg!("Starter offensive module: {:?}", starter_offensive_module);
+            spaceship.mount_module(starter_offensive_module)?;
+        }
         // provide starter defensive_module
-        let roll = rng.roll_dice(LT_STARTER_DEFFENSIVE_MODULES.len());
-        let starter_defensive_module = LT_STARTER_DEFFENSIVE_MODULES[roll as usize - 1].clone();
-        msg!("Starter defensive module: {:?}", starter_defensive_module);
-        spaceship.modules.push(starter_defensive_module);
-        spaceship.powerup_score += 1;
-        // provide 1 subsystem upgrade point
-        spaceship.experience.credit_subsystem_upgrade_point(1);
-        // provide currency for 1 NI crate
-        spaceship.wallet.credit(30, Currency::ImperialCredit)?;
+        {
+            let roll = rng.roll_dice(LT_STARTER_DEFFENSIVE_MODULES.len());
+            let starter_defensive_module = LT_STARTER_DEFFENSIVE_MODULES[roll as usize - 1].clone();
+            msg!("Starter defensive module: {:?}", starter_defensive_module);
+            spaceship.mount_module(starter_defensive_module)?;
+        }
+        // provide starting imperial credits
+        {
+            spaceship
+                .wallet
+                .credit(STARTING_IMPERIAL_CREDITS, Currency::ImperialCredit)?;
+        }
     }
 
     let spaceship_lite = SpaceShipLite {

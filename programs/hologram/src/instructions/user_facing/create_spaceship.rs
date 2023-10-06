@@ -416,11 +416,6 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         spaceship.fuel.current = BASE_MAX_FUEL;
         spaceship.fuel.daily_allowance_last_collection = Realm::get_time()?;
 
-        // all stats defaulted to 0
-
-        // experience fields defaulted to 0
-        spaceship.experience.exp_to_next_level = spaceship.experience.experience_to_next_level();
-
         // hull is rolled during settle callback
     }
 

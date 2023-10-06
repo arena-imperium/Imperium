@@ -6,6 +6,7 @@ use {
             Drone, Module, Mutation, Realm, SpaceShip, SpaceShipLite,
             SwitchboardFunctionRequestStatus, UserAccount,
         },
+        MAX_ORDNANCE,
     },
     anchor_lang::prelude::*,
     switchboard_solana::{
@@ -124,6 +125,12 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
 
     // Validations
     {
+        // verify that the user Ordnance is not maxxed
+        require!(
+            ctx.accounts.spaceship.ordnance() < MAX_ORDNANCE,
+            HologramError::MaxOrdnanceReached
+        );
+
         // verify that the spaceship.wallet contains the necessary amount of currency matching the price
         // this is done in the settlement too
         let crate_price = match crate_type {

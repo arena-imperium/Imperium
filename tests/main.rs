@@ -1,7 +1,7 @@
 use {
     crate::utils::pda,
     hologram::{
-        instructions::{CrateType, Faction, Subsystem},
+        instructions::{CrateType, Faction},
         state::UserAccount,
         FUEL_ALLOWANCE_COOLDOWN,
     },
@@ -198,48 +198,7 @@ pub async fn test_integration() {
             .unwrap();
     }
 
-    // [5] -------------------- UPGRADE SUBSYSTEM --------------------------------------------------
-    // Upgrade ship subsystem (varied ones)
-    // ---------------------------------------------------------------------------------------------
-    {
-        let mut upgrade_subsystem_tasks = vec![];
-        let subsystems = [
-            Subsystem::HullIntegrity,
-            Subsystem::Shield,
-            Subsystem::WeaponRigging,
-            Subsystem::Manoeuvering,
-        ];
-        [USER_1, USER_2, USER_3, USER_4, USER_5, USER_6]
-            .iter()
-            .enumerate()
-            .for_each(|(i, user)| {
-                let user = Arc::clone(&keypairs[*user]);
-                let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-                let ctx = Arc::clone(&program_test_ctx);
-                let task = tokio::spawn(async move {
-                    let user_account =
-                        utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
-                    // we pick the first spaceship of the player for these tests
-                    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
-                    instructions::upgrade_subsystem(
-                        &ctx,
-                        &user,
-                        &realm_pda,
-                        &spaceship_pda,
-                        subsystems[i % subsystems.len()],
-                    )
-                    .await
-                    .unwrap();
-                });
-                upgrade_subsystem_tasks.push(task);
-            });
-        // Wait for all tasks to finish
-        for task in upgrade_subsystem_tasks {
-            task.await.unwrap();
-        }
-    }
-
-    // [6] -------------------- PICK CRATE ---------------------------------------------------------
+    // [5] -------------------- PICK CRATE ---------------------------------------------------------
     // Pick a crate for each spaceship (we vary the types of crates)
     // Only distribute NI crate as the players start with ImperialCredits only
     // ---------------------------------------------------------------------------------------------
@@ -276,7 +235,7 @@ pub async fn test_integration() {
         }
     }
 
-    // [7] -------------------- ARENA MATCHMAKING (queue filling) ----------------------------------
+    // [6] -------------------- ARENA MATCHMAKING (queue filling) ----------------------------------
     // Start by placing 5 players in the queue
     // ---------------------------------------------------------------------------------------------
     {
@@ -317,7 +276,7 @@ pub async fn test_integration() {
         }
     }
 
-    // [8] ---------------------- ARENA MATCHMAKING (matching) -------------------------------------
+    // [7] ---------------------- ARENA MATCHMAKING (matching) -------------------------------------
     // Now that the queue is full, we can match the players
     // ---------------------------------------------------------------------------------------------
     // require to bypass validator protection to drop "similar IX" (we called the same in step [4])

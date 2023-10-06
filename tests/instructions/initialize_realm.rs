@@ -2,7 +2,7 @@ pub use crate::utils;
 use {
     crate::utils::pda,
     anchor_lang::{prelude::Pubkey, ToAccountMetas},
-    hologram::{state::Realm, ARENA_MATCHMAKING_LEVEL_PER_RANGE, MAX_LEVEL},
+    hologram::{state::Realm, ARENA_MATCHMAKING_ORDNANCE_PER_RANGE, MAX_ORDNANCE},
     solana_program_test::{BanksClientError, ProgramTestContext},
     solana_sdk::signer::{keypair::Keypair, Signer},
     tokio::sync::RwLock,
@@ -68,8 +68,8 @@ pub async fn initialize_realm(
     );
     assert_eq!(
         realm_account.arena_matchmaking_queue.len(),
-        (0..MAX_LEVEL)
-            .step_by(ARENA_MATCHMAKING_LEVEL_PER_RANGE as usize)
+        (0..MAX_ORDNANCE)
+            .step_by(ARENA_MATCHMAKING_ORDNANCE_PER_RANGE as usize)
             .len()
     );
     assert_eq!(realm_account.analytics.total_user_accounts, 0);

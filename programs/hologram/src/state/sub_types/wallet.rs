@@ -40,18 +40,18 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn credit(&mut self, amount: u16, currency: Currency) -> Result<()> {
+    pub fn credit(&mut self, amount: u8, currency: Currency) -> Result<()> {
         match currency {
             Currency::ImperialCredit => {
                 self.imperial_credits = self
                     .imperial_credits
-                    .checked_add(amount)
+                    .checked_add(amount as u16)
                     .ok_or(HologramError::Overflow)?;
             }
             Currency::ActivateNanitePaste => {
                 self.activate_nanite_paste = self
                     .activate_nanite_paste
-                    .checked_add(amount)
+                    .checked_add(amount as u16)
                     .ok_or(HologramError::Overflow)?;
             }
         };
