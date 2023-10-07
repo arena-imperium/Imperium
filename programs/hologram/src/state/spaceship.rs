@@ -234,11 +234,8 @@ impl HitPoints {
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub enum ModuleClass {
     Weapon(WeaponModuleStats),
-    // Repairers
-    Repairer(RepairModuleStats),
-    // Passives
-    ShieldAmplifier,  // reduce shield layer regeneration time
-    TrackingComputer, // reduce opponent dodge chances
+    Repairer(Bonuses, RepairModuleStats),
+    Capacitative(Bonuses, Passive),
 }
 
 impl PartialEq for ModuleClass {
@@ -287,6 +284,26 @@ pub struct RepairModuleStats {
     pub target: RepairTarget,
     pub repair_amount: u8,
     pub charge_time: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
+pub struct Bonuses {
+    pub hull_hitpoints: u8,
+    pub shield_layers: u8,
+    pub dodge_chance: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum Passive {
+    // when the hull has taken a given amount of damage recentely (5 turns), it will heal a specific amount of HP
+    CapacitativeRepair {
+        threshold: u8,
+        repair_amount: u8,
+        target: RepairTarget,
+    },
+    ShieldRecharge {
+        amount: u8,
+    },
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]

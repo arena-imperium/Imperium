@@ -1,5 +1,5 @@
 use {
-    super::{ActiveEffect, ActivePowerup, PassivePowerup, PowerUp, SpaceShipBattleCard},
+    super::{ActivePowerup, Effect, PassivePowerup, PowerUp, SpaceShipBattleCard},
     crate::{
         instructions::user_facing::Faction,
         state::{RepairTarget, SpaceShip},
@@ -116,6 +116,9 @@ impl FightEngine {
             apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
             apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
 
+            s.end_of_turn_internals();
+            os.end_of_turn_internals();
+
             // advance turn
             turn += 1;
         }
@@ -162,7 +165,7 @@ impl FightEngine {
 }
 
 fn apply_effects(
-    effects: Vec<ActiveEffect>,
+    effects: Vec<Effect>,
     s_origin: &mut SpaceShipBattleCard,
     s_target: &mut SpaceShipBattleCard,
     rng: &mut RandomNumberGenerator,
@@ -173,28 +176,28 @@ fn apply_effects(
 }
 
 fn apply_effect(
-    effect: ActiveEffect,
+    effect: Effect,
     s_origin: &mut SpaceShipBattleCard,
     s_target: &mut SpaceShipBattleCard,
     rng: &mut RandomNumberGenerator,
 ) {
     match effect {
-        ActiveEffect::Fire {
+        Effect::Fire {
             damage,
             shots,
             weapon_type,
         } => s_origin.fire_at(s_target, rng, damage, shots, weapon_type),
-        ActiveEffect::Repair { target, amount } => match target {
+        Effect::Repair { target, amount } => match target {
             RepairTarget::Hull => s_origin.hull_hitpoints.resplenish(amount),
             RepairTarget::Shield => s_origin.shield_layers.resplenish(amount),
         },
-        ActiveEffect::Jam {
+        Effect::Jam {
             chance,
             charge_burn,
         } => {
             s_origin.jam(s_target, rng, chance, charge_burn);
         }
-        ActiveEffect::Composite {
+        Effect::Composite {
             effect1,
             effect2,
             probability1,
@@ -208,5 +211,10 @@ fn apply_effect(
                 apply_effect(*effect2, s_origin, s_target, rng);
             }
         }
+        Effect::Conditionnal { condition, effect } => todo!(),
+        Effect::DamageAbsorbtion {
+            weapon_type,
+            chance,
+        } => todo!(),
     }
 }

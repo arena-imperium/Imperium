@@ -2,7 +2,7 @@
 use switchboard_solana::FunctionRequestAccountData;
 use {
     crate::{
-        engine::{LT_STARTER_DEFFENSIVE_MODULES, LT_STARTER_OFFENSIVE_MODULES},
+        engine::LT_STARTER_OFFENSIVE_MODULES,
         error::HologramError,
         state::{
             spaceship, Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
@@ -140,7 +140,7 @@ pub fn create_spaceship_settle(
         };
     }
 
-    // provide spaceship with starting modules and credits
+    // provide spaceship with starting module and credits
     {
         let spaceship = &mut ctx.accounts.spaceship;
         // provide starter offensive_module
@@ -149,13 +149,6 @@ pub fn create_spaceship_settle(
             let starter_offensive_module = LT_STARTER_OFFENSIVE_MODULES[roll as usize - 1].clone();
             msg!("Starter offensive module: {:?}", starter_offensive_module);
             spaceship.mount_module(starter_offensive_module)?;
-        }
-        // provide starter defensive_module
-        {
-            let roll = rng.roll_dice(LT_STARTER_DEFFENSIVE_MODULES.len());
-            let starter_defensive_module = LT_STARTER_DEFFENSIVE_MODULES[roll as usize - 1].clone();
-            msg!("Starter defensive module: {:?}", starter_defensive_module);
-            spaceship.mount_module(starter_defensive_module)?;
         }
         // provide starting imperial credits
         {

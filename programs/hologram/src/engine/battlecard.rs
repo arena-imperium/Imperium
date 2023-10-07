@@ -9,6 +9,7 @@ use {
     std::cmp::max,
 };
 
+// Note: Recentely == 5 last turns
 #[derive(Debug)]
 pub struct SpaceShipBattleCard {
     pub name: String,
@@ -24,6 +25,12 @@ pub struct SpaceShipBattleCard {
     pub active_powerups: Vec<ActivePowerup>,
     // their effects are already compounded in the stas above. they are kept for reference
     pub passive_powerups: Vec<PassivePowerup>,
+    // data -----------------------------------------
+    // Note: data internal to the game engine that is updated along the match
+    // for CapacitativeArmor
+    //
+    // Stores last 5 turns damages to the hull
+    pub recent_hull_damage_per_turn: Vec<u8>,
 }
 
 impl SpaceShipBattleCard {
@@ -49,12 +56,24 @@ impl SpaceShipBattleCard {
             jamming_nullifying_chance,
             active_powerups,
             passive_powerups,
+            recent_hull_damage_per_turn: vec![0, 0, 0, 0, 0],
         }
+    }
+
+    // Maintenance operation to be carried each turn for the game engine
+    pub fn end_of_turn_internals(&mut self) {
+        // advance recent hull damage
+        self.recent_hull_damage_per_turn.pop();
+        self.recent_hull_damage_per_turn.insert(0, 0);
     }
 
     // A spaceship is defeated when his Hull HP reaches 0
     pub fn is_defeated(&self) -> bool {
         self.hull_hitpoints.depleted()
+    }
+
+    pub fn recent_hull_damage(&self) -> u8 {
+        self.recent_hull_damage_per_turn.iter().sum()
     }
 
     pub fn fire_at(
@@ -116,25 +135,32 @@ impl SpaceShipBattleCard {
 
     pub fn apply_damage(&mut self, damage: u8, weapon_type: WeaponType) {
         match weapon_type {
-            WeaponType::Projectile => {
-                self.hull_hitpoints.deplete(damage);
-            }
-            WeaponType::Missile => {
-                self.hull_hitpoints.deplete(damage);
-            }
+            WeaponType::Projectile => self.apply_hull_damage(damage),
+            WeaponType::Missile => self.apply_hull_damage(damage),
             WeaponType::Laser => {
                 if self.shield_layers.depleted() {
-                    self.hull_hitpoints.deplete(damage);
+                    self.apply_hull_damage(damage)
                 } else {
-                    self.shield_layers.deplete(1);
+                    self.deplete_shield_layer();
                 }
             }
             WeaponType::Beam => {
                 // only inflicts damage if shields are down
                 if self.shield_layers.depleted() {
-                    self.hull_hitpoints.deplete(damage);
+                    self.apply_hull_damage(damage)
                 }
             }
         }
+    }
+
+    fn apply_hull_damage(&mut self, damage: u8) {
+        self.hull_hitpoints.deplete(damage);
+        if let Some(last) = self.recent_hull_damage_per_turn.last_mut() {
+            *last += damage;
+        }
+    }
+
+    fn deplete_shield_layer(&mut self) {
+        self.shield_layers.deplete(1);
     }
 }
