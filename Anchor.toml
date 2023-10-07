@@ -6,7 +6,7 @@ skip-lint = false
 hologram = "GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet"
 
 [programs.devnet]
-hologram = "81fgjX6KXbbjfySuP2gqvjmKjq9JHw4ozPDYDmCDhaHF"
+hologram = "Dymz8qnireZUqjMFyqBmUYLrNfrKCZZ7z7PcYPFkF1D9"
 
 [registry]
 url = "https://api.apr.dev"

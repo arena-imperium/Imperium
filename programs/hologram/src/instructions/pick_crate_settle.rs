@@ -10,6 +10,7 @@ use {
             UserAccount,
         },
         utils::RandomNumberGenerator,
+        MAX_ORDNANCE,
     },
     anchor_lang::prelude::*,
     std::borrow::BorrowMut,
@@ -26,7 +27,6 @@ pub const NI_DRONE_CHANCE: u8 = 20;
 pub const NI_MUTATION_CHANCE: u8 = 0;
 pub const NI_SCAM_CHANCE: u8 = 0;
 pub const NI_FACTION_RARITY_ENABLED: bool = false;
-pub const NI_EXOTIC_MODULE_ENABLED: bool = false;
 
 pub const PC_CURRENCY: Currency = Currency::ImperialCredit;
 pub const PC_PRICE: u8 = 30;
@@ -36,7 +36,6 @@ pub const PC_DRONE_CHANCE: u8 = 42;
 pub const PC_MUTATION_CHANCE: u8 = 5;
 pub const PC_SCAM_CHANCE: u8 = 8;
 pub const PC_FACTION_RARITY_ENABLED: bool = true;
-pub const PC_EXOTIC_MODULE_ENABLED: bool = false;
 
 pub const BMC_CURRENCY: Currency = Currency::ActivateNanitePaste;
 pub const BMC_PRICE: u8 = 35;
@@ -46,7 +45,6 @@ pub const BMC_DRONE_CHANCE: u8 = 15;
 pub const BMC_MUTATION_CHANCE: u8 = 40;
 pub const BMC_SCAM_CHANCE: u8 = 5;
 pub const BMC_FACTION_RARITY_ENABLED: bool = false;
-pub const BMC_EXOTIC_MODULE_ENABLED: bool = true;
 
 #[derive(Accounts)]
 pub struct PickCrateSettle<'info> {
@@ -103,6 +101,12 @@ pub fn pick_crate_settle(
 ) -> Result<()> {
     // Validations
     {
+        // verify that the user Ordnance is not maxxed (redundant, done in pick_crate, but for safety)
+        require!(
+            ctx.accounts.spaceship.ordnance() < MAX_ORDNANCE,
+            HologramError::MaxOrdnanceReached
+        );
+
         // verify that the call was made by the container
         // Disabled during tests
         #[cfg(not(any(test, feature = "testing")))]
@@ -151,13 +155,8 @@ pub fn pick_crate_settle(
         match crate_outcome {
             CrateOutcome::Module {
                 faction_rarity_enabled,
-                exotic_module_enabled,
             } => {
-                let module = LootEngine::drop_module(
-                    &mut rng,
-                    faction_rarity_enabled,
-                    exotic_module_enabled,
-                )?;
+                let module = LootEngine::drop_module(&mut rng, faction_rarity_enabled)?;
                 spaceship.mount_module(module)?;
             }
             CrateOutcome::Drone {
@@ -226,13 +225,8 @@ impl CrateType {
 
 #[derive(Clone, Copy)]
 pub enum CrateOutcome {
-    Module {
-        faction_rarity_enabled: bool,
-        exotic_module_enabled: bool,
-    },
-    Drone {
-        faction_rarity_enabled: bool,
-    },
+    Module { faction_rarity_enabled: bool },
+    Drone { faction_rarity_enabled: bool },
     Mutation,
     Scam, // no drop
 }
@@ -246,7 +240,6 @@ impl CrateType {
                     NI_MODULE_CHANCE,
                     CrateOutcome::Module {
                         faction_rarity_enabled: NI_FACTION_RARITY_ENABLED,
-                        exotic_module_enabled: NI_EXOTIC_MODULE_ENABLED,
                     },
                 ),
                 (
@@ -263,7 +256,6 @@ impl CrateType {
                     PC_MODULE_CHANCE,
                     CrateOutcome::Module {
                         faction_rarity_enabled: PC_FACTION_RARITY_ENABLED,
-                        exotic_module_enabled: PC_EXOTIC_MODULE_ENABLED,
                     },
                 ),
                 (
@@ -280,7 +272,6 @@ impl CrateType {
                     BMC_MODULE_CHANCE,
                     CrateOutcome::Module {
                         faction_rarity_enabled: BMC_FACTION_RARITY_ENABLED,
-                        exotic_module_enabled: BMC_EXOTIC_MODULE_ENABLED,
                     },
                 ),
                 (

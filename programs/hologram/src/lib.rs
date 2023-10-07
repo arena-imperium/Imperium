@@ -9,58 +9,35 @@ use {anchor_lang::prelude::*, instructions::*};
 #[cfg(feature = "localnet")]
 declare_id!("GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet");
 #[cfg(feature = "devnet")]
-declare_id!("81fgjX6KXbbjfySuP2gqvjmKjq9JHw4ozPDYDmCDhaHF");
+declare_id!("Dymz8qnireZUqjMFyqBmUYLrNfrKCZZ7z7PcYPFkF1D9");
 #[cfg(feature = "mainnet-beta")]
 declare_id!("Hologram1111");
 
 pub const SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION: u8 = 75;
-
-pub const SHORT_LIMITED_STRING_MAX_LENGTH: usize = 64;
-
+pub const STARTING_IMPERIAL_CREDITS: u8 = NI_PRICE + 5;
+pub const MAX_ORDNANCE: u8 = 16;
 // PowerUp score is the sum of all the powerups for a ship.
-pub const MAX_POWERUP_SCORE: u8 = MAX_LEVEL;
 pub const CURRENCY_REWARD_FOR_ARENA_WINNER: u8 = 3;
-
+pub const CURRENCY_REWARD_FOR_ARENA_LOOSER: u8 = 1;
 pub const RANDOMNESS_LOWER_BOUND: u32 = 1;
 pub const RANDOMNESS_UPPER_BOUND: u32 = 1_000_000;
-
 // Max amount of fuel for new Spaceships
 pub const BASE_MAX_FUEL: u8 = 5;
 // Amount of fuel that is provided per period per spaceship
 pub const FUEL_ALLOWANCE_AMOUNT: u8 = 3;
 // How often the fuel allowance is provided
 pub const FUEL_ALLOWANCE_COOLDOWN: i64 = 24 * 60 * 60; // 24 hours in seconds
-
-// Experience required for next level is equal to next_level * XP_REQUIERED_PER_LEVEL_MULT
-pub const XP_REQUIERED_PER_LEVEL_MULT: u8 = 5;
-// Maximum spaceship level -  MUST be an even number
-pub const MAX_LEVEL: u8 = 16;
-
-//  -- Statistics --
-// 2 level of related stat provide 1% dodge chance
-pub const DODGE_CHANCE_PER_MANOEUVERING_LEVEL_RATIO: u8 = 2;
-// 2 level of related stat provide 1% jamming nullifying
-pub const JAMMING_NULLIFYING_CHANCE_PER_ELECTRONIC_SUBSYSTEMS_LEVEL_RATIO: u8 = 2;
-
 pub const BASE_DODGE_CHANCE: u8 = 5; // 5%
 pub const DODGE_CHANCE_CAP: u8 = 35; // 35%
-
 pub const BASE_JAMMING_NULLIFYING_CHANCE: u8 = 10; // 10%
 pub const JAMMING_NULLIFYING_CHANCE_CAP: u8 = 75; // 75%
-
-// Celerity is the statistic that determine who plays first during a fight (higher is better)
-pub const BASE_CELERITY: u8 = 10;
-
-pub const BASE_HULL_HITPOINTS: u16 = 75;
-pub const BASE_ARMOR_HITPOINTS: u16 = 10;
-pub const BASE_SHIELD_HITPOINTS: u16 = 0;
-pub const HULL_HITPOINTS_PER_LEVEL: u16 = 5;
-pub const ARMOR_HITPOINTS_PER_ARMOR_LAYERING_LEVEL: u16 = 20;
-pub const SHIELD_HITPOINTS_PER_SHIELD_SUBSYSTEMS_LEVEL: u16 = 15;
-
+pub const BASE_HULL_HITPOINTS: u8 = 30;
+pub const BASE_SHIELD_LAYERS: u8 = 1;
 pub const ARENA_MATCHMAKING_FUEL_COST: u8 = 1;
-pub const ARENA_MATCHMAKING_LEVEL_PER_RANGE: u8 = 2;
+pub const ARENA_MATCHMAKING_ORDNANCE_PER_RANGE: u8 = 2;
 pub const ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE: u8 = 5;
+pub const MATCH_MAX_TURN: u16 = 1000;
+pub const CHARGE_PER_TURN: u8 = 1;
 
 solana_security_txt::security_txt! {
     name: "Hologram",
@@ -126,12 +103,7 @@ pub mod hologram {
         instructions::claim_fuel_allowance(ctx)
     }
 
-    // Allocates available stat point if any
-    pub fn allocate_stat_point(ctx: Context<AllocateStatPoint>, stat_type: StatType) -> Result<()> {
-        instructions::allocate_stat_point(ctx, stat_type)
-    }
-
-    // Pick a crate reward (once per level), will roll for a RNG based drop to power up the spaceship
+    // Purchase a crate, will roll for a RNG based drop to power up the spaceship
     pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> {
         instructions::pick_crate(ctx, crate_type)
     }

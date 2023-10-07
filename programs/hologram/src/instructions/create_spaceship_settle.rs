@@ -2,13 +2,14 @@
 use switchboard_solana::FunctionRequestAccountData;
 use {
     crate::{
-        engine::LT_STARTER_WEAPON,
+        engine::{LT_STARTER_DEFFENSIVE_MODULES, LT_STARTER_OFFENSIVE_MODULES},
         error::HologramError,
         state::{
             spaceship, Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
             UserAccount,
         },
         utils::RandomNumberGenerator,
+        STARTING_IMPERIAL_CREDITS,
     },
     anchor_lang::prelude::*,
     spaceship::Hull,
@@ -119,9 +120,10 @@ pub fn create_spaceship_settle(
         ctx.accounts.spaceship.randomness.iteration = 1;
     }
 
+    let mut rng = RandomNumberGenerator::new(generated_seed.into());
+
     // Roll the Hull with the first generated seed
     {
-        let mut rng = RandomNumberGenerator::new(generated_seed.into());
         let dice_roll = rng.roll_dice(10); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
         ctx.accounts.spaceship.hull = match dice_roll {
             1 => Hull::CommonOne,
@@ -138,17 +140,29 @@ pub fn create_spaceship_settle(
         };
     }
 
-    // provide the spaceship with it's first crate and stat points
-    // mount starter weapon
+    // provide spaceship with starting modules and credits
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        // provide starter weapon
-        spaceship.modules.push(LT_STARTER_WEAPON.clone());
-        spaceship.powerup_score = 1;
-        // provide 1 stat point
-        spaceship.experience.credit_stat_point(1);
-        // provide currency for 1 NI crate
-        spaceship.wallet.credit(30, Currency::ImperialCredit)?;
+        // provide starter offensive_module
+        {
+            let roll = rng.roll_dice(LT_STARTER_OFFENSIVE_MODULES.len());
+            let starter_offensive_module = LT_STARTER_OFFENSIVE_MODULES[roll as usize - 1].clone();
+            msg!("Starter offensive module: {:?}", starter_offensive_module);
+            spaceship.mount_module(starter_offensive_module)?;
+        }
+        // provide starter defensive_module
+        {
+            let roll = rng.roll_dice(LT_STARTER_DEFFENSIVE_MODULES.len());
+            let starter_defensive_module = LT_STARTER_DEFFENSIVE_MODULES[roll as usize - 1].clone();
+            msg!("Starter defensive module: {:?}", starter_defensive_module);
+            spaceship.mount_module(starter_defensive_module)?;
+        }
+        // provide starting imperial credits
+        {
+            spaceship
+                .wallet
+                .credit(STARTING_IMPERIAL_CREDITS, Currency::ImperialCredit)?;
+        }
     }
 
     let spaceship_lite = SpaceShipLite {

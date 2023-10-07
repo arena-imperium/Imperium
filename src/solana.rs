@@ -1,16 +1,18 @@
 pub use anchor_client::Client as AnchorClient;
-use bevy::log;
-use bevy::prelude::{App, Commands, Component, Entity, Plugin, PostUpdate, Query, Resource};
-use bevy::tasks::{IoTaskPool, Task};
 use {
     anchor_client::{
         anchor_lang::{prelude::System, Id},
         ClientError, Cluster, Program,
     },
+    bevy::{
+        log,
+        prelude::{App, Commands, Component, Entity, Plugin, PostUpdate, Query, Resource},
+        tasks::{IoTaskPool, Task},
+    },
     futures_lite::future,
     hologram::{
         self,
-        instructions::{CrateType, Faction, StatType},
+        instructions::{CrateType, Faction},
         state::{SpaceShip, UserAccount},
     },
     solana_cli_output::display::println_transaction,
@@ -264,11 +266,10 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(
-            SolanaTransactionTask {
-                description: "initialize_realm".to_string(),
-                task,
-            });
+        commands.spawn(SolanaTransactionTask {
+            description: "initialize_realm".to_string(),
+            task,
+        });
     }
 
     /// This function fires a create user account task.
@@ -316,11 +317,10 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(
-            SolanaTransactionTask {
-                description: "create_user_account".to_string(),
-                task,
-            });
+        commands.spawn(SolanaTransactionTask {
+            description: "create_user_account".to_string(),
+            task,
+        });
     }
 
     /// This function fires a create spaceship task.
@@ -424,11 +424,10 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(
-            SolanaTransactionTask {
-                description: "create_spaceship".to_string(),
-                task,
-            });
+        commands.spawn(SolanaTransactionTask {
+            description: "create_spaceship".to_string(),
+            task,
+        });
     }
 
     /// This function fires a claim_fuel_allowance task.
@@ -478,69 +477,10 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(
-            SolanaTransactionTask {
-                description: "claim_fuel_allowance".to_string(),
-                task,
-            });
-    }
-
-    /// This function fires a claim_fuel_allowance task.
-    /// This will attempt to get the periodical free fuel allowance for a given spaceship.
-    ///
-    /// Anchor events:
-    /// - StatPointAllocated: inform that the stat point was allocated and to which stat type.
-    ///
-    /// Parameters:
-    /// commands: Commands
-    /// realm_pda: Pubkey
-    /// user: The user making the call (user_account is derived)
-    /// spaceship_pda: Pubkey of the spaceship to claim the stat point for
-    /// stat_type: the stat type to allocate the point to
-    pub fn fire_allocate_stat_point_task(
-        &self,
-        commands: &mut Commands,
-        realm_pda: &Pubkey,
-        user: &Pubkey,
-        spaceship_pda: &Pubkey,
-        stat_type: StatType,
-    ) {
-        let thread_pool = IoTaskPool::get();
-        let client = Arc::clone(&self.solana_client);
-        let realm_pda = realm_pda.clone();
-        let user = user.clone();
-        let payer = client.payer().clone();
-        let spaceship_pda = spaceship_pda.clone();
-
-        let task = thread_pool.spawn(async move {
-            log::info!("<Solana> Sending allocate_stat_point IX");
-
-            let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
-            let instruction = hologram::instruction::AllocateStatPoint { stat_type };
-
-            let accounts = hologram::accounts::AllocateStatPoint {
-                user,
-                realm: realm_pda,
-                user_account: user_account_pda,
-                spaceship: spaceship_pda,
-            };
-
-            Self::send_and_confirm_instruction_blocking(
-                client,
-                hologram::id(),
-                instruction,
-                accounts,
-                payer,
-                vec![],
-                50_000,
-            )
+        commands.spawn(SolanaTransactionTask {
+            description: "claim_fuel_allowance".to_string(),
+            task,
         });
-
-        commands.spawn(
-            SolanaTransactionTask {
-                description: "allocate_stat_point".to_string(),
-                task,
-            });
     }
 
     /// This function fires an arena matchmaking task.
@@ -620,11 +560,10 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(
-            SolanaTransactionTask {
-                description: "arena_matchmaking".to_string(),
-                task,
-            });
+        commands.spawn(SolanaTransactionTask {
+            description: "arena_matchmaking".to_string(),
+            task,
+        });
     }
 
     /// This function fires a crate picking task.
@@ -700,11 +639,10 @@ impl HologramServer {
             )
         });
 
-        commands.spawn(
-            SolanaTransactionTask {
-                description: "pick_crate".to_string(),
-                task,
-            });
+        commands.spawn(SolanaTransactionTask {
+            description: "pick_crate".to_string(),
+            task,
+        });
     }
 
     /// Returns the account at the given address
@@ -726,11 +664,10 @@ impl HologramServer {
             Ok(account)
         });
 
-        commands.spawn(
-            SolanaFetchAccountTask {
-                description: "fetch_account".to_string(),
-                task,
-            });
+        commands.spawn(SolanaFetchAccountTask {
+            description: "fetch_account".to_string(),
+            task,
+        });
     }
 
     /// Returns all program accounts of the given type matching the given filters
@@ -756,11 +693,10 @@ impl HologramServer {
             Ok(account)
         });
 
-        commands.spawn(
-            SolanaFetchAccountsTask {
-                description: "fetch_accounts_with_filter".to_string(),
-                task,
-            });
+        commands.spawn(SolanaFetchAccountsTask {
+            description: "fetch_accounts_with_filter".to_string(),
+            task,
+        });
     }
 
     // pub async fn events<C: Deref<Target = impl Signer> + Clone>(&self, pid: Pubkey) -> Result<()> {

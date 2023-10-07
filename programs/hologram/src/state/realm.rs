@@ -11,7 +11,7 @@ pub struct Realm {
     pub name: LimitedString,
     pub admin: Pubkey, // must also be the owner of the Switchboard functions
     pub switchboard_info: SwitchboardInfo,
-    // matchmaking queues for the arena (softcore). Each queue catters to a specific level range. Details in init_realm IX
+    // matchmaking queues for the arena (softcore). Each queue catters to a specific Ordnance range. Details in init_realm IX
     pub arena_matchmaking_queue: Vec<MatchmakingQueue>,
     pub analytics: RealmAnalytics,
 }
@@ -30,8 +30,8 @@ pub struct SwitchboardInfo {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
 pub struct MatchmakingQueue {
-    // maximum level of the spaceships in the queue
-    pub up_to_level: u8,
+    // maximum ordnance of the spaceships in the queue
+    pub up_to_ordnance: u8,
     // up to ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE spaceship can be in the queue.
     // After than when someone join a match is created selected a random spaceship from the queue.
     pub spaceships: [Option<Pubkey>; 5], // @HARDCODED ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE anchor bug cannot use const here
@@ -72,27 +72,27 @@ impl Realm {
         }
     }
 
-    // return the matchmaking queue matching the spaceship level
+    // return the matchmaking queue matching the spaceship Ordnance
     pub fn get_matching_matchmaking_queue(
         &self,
         spaceship: &SpaceShip,
     ) -> Result<&MatchmakingQueue> {
-        // find the queue matching spaceship level
+        // find the queue matching spaceship Ordnance
         self.arena_matchmaking_queue
             .iter()
-            .find(|q| q.up_to_level >= spaceship.experience.current_level)
+            .find(|q| q.up_to_ordnance >= spaceship.ordnance())
             .ok_or(error!(HologramError::MatchmakingQueueNotFound))
     }
 
-    // return the matchmaking queue matching the spaceship level (mutable)
+    // return the matchmaking queue matching the spaceship Ordnance (mutable)
     pub fn get_matching_matchmaking_queue_mut(
         &mut self,
         spaceship: &SpaceShip,
     ) -> Result<&mut MatchmakingQueue> {
-        // find the queue matching spaceship level
+        // find the queue matching spaceship Ordnance
         self.arena_matchmaking_queue
             .iter_mut()
-            .find(|q| q.up_to_level >= spaceship.experience.current_level)
+            .find(|q| q.up_to_ordnance >= spaceship.ordnance())
             .ok_or(error!(HologramError::MatchmakingQueueNotFound))
     }
 

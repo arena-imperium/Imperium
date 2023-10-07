@@ -3,7 +3,7 @@ use switchboard_solana::FunctionRequestAccountData;
 use {
     super::user_facing::Faction,
     crate::{
-        engine::FightEngine,
+        engine::{FightEngine, FightOutcome},
         error::HologramError,
         state::{
             spaceship, MatchmakingQueue, Realm, SpaceShip, SpaceShipLite,
@@ -85,9 +85,9 @@ pub struct ArenaMatchmakingSettle<'info> {
 pub struct ArenaMatchmakingMatchCompleted {
     pub realm_name: String,
     pub user: Pubkey,
-    pub user_won: bool,
-    pub winner: SpaceShipLite,
-    pub looser: SpaceShipLite,
+    pub outcome: FightOutcome,
+    pub spaceship: SpaceShipLite,
+    pub opponent_spaceship: SpaceShipLite,
 }
 
 pub fn arena_matchmaking_settle(
@@ -137,7 +137,7 @@ pub fn arena_matchmaking_settle(
     }
 
     // pick the opponent spaceship based on the random seed
-    let opponent_spaceship = {
+    let mut opponent_spaceship = {
         let spaceship = &mut ctx.accounts.spaceship;
         let mut rng = RandomNumberGenerator::new(generated_seed.into());
         let queue = ctx
@@ -193,41 +193,51 @@ pub fn arena_matchmaking_settle(
     };
 
     // FIGHT
-    let spaceship = &mut ctx.accounts.spaceship;
-    let spaceship_won = { FightEngine::fight(spaceship, opponent_spaceship, generated_seed) };
-    let (winner, looser) = if spaceship_won {
-        (&mut *spaceship, &mut *opponent_spaceship)
-    } else {
-        (&mut *opponent_spaceship, &mut *spaceship)
-    };
+    let mut spaceship = &mut ctx.accounts.spaceship;
+    let outcome = FightEngine::fight(spaceship, opponent_spaceship, generated_seed);
+    // let (winner, looser) = match outcome {
+    //     crate::engine::FightOutcome::UserWon => {
+    //         msg!("user won");
+    //         (&mut *spaceship, &mut *opponent_spaceship)
+    //     }
+    //     crate::engine::FightOutcome::OpponentWon => {
+    //         msg!("opponent won");
+    //         (&mut *opponent_spaceship, &mut *spaceship)
+    //     }
+    //     crate::engine::FightOutcome::Draw => {
+    //         msg!("Draw");
+    //         (&mut *spaceship, &mut *opponent_spaceship)
+    //     }
+    // };
 
-    // distribute rewards to winner
+    // distribute match rewards
     {
-        FightEngine::distribute_arena_experience(winner, looser)?;
-        FightEngine::distribute_arena_currency(winner, faction)?;
-    }
-
-    // advance seeds
-    {
-        winner.randomness.advance_seed();
-        looser.randomness.advance_seed();
+        FightEngine::distribute_arena_currency(
+            &mut spaceship,
+            &mut opponent_spaceship,
+            faction,
+            outcome,
+        )?;
     }
 
     // analytics
     {
         ctx.accounts.realm.analytics.total_arena_matches += 1;
-
-        winner.analytics.total_arena_matches += 1;
-        looser.analytics.total_arena_matches += 1;
-        winner.analytics.total_arena_victories += 1;
+        match outcome {
+            FightOutcome::UserWon => spaceship.analytics.total_arena_victories += 1,
+            FightOutcome::OpponentWon => opponent_spaceship.analytics.total_arena_victories += 1,
+            FightOutcome::Draw => {}
+        }
+        spaceship.analytics.total_arena_matches += 1;
+        opponent_spaceship.analytics.total_arena_matches += 1;
     }
 
     emit!(ArenaMatchmakingMatchCompleted {
         realm_name: ctx.accounts.realm.name.to_string(),
         user: *ctx.accounts.user.key,
-        user_won: spaceship_won,
-        winner: SpaceShipLite::from_spaceship_account(winner),
-        looser: SpaceShipLite::from_spaceship_account(looser),
+        outcome,
+        spaceship: SpaceShipLite::from_spaceship_account(spaceship),
+        opponent_spaceship: SpaceShipLite::from_spaceship_account(opponent_spaceship),
     });
 
     #[cfg(target_os = "solana")]
@@ -236,6 +246,7 @@ pub fn arena_matchmaking_settle(
     Ok(())
 }
 
+// determine the opponent the spaceship will fight against
 pub fn roll_opponent_spaceship(
     rng: &mut RandomNumberGenerator,
     queue: &MatchmakingQueue,

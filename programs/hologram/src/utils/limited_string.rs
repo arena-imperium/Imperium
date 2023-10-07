@@ -73,4 +73,21 @@ impl LimitedString {
             length,
         }
     }
+
+    pub const fn new_const(input: &'static str) -> Self {
+        let length = input.len() as u8;
+        let bytes = input.as_bytes();
+        let mut array = [0; Self::MAX_LENGTH];
+        let mut i = 0;
+
+        while i < Self::MAX_LENGTH && i < length as usize {
+            array[i] = bytes[i];
+            i += 1;
+        }
+
+        LimitedString {
+            value: array,
+            length,
+        }
+    }
 }
