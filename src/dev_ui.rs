@@ -1,8 +1,7 @@
 use bevy::log;
 use bevy::prelude::{App, Commands, Plugin, Res, Update};
-use bevy_egui::{egui, EguiContext, EguiContexts, EguiPlugin};
+use bevy_egui::{egui, EguiContexts, EguiPlugin};
 
-use crate::{Scene};
 use crate::solana::HologramServer;
 
 pub struct DevUI;

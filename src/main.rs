@@ -4,6 +4,7 @@
 mod dev_ui;
 mod solana;
 mod asset_loading;
+mod game_ui;
 
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -11,13 +12,14 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use image::ImageFormat::Png;
 use image::load;
 use {
-    bevy::{prelude::*, window::PrimaryWindow, winit::WinitWindows, DefaultPlugins},
+    bevy::{DefaultPlugins, prelude::*, window::PrimaryWindow, winit::WinitWindows},
     bevy_inspector_egui::quick::WorldInspectorPlugin,
     std::io::Cursor,
     winit::window::Icon,
 };
+use game_ui::GamePlugin;
 use crate::asset_loading::AssetLoadingPlugin;
-use crate::dev_ui::{DevUI};
+use crate::dev_ui::DevUI;
 use crate::solana::SolanaPlugin;
 
 fn main() {
@@ -66,49 +68,6 @@ fn set_window_icon(
         let icon = Icon::from_rgba(rgba, width, height).unwrap();
         primary.set_window_icon(Some(icon));
     };
-}
-
-/// Ie: what gamemode/scene are we currently in?
-#[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States)]
-pub enum Scene {
-    #[default]
-    Loading,
-    /// Starting scene, where the player can setup a connection with their wallet
-    Station,
-    /// Here the menu is drawn and waiting for player interaction
-    Hanger,
-}
-
-#[derive(Default, Resource)]
-pub struct LoginState(bool);
-
-pub struct GamePlugin;
-impl Plugin for GamePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_state::<Scene>();
-        app.add_resource::<LoginState>();
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
-        // run_if(in_state()).or_else(run_if(in_state()))
-        app.add_systems(Update, station_login.run_if(in_state(Scene::Station)));
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::Hanger)));
-    }
-}
-
-fn loading_screen(mut next_state: ResMut<NextState<Scene>>,) {
-    // Todo: when UI is decided on, draw bar showing loaded assets
-    let loaded = true;
-    if loaded {
-        next_state.set(Scene::Station);
-    }
-}
-
-fn station_login(mut next_state: ResMut<NextState<Scene>>,) {
-
-    //next_state.set(Scene::Hanger);
-}
-
-fn hanger(mut next_state: ResMut<NextState<Scene>>,) {
-    //next_state.set(Scene::Hanger);
 }
 
 /*
