@@ -1,9 +1,6 @@
 use {
     super::{Effect, PowerUp, PowerupKind},
-    crate::{
-        state::{Bonuses, WeaponType},
-        utils::LimitedString,
-    },
+    crate::{state::Bonuses, utils::LimitedString},
 };
 
 // Derived from a power up to be used in the fight engine

@@ -162,7 +162,7 @@ pub const LT_MODULES_COMMON: [Module; 8] = [
         name: LimitedString::new_const("Slicer"),
         rarity: Common,
         class: ModuleClass::Weapon(WeaponModuleStats {
-            weapon_type: WeaponType::Beam,
+            weapon_type: WeaponType::Plasma,
             damage: 2,
             charge_time: 18,
             shots: Shots::Single,

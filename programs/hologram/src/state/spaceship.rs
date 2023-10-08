@@ -324,5 +324,5 @@ pub enum WeaponType {
     Projectile,
     Missile,
     Laser,
-    Beam,
+    Plasma,
 }

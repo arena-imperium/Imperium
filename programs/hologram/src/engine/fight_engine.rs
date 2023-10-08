@@ -66,26 +66,22 @@ impl FightEngine {
     ) -> FightOutcome {
         let mut rng = RandomNumberGenerator::new(fight_seed as u64);
 
-        // generate SpaceShipBattleCards, a new object that contains the spaceship's stats ready for the battle
+        // generate SpaceShipBattleCards, another data-representation of a SpaceShip object optimized for battle
         let mut s = SpaceShipBattleCard::new(&spaceship);
         let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
 
-        #[cfg(not(any(test, feature = "testing")))]
-        msg!("s actives: {:?}", s.active_powerups.iter().map(|a| a.name));
+        #[cfg(any(test, feature = "testing"))]
+        {
+            msg!("s actives: {:?}", s.active_powerups.iter().map(|a| a.name));
+            msg!(
+                "os actives: {:?}",
+                os.active_powerups.iter().map(|a| a.name)
+            );
+        }
 
-        #[cfg(not(any(test, feature = "testing")))]
-        msg!(
-            "os actives: {:?}",
-            os.active_powerups.iter().map(|a| a.name)
-        );
-
-        // First loop through each player powerups, find all PassivePowerups, and apply them to the battlecards
-        // @TODO
-
-        // Second loop through remaining powerups, find all ActivePowerups, and add them to the battlecard
         let mut turn = 0;
         while turn < MATCH_MAX_TURN {
-            #[cfg(not(any(test, feature = "testing")))]
+            #[cfg(any(test, feature = "testing"))]
             msg!("turn: {} ----------------", turn);
             if s.is_defeated() || os.is_defeated() {
                 break;
@@ -94,25 +90,16 @@ impl FightEngine {
             // charge active modules of the spaceship and keep track of the ones reaching activation treshold
             let mut s_effects_to_apply = Vec::new();
             let mut os_effects_to_apply = Vec::new();
-            s.active_powerups.iter_mut().for_each(|a| {
-                // increase charge and attempt activation
-                if a.charge_and_activate(CHARGE_PER_TURN) {
-                    // module charge reached the treshold, collect effects
-                    a.effects
-                        .iter()
-                        .for_each(|e| s_effects_to_apply.push(e.clone()));
-                }
-            });
-            os.active_powerups.iter_mut().for_each(|a| {
-                // increase charge and attempt activation
-                if a.charge_and_activate(CHARGE_PER_TURN) {
-                    // module charge reached the treshold, collect effects
-                    a.effects
-                        .iter()
-                        .for_each(|e| os_effects_to_apply.push(e.clone()));
-                }
-            });
-
+            let collect_effects =
+                |powerups: &mut Vec<ActivePowerup>, effects_to_apply: &mut Vec<Effect>| {
+                    for a in powerups.iter_mut() {
+                        if a.charge_and_activate(CHARGE_PER_TURN) {
+                            effects_to_apply.extend(a.effects.clone());
+                        }
+                    }
+                };
+            collect_effects(&mut s.active_powerups, &mut s_effects_to_apply);
+            collect_effects(&mut os.active_powerups, &mut os_effects_to_apply);
             apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
             apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
 
@@ -149,6 +136,8 @@ fn apply_effect(
     s_target: &mut SpaceShipBattleCard,
     rng: &mut RandomNumberGenerator,
 ) {
+    #[cfg(any(test, feature = "testing"))]
+    msg!("{} {} to {}", s_origin.name, effect, s_target.name);
     match effect {
         Effect::Fire {
             damage,

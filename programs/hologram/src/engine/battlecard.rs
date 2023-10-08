@@ -6,10 +6,11 @@ use {
         BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_LAYERS,
         DODGE_CHANCE_CAP, JAMMING_NULLIFYING_CHANCE_CAP,
     },
+    solana_program::msg,
     std::cmp::max,
 };
 
-// Note: Recentely == 5 last turns
+// Note: Recently == 5 last turns
 #[derive(Debug)]
 pub struct SpaceShipBattleCard {
     pub name: String,
@@ -125,11 +126,19 @@ impl SpaceShipBattleCard {
         shots: Shots,
         weapon_type: WeaponType,
     ) {
-        // hit roll (beams cannot be dodged)
-        if weapon_type != WeaponType::Beam {
+        // hit roll (plasma attacks cannot be dodged)
+        if weapon_type != WeaponType::Plasma {
             let hit_roll = rng.roll_dice(100);
             let did_hit = hit_roll >= target.dodge_chance as u64;
             if !did_hit {
+                #[cfg(any(test, feature = "testing"))]
+                msg!(
+                    "{} missed {} ({} vs {})",
+                    self.name,
+                    target.name,
+                    hit_roll,
+                    target.dodge_chance
+                );
                 return;
             }
         }
@@ -185,7 +194,7 @@ impl SpaceShipBattleCard {
                     self.deplete_shield_layer();
                 }
             }
-            WeaponType::Beam => {
+            WeaponType::Plasma => {
                 // only inflicts damage if shields are down
                 if self.shield_layers.depleted() {
                     self.apply_hull_damage(damage)

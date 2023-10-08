@@ -2,10 +2,7 @@ use {
     super::Effect,
     crate::{
         engine::ConditionFn,
-        state::{
-            Bonuses, Drone, DroneClass, DroneSize, Module, ModuleClass, Mutation, Passive,
-            RepairTarget,
-        },
+        state::{Bonuses, Drone, DroneClass, DroneSize, Module, ModuleClass, Mutation, Passive},
         utils::LimitedString,
     },
     std::sync::Arc,
