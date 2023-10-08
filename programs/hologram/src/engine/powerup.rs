@@ -83,11 +83,7 @@ impl PowerUp for Module {
     fn get_bonuses(&self) -> Option<Bonuses> {
         match &self.class {
             ModuleClass::Weapon(_) => None,
-            ModuleClass::Repairer(b, _) | ModuleClass::Capacitative(b, _) => Some(Bonuses {
-                hull_hitpoints: b.hull_hitpoints,
-                shield_layers: b.shield_layers,
-                dodge_chance: b.dodge_chance,
-            }),
+            ModuleClass::Repairer(b, _) | ModuleClass::Capacitative(b, _) => Some(b.clone()),
         }
     }
 

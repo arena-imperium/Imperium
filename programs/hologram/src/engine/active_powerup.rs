@@ -1,6 +1,6 @@
 use {
     super::{Effect, PowerUp, PowerupKind},
-    crate::utils::LimitedString,
+    crate::{state::Bonuses, utils::LimitedString},
 };
 
 #[derive(Debug, Clone)]
@@ -13,6 +13,7 @@ pub struct ActivePowerup {
     pub charge_time: u8,
     // what the powerup does
     pub effects: Vec<Effect>,
+    pub bonuses: Option<Bonuses>,
     // the base type of the power up for filtering/ui purposes
     pub og_kind: PowerupKind,
 }
@@ -24,6 +25,7 @@ impl ActivePowerup {
             accumulated_charge: 0,
             charge_time: powerup.get_charge_time().unwrap(),
             effects: powerup.get_effects(),
+            bonuses: powerup.get_bonuses(),
             og_kind: powerup.get_kind(),
         }
     }

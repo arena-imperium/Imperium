@@ -67,8 +67,8 @@ impl FightEngine {
         let mut rng = RandomNumberGenerator::new(fight_seed as u64);
 
         // generate SpaceShipBattleCards, a new object that contains the spaceship's stats ready for the battle
-        let mut s = Self::generate_spaceship_battlecard(&spaceship);
-        let mut os = Self::generate_spaceship_battlecard(&opponent_spaceship);
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
 
         #[cfg(not(any(test, feature = "testing")))]
         msg!("s actives: {:?}", s.active_powerups.iter().map(|a| a.name));
@@ -129,38 +129,6 @@ impl FightEngine {
             (false, true) => FightOutcome::UserWon,
             _ => FightOutcome::Draw,
         }
-    }
-
-    fn generate_spaceship_battlecard(spaceship: &SpaceShip) -> SpaceShipBattleCard {
-        // convert all modules, drones, mutations to PowerUp
-        let mut powerups = Vec::new();
-        for module in &spaceship.modules {
-            powerups.push(Box::new(module.clone()) as Box<dyn PowerUp>);
-        }
-        for drone in &spaceship.drones {
-            powerups.push(Box::new(drone.clone()) as Box<dyn PowerUp>);
-        }
-        for mutation in &spaceship.mutations {
-            powerups.push(Box::new(mutation.clone()) as Box<dyn PowerUp>);
-        }
-
-        // split powerups into active and passive
-        let (active_powerups, passive_powerups): (Vec<_>, Vec<_>) = powerups
-            .into_iter()
-            .partition(|powerup| powerup.is_active());
-
-        let active_powerups = active_powerups
-            .into_iter()
-            .map(|powerup| ActivePowerup::new(powerup))
-            .collect::<Vec<_>>();
-
-        let passive_powerups = passive_powerups
-            .into_iter()
-            .map(|powerup| PassivePowerup::new(powerup))
-            .collect::<Vec<_>>();
-
-        // add powerups to the spaceship battlecard
-        SpaceShipBattleCard::new(&spaceship, active_powerups, passive_powerups)
     }
 }
 

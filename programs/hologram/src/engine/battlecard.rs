@@ -1,5 +1,5 @@
 use {
-    super::{ActivePowerup, PassivePowerup},
+    super::{ActivePowerup, PassivePowerup, PowerUp},
     crate::{
         state::{HitPoints, Shots, SpaceShip, WeaponType},
         utils::RandomNumberGenerator,
@@ -34,20 +34,61 @@ pub struct SpaceShipBattleCard {
 }
 
 impl SpaceShipBattleCard {
-    pub fn new(
-        spaceship: &SpaceShip,
-        active_powerups: Vec<ActivePowerup>,
-        passive_powerups: Vec<PassivePowerup>,
-    ) -> Self {
+    // Initialize a battlecard from a spaceship
+    pub fn new(spaceship: &SpaceShip) -> Self {
+        // convert all modules, drones, mutations to PowerUp
+        let powerups: Vec<Box<dyn PowerUp>> = spaceship
+            .modules
+            .iter()
+            .map(|item| Box::new(item.clone()) as Box<dyn PowerUp>)
+            .chain(
+                spaceship
+                    .drones
+                    .iter()
+                    .map(|item| Box::new(item.clone()) as Box<dyn PowerUp>),
+            )
+            .chain(
+                spaceship
+                    .mutations
+                    .iter()
+                    .map(|item| Box::new(item.clone()) as Box<dyn PowerUp>),
+            )
+            .collect();
+
+        // initialize stats
         let mut hull_hitpoints = HitPoints::init(BASE_HULL_HITPOINTS);
         let mut shield_layers = HitPoints::init(BASE_SHIELD_LAYERS);
         let mut dodge_chance = BASE_DODGE_CHANCE;
         let mut jamming_nullifying_chance = BASE_JAMMING_NULLIFYING_CHANCE;
-
-        // @TODO add powerups effects to the stats
-
+        // apply all bonuses from powerups
+        powerups
+            .iter()
+            .filter_map(|p| p.get_bonuses())
+            .for_each(|bonuses| {
+                hull_hitpoints.increase_max(bonuses.hull_hitpoints);
+                shield_layers.increase_max(bonuses.shield_layers);
+                dodge_chance += bonuses.dodge_chance;
+                jamming_nullifying_chance += bonuses.jamming_nullifying_chance;
+            });
+        // Cap dodge chances and Jammin nullyfing resistance chances
         dodge_chance = max(dodge_chance, DODGE_CHANCE_CAP);
         jamming_nullifying_chance = max(jamming_nullifying_chance, JAMMING_NULLIFYING_CHANCE_CAP);
+
+        // split powerups into active and passive
+        let (active_powerups, passive_powerups): (Vec<_>, Vec<_>) = powerups
+            .into_iter()
+            .partition(|powerup| powerup.is_active());
+
+        let active_powerups = active_powerups
+            .into_iter()
+            .map(|powerup| ActivePowerup::new(powerup))
+            .collect::<Vec<_>>();
+
+        let passive_powerups = passive_powerups
+            .into_iter()
+            .map(|powerup| PassivePowerup::new(powerup))
+            .collect::<Vec<_>>();
+
         Self {
             name: spaceship.name.to_string(),
             hull_hitpoints,

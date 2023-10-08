@@ -200,6 +200,7 @@ pub const LT_MODULES_COMMON: [Module; 8] = [
                 hull_hitpoints: 0,
                 shield_layers: 1,
                 dodge_chance: 0,
+                jamming_nullifying_chance: 0,
             },
             RepairModuleStats {
                 repair_amount: 1,
@@ -217,6 +218,7 @@ pub const LT_MODULES_COMMON: [Module; 8] = [
                 hull_hitpoints: 5,
                 shield_layers: 0,
                 dodge_chance: 0,
+                jamming_nullifying_chance: 0,
             },
             Passive::CapacitativeRepair {
                 threshold: 5,
@@ -224,7 +226,7 @@ pub const LT_MODULES_COMMON: [Module; 8] = [
                 target: RepairTarget::Hull,
             },
         ),
-        is_active: true,
+        is_active: false,
     },
     Module {
         name: LimitedString::new_const("Capacitative Shield Battery"),
@@ -234,6 +236,7 @@ pub const LT_MODULES_COMMON: [Module; 8] = [
                 hull_hitpoints: 0,
                 shield_layers: 1,
                 dodge_chance: 0,
+                jamming_nullifying_chance: 0,
             },
             Passive::CapacitativeRepair {
                 threshold: 5,
@@ -241,7 +244,7 @@ pub const LT_MODULES_COMMON: [Module; 8] = [
                 target: RepairTarget::Shield,
             },
         ),
-        is_active: true,
+        is_active: false,
     },
 ];
 

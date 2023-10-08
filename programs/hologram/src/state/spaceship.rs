@@ -218,6 +218,11 @@ impl HitPoints {
         }
     }
 
+    pub fn increase_max(&mut self, amount: u8) {
+        self.max = self.max.saturating_add(amount);
+        self.current = self.current.saturating_add(amount);
+    }
+
     pub fn depleted(&self) -> bool {
         self.current == 0
     }
@@ -291,6 +296,7 @@ pub struct Bonuses {
     pub hull_hitpoints: u8,
     pub shield_layers: u8,
     pub dodge_chance: u8,
+    pub jamming_nullifying_chance: u8,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
