@@ -26,6 +26,7 @@ pub struct CreateSpaceshipSettle<'info> {
     pub user: AccountInfo<'info>,
 
     #[account(
+        mut,
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
     )]
@@ -156,6 +157,15 @@ pub fn create_spaceship_settle(
                 .wallet
                 .credit(STARTING_IMPERIAL_CREDITS, Currency::ImperialCredit)?;
         }
+    }
+
+    // set unique spaceship ID
+    {
+        msg!(
+            "Total spaceships created: {}",
+            ctx.accounts.realm.analytics.total_spaceships_created
+        );
+        ctx.accounts.spaceship.id = ctx.accounts.realm.analytics.total_spaceships_created;
     }
 
     let spaceship_lite = SpaceShipLite {

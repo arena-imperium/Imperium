@@ -20,6 +20,7 @@ mainnet-beta = []
 devnet = []
 localnet = []
 testing = []
+"render-hooks" = []
 
 [dependencies]
 anchor-lang = { version = "0.28.0", features = ["init-if-needed"] }

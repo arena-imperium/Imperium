@@ -1,12 +1,11 @@
 use {
-    super::{ActivePowerup, PassivePowerup, PowerUp},
+    super::{ActivePowerup, FightOutcome, PassivePowerup, PowerUp},
     crate::{
-        state::{HitPoints, Shots, SpaceShip, WeaponType},
+        state::{HitPoints, RepairTarget, Shots, SpaceShip, WeaponType},
         utils::RandomNumberGenerator,
         BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_LAYERS,
         DODGE_CHANCE_CAP, JAMMING_NULLIFYING_CHANCE_CAP,
     },
-    solana_program::msg,
     std::cmp::max,
 };
 
@@ -14,6 +13,7 @@ use {
 #[derive(Debug)]
 pub struct SpaceShipBattleCard {
     pub name: String,
+    pub id: u64,
     // stats ----------------------------------------
     // Hitpoints
     pub hull_hitpoints: HitPoints,
@@ -92,6 +92,7 @@ impl SpaceShipBattleCard {
 
         Self {
             name: spaceship.name.to_string(),
+            id: spaceship.id,
             hull_hitpoints,
             shield_layers,
             dodge_chance,
@@ -125,29 +126,34 @@ impl SpaceShipBattleCard {
         damage: u8,
         shots: Shots,
         weapon_type: WeaponType,
+        event_callback: &mut dyn FnMut(BattleEvent),
     ) {
+        #[cfg(feature = "render-hooks")]
+        event_callback(BattleEvent::Fire {
+            origin_id: self.id,
+            target_id: target.id,
+            damage,
+            weapon_type,
+            shots,
+        });
         // hit roll (plasma attacks cannot be dodged)
         if weapon_type != WeaponType::Plasma {
             let hit_roll = rng.roll_dice(100);
             let did_hit = hit_roll >= target.dodge_chance as u64;
             if !did_hit {
-                #[cfg(any(test, feature = "testing"))]
-                msg!(
-                    "{} missed {} ({} vs {})",
-                    self.name,
-                    target.name,
-                    hit_roll,
-                    target.dodge_chance
-                );
+                #[cfg(feature = "render-hooks")]
+                event_callback(BattleEvent::Dodge { origin_id: self.id });
                 return;
             }
         }
 
         match shots {
-            Shots::Single | Shots::Salvo(1) => target.apply_damage(damage, weapon_type),
+            Shots::Single | Shots::Salvo(1) => {
+                target.apply_damage(damage, weapon_type, event_callback)
+            }
             Shots::Salvo(shots) => {
                 for _ in 0..shots {
-                    target.apply_damage(damage, weapon_type);
+                    target.apply_damage(damage, weapon_type, event_callback);
                 }
             }
         };
@@ -159,8 +165,16 @@ impl SpaceShipBattleCard {
         rng: &mut RandomNumberGenerator,
         chance: u8,
         charge_burn: u8,
+        event_callback: &mut dyn FnMut(BattleEvent),
     ) {
         let jam_chance = chance.saturating_sub(target.jamming_nullifying_chance);
+        #[cfg(feature = "render-hooks")]
+        event_callback(BattleEvent::Jam {
+            origin_id: self.id,
+            target_id: target.id,
+            chance: jam_chance,
+            charge_burn,
+        });
         if rng.roll_dice(100 as usize) <= jam_chance as u64 {
             // filter powerups with charge only
             let active_powerups_with_charge_indexes: Vec<usize> = target
@@ -172,45 +186,139 @@ impl SpaceShipBattleCard {
                 .collect();
 
             if active_powerups_with_charge_indexes.is_empty() {
+                #[cfg(feature = "render-hooks")]
+                event_callback(BattleEvent::NothingToJam {
+                    origin_id: self.id,
+                    target_id: target.id,
+                });
                 return;
             }
 
             let roll = rng.roll_dice(active_powerups_with_charge_indexes.len());
             let index = active_powerups_with_charge_indexes[roll as usize];
+            #[cfg(feature = "render-hooks")]
+            {
+                let target_powerup_name = target.active_powerups[index].name.clone();
+                event_callback(BattleEvent::ActivePowerUpJammed {
+                    origin_id: self.id,
+                    target_id: target.id,
+                    active_power_up_name: target_powerup_name.to_string(),
+                    active_power_up_index: index,
+                    charge_burn,
+                });
+            }
             target.active_powerups[index].accumulated_charge = target.active_powerups[index]
                 .accumulated_charge
                 .saturating_sub(charge_burn);
+        } else {
+            #[cfg(feature = "render-hooks")]
+            event_callback(BattleEvent::JamResisted { origin_id: self.id });
         }
     }
 
-    pub fn apply_damage(&mut self, damage: u8, weapon_type: WeaponType) {
+    pub fn apply_damage(
+        &mut self,
+        damage: u8,
+        weapon_type: WeaponType,
+        event_callback: &mut dyn FnMut(BattleEvent),
+    ) {
         match weapon_type {
-            WeaponType::Projectile => self.apply_hull_damage(damage),
-            WeaponType::Missile => self.apply_hull_damage(damage),
+            WeaponType::Projectile => self.apply_hull_damage(damage, event_callback),
+            WeaponType::Missile => self.apply_hull_damage(damage, event_callback),
             WeaponType::Laser => {
                 if self.shield_layers.depleted() {
-                    self.apply_hull_damage(damage)
+                    self.apply_hull_damage(damage, event_callback)
                 } else {
-                    self.deplete_shield_layer();
+                    self.deplete_shield_layer(event_callback);
                 }
             }
             WeaponType::Plasma => {
                 // only inflicts damage if shields are down
                 if self.shield_layers.depleted() {
-                    self.apply_hull_damage(damage)
+                    self.apply_hull_damage(damage, event_callback)
+                } else {
+                    #[cfg(feature = "render-hooks")]
+                    event_callback(BattleEvent::ShieldCounterPlasmaAttack { origin_id: self.id });
                 }
             }
         }
     }
 
-    fn apply_hull_damage(&mut self, damage: u8) {
+    fn apply_hull_damage(&mut self, damage: u8, event_callback: &mut dyn FnMut(BattleEvent)) {
+        #[cfg(feature = "render-hooks")]
+        event_callback(BattleEvent::HullDamaged {
+            origin_id: self.id,
+            damage,
+        });
         self.hull_hitpoints.deplete(damage);
         if let Some(last) = self.recent_hull_damage_per_turn.last_mut() {
             *last += damage;
         }
     }
 
-    fn deplete_shield_layer(&mut self) {
+    fn deplete_shield_layer(&mut self, event_callback: &mut dyn FnMut(BattleEvent)) {
+        #[cfg(feature = "render-hooks")]
+        event_callback(BattleEvent::ShieldLayerDown { origin_id: self.id });
         self.shield_layers.deplete(1);
     }
 }
+
+#[cfg(feature = "render-hooks")]
+pub enum BattleEvent {
+    TurnStart {
+        turn: u16,
+    },
+    MatchEnded {
+        outcome: FightOutcome,
+    },
+    Fire {
+        origin_id: u64,
+        target_id: u64,
+        damage: u8,
+        weapon_type: WeaponType,
+        shots: Shots,
+    },
+    // the sbc dodged the attack
+    Dodge {
+        origin_id: u64,
+    },
+    // the shield fully countered the plasma attack
+    ShieldCounterPlasmaAttack {
+        origin_id: u64,
+    },
+    HullDamaged {
+        origin_id: u64,
+        damage: u8,
+    },
+    ShieldLayerDown {
+        origin_id: u64,
+    },
+    Jam {
+        origin_id: u64,
+        target_id: u64,
+        chance: u8,
+        charge_burn: u8,
+    },
+    JamResisted {
+        origin_id: u64,
+    },
+    NothingToJam {
+        origin_id: u64,
+        target_id: u64,
+    },
+    ActivePowerUpJammed {
+        origin_id: u64,
+        target_id: u64,
+        active_power_up_name: String,
+        active_power_up_index: usize,
+        charge_burn: u8,
+    },
+    Repair {
+        origin_id: u64,
+        repair_target: RepairTarget,
+        amount: u8,
+    },
+}
+
+#[cfg(not(feature = "render-hooks"))]
+pub enum BattleEvent {}

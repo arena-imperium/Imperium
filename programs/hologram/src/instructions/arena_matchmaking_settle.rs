@@ -1,3 +1,5 @@
+#[cfg(any(test, feature = "testing"))]
+use crate::engine::BattleEvent;
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
 use {
@@ -194,21 +196,20 @@ pub fn arena_matchmaking_settle(
 
     // FIGHT
     let mut spaceship = &mut ctx.accounts.spaceship;
-    let outcome = FightEngine::fight(spaceship, opponent_spaceship, generated_seed);
-    // let (winner, looser) = match outcome {
-    //     crate::engine::FightOutcome::UserWon => {
-    //         msg!("user won");
-    //         (&mut *spaceship, &mut *opponent_spaceship)
-    //     }
-    //     crate::engine::FightOutcome::OpponentWon => {
-    //         msg!("opponent won");
-    //         (&mut *opponent_spaceship, &mut *spaceship)
-    //     }
-    //     crate::engine::FightOutcome::Draw => {
-    //         msg!("Draw");
-    //         (&mut *spaceship, &mut *opponent_spaceship)
-    //     }
-    // };
+
+    // The render feature is enabled for tests, that allow some basic TXT rendering of the game
+    // during rust BanksClient tests.
+    #[cfg(not(any(test, feature = "testing")))]
+    let event_handler = Box::new(|_| {});
+    #[cfg(not(any(test, feature = "testing")))]
+    let mut fight_engine = FightEngine::new(event_handler);
+
+    #[cfg(feature = "testing")]
+    let event_handler = Box::new(|event| print_event(event));
+    #[cfg(feature = "testing")]
+    let mut fight_engine = FightEngine::new(event_handler);
+
+    let outcome = fight_engine.fight(spaceship, opponent_spaceship, generated_seed);
 
     // distribute match rewards
     {
@@ -265,5 +266,89 @@ pub fn roll_opponent_spaceship(
             return Ok(spaceship_key);
         }
         Err(HologramError::MatchmakingQueueNotFound.into())
+    }
+}
+
+// TXT rendering engine B)
+#[cfg(any(test, feature = "testing"))]
+fn print_event(event: BattleEvent) {
+    match event {
+        BattleEvent::TurnStart { turn } => msg!("- [Turn {}] -------------", turn),
+        BattleEvent::MatchEnded { .. } => msg!("- [Match ended] ----------"),
+        BattleEvent::Fire {
+            origin_id,
+            target_id,
+            damage,
+            weapon_type,
+            shots,
+        } => {
+            msg!(
+                "  - [{}] Fires {} {} at [{}] (may deal {} damage)",
+                origin_id,
+                shots,
+                weapon_type,
+                target_id,
+                damage
+            )
+        }
+        BattleEvent::Dodge { origin_id } => msg!("  - [{}] Dodged", origin_id),
+        BattleEvent::ShieldCounterPlasmaAttack { origin_id } => {
+            msg!("  - [{}] Shield countered plasma attack", origin_id)
+        }
+        BattleEvent::HullDamaged { origin_id, damage } => {
+            msg!("  - [{}] Takes {} Hull damages", origin_id, damage)
+        }
+        BattleEvent::ShieldLayerDown { origin_id } => {
+            msg!("  - [{}] Has lost one shield layer", origin_id)
+        }
+        BattleEvent::Jam {
+            origin_id,
+            target_id,
+            chance,
+            charge_burn,
+        } => msg!(
+            "  - [{}] Attempt to Jam [{}] burning {} with {}% chance of success",
+            origin_id,
+            target_id,
+            charge_burn,
+            chance
+        ),
+        BattleEvent::JamResisted { origin_id } => {
+            msg!("  - [{}] Jam resisted", origin_id)
+        }
+        BattleEvent::NothingToJam {
+            origin_id,
+            target_id,
+        } => {
+            msg!(
+                "  - [{}] Jam attempt on [{}] cannot lock any module",
+                origin_id,
+                target_id
+            )
+        }
+        BattleEvent::ActivePowerUpJammed {
+            origin_id,
+            target_id: _,
+            active_power_up_name,
+            active_power_up_index: _,
+            charge_burn,
+        } => {
+            msg!(
+                "  - [{}] {} jammed, loosing {} charges",
+                origin_id,
+                active_power_up_name,
+                charge_burn
+            )
+        }
+        BattleEvent::Repair {
+            origin_id,
+            repair_target,
+            amount,
+        } => msg!(
+            "  - [{}] Repaired {} {} HP",
+            origin_id,
+            repair_target,
+            amount
+        ),
     }
 }

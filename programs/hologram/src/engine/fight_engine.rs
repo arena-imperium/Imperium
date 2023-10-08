@@ -1,5 +1,5 @@
 use {
-    super::{ActivePowerup, Effect, PassivePowerup, PowerUp, SpaceShipBattleCard},
+    super::{ActivePowerup, BattleEvent, Effect, SpaceShipBattleCard},
     crate::{
         instructions::user_facing::Faction,
         state::{RepairTarget, SpaceShip},
@@ -10,7 +10,9 @@ use {
     anchor_lang::prelude::*,
 };
 
-pub struct FightEngine {}
+pub struct FightEngine {
+    event_callback: Box<dyn FnMut(BattleEvent)>,
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum FightOutcome {
@@ -20,6 +22,10 @@ pub enum FightOutcome {
 }
 
 impl FightEngine {
+    pub fn new(event_callback: Box<dyn FnMut(BattleEvent)>) -> Self {
+        Self { event_callback }
+    }
+
     // This function is used to distribute currency to the winner and looser of an arena match.
     pub fn distribute_arena_currency(
         spaceship: &mut SpaceShip,
@@ -59,7 +65,8 @@ impl FightEngine {
     }
 
     // Return true if the spaceship won the fight against opponent_spaceship
-    pub fn fight<'a>(
+    pub fn fight(
+        &mut self,
         spaceship: &SpaceShip,
         opponent_spaceship: &SpaceShip,
         fight_seed: u32,
@@ -70,19 +77,10 @@ impl FightEngine {
         let mut s = SpaceShipBattleCard::new(&spaceship);
         let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
 
-        #[cfg(any(test, feature = "testing"))]
-        {
-            msg!("s actives: {:?}", s.active_powerups.iter().map(|a| a.name));
-            msg!(
-                "os actives: {:?}",
-                os.active_powerups.iter().map(|a| a.name)
-            );
-        }
-
         let mut turn = 0;
         while turn < MATCH_MAX_TURN {
-            #[cfg(any(test, feature = "testing"))]
-            msg!("turn: {} ----------------", turn);
+            #[cfg(feature = "render-hooks")]
+            (self.event_callback)(BattleEvent::TurnStart { turn });
             if s.is_defeated() || os.is_defeated() {
                 break;
             }
@@ -100,8 +98,8 @@ impl FightEngine {
                 };
             collect_effects(&mut s.active_powerups, &mut s_effects_to_apply);
             collect_effects(&mut os.active_powerups, &mut os_effects_to_apply);
-            apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
-            apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
+            self.apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
+            self.apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
 
             s.end_of_turn_internals();
             os.end_of_turn_internals();
@@ -111,67 +109,78 @@ impl FightEngine {
         }
 
         // define fight outcome
-        match (s.is_defeated(), os.is_defeated()) {
+        let outcome = match (s.is_defeated(), os.is_defeated()) {
             (true, false) => FightOutcome::OpponentWon,
             (false, true) => FightOutcome::UserWon,
             _ => FightOutcome::Draw,
+        };
+
+        #[cfg(feature = "render-hooks")]
+        (self.event_callback)(BattleEvent::MatchEnded { outcome });
+        outcome
+    }
+
+    fn apply_effects(
+        &mut self,
+        effects: Vec<Effect>,
+        s_origin: &mut SpaceShipBattleCard,
+        s_target: &mut SpaceShipBattleCard,
+        rng: &mut RandomNumberGenerator,
+    ) {
+        for effect in effects {
+            self.apply_effect(effect, s_origin, s_target, rng);
         }
     }
-}
 
-fn apply_effects(
-    effects: Vec<Effect>,
-    s_origin: &mut SpaceShipBattleCard,
-    s_target: &mut SpaceShipBattleCard,
-    rng: &mut RandomNumberGenerator,
-) {
-    for effect in effects {
-        apply_effect(effect, s_origin, s_target, rng);
-    }
-}
-
-fn apply_effect(
-    effect: Effect,
-    s_origin: &mut SpaceShipBattleCard,
-    s_target: &mut SpaceShipBattleCard,
-    rng: &mut RandomNumberGenerator,
-) {
-    #[cfg(any(test, feature = "testing"))]
-    msg!("{} {} to {}", s_origin.name, effect, s_target.name);
-    match effect {
-        Effect::Fire {
-            damage,
-            shots,
-            weapon_type,
-        } => s_origin.fire_at(s_target, rng, damage, shots, weapon_type),
-        Effect::Repair { target, amount } => match target {
-            RepairTarget::Hull => s_origin.hull_hitpoints.resplenish(amount),
-            RepairTarget::Shield => s_origin.shield_layers.resplenish(amount),
-        },
-        Effect::Jam {
-            chance,
-            charge_burn,
-        } => {
-            s_origin.jam(s_target, rng, chance, charge_burn);
-        }
-        Effect::Composite {
-            effect1,
-            effect2,
-            probability1,
-            probability2,
-        } => {
-            let total_probabilities = probability1 + probability2;
-            let roll = rng.roll_dice(total_probabilities as usize) as u8;
-            if roll <= probability1 {
-                apply_effect(*effect1, s_origin, s_target, rng);
-            } else {
-                apply_effect(*effect2, s_origin, s_target, rng);
+    fn apply_effect(
+        &mut self,
+        effect: Effect,
+        s_origin: &mut SpaceShipBattleCard,
+        s_target: &mut SpaceShipBattleCard,
+        rng: &mut RandomNumberGenerator,
+    ) {
+        match effect {
+            Effect::Fire {
+                damage,
+                shots,
+                weapon_type,
+            } => s_origin.fire_at(
+                s_target,
+                rng,
+                damage,
+                shots,
+                weapon_type,
+                &mut self.event_callback,
+            ),
+            Effect::Repair { target, amount } => match target {
+                RepairTarget::Hull => s_origin.hull_hitpoints.resplenish(amount),
+                RepairTarget::Shield => s_origin.shield_layers.resplenish(amount),
+            },
+            Effect::Jam {
+                chance,
+                charge_burn,
+            } => {
+                s_origin.jam(s_target, rng, chance, charge_burn, &mut self.event_callback);
             }
+            Effect::Composite {
+                effect1,
+                effect2,
+                probability1,
+                probability2,
+            } => {
+                let total_probabilities = probability1 + probability2;
+                let roll = rng.roll_dice(total_probabilities as usize) as u8;
+                if roll <= probability1 {
+                    self.apply_effect(*effect1, s_origin, s_target, rng);
+                } else {
+                    self.apply_effect(*effect2, s_origin, s_target, rng);
+                }
+            }
+            Effect::Conditionnal { condition, effect } => todo!(),
+            Effect::DamageAbsorbtion {
+                weapon_type,
+                chance,
+            } => todo!(),
         }
-        Effect::Conditionnal { condition, effect } => todo!(),
-        Effect::DamageAbsorbtion {
-            weapon_type,
-            chance,
-        } => todo!(),
     }
 }
