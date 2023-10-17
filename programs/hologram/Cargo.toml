@@ -22,14 +22,14 @@ localnet = []
 testing = []
 
 [dependencies]
-anchor-lang = { version = "0.28.0", features = ["init-if-needed"] }
-anchor-spl = "0.28.0"
+anchor-lang = { version = "0.29.0", features = ["init-if-needed"] }
+anchor-spl = "0.29.0"
 spl-token = "4.0"
 solana-program = "1.16"
 solana-security-txt = "1.1.1"
 num-traits = "0.2.16"
 num = "0.4.1"
-switchboard-solana = "0.28.28"
+switchboard-solana = "0.28.33"
 lazy_static = "1.4.0"
 # anchor-lang = { workspace = true }
 # anchor-spl = { workspace = true }

@@ -17,30 +17,3 @@ wallet = "~/.config/solana/id.json"
 
 [test]
 startup_wait = 15000
-
-[[test.validator.clone]] # sbv2 programID
-address = "SW1TCH7qEPTdLsDHRgPuMQjbQxKdH2aBStViMFnt64f"
-
-[[test.validator.clone]] # sbv2 IDL
-address = "Fi8vncGpNKbq62gPo56G4toCehWNy77GgqGkTaAF5Lkk"
-
-[[test.validator.clone]] # sbv2 SbState
-address = "CyZuD7RPDcrqCGbNvLCyqk6Py9cEZTKmNKujfPi3ynDd"
-
-[[test.validator.clone]] # sb attestation programID
-address = "sbattyXrzedoNATfc4L31wC9Mhxsi1BmFhTiN8gDshx"
-
-[[test.validator.clone]] # sb devnet attestation IDL
-address = "5ExuoQR69trmKQfB95fDsUGsUrrChbGq9PFgt8qouncz"
-
-[[test.validator.clone]] # sb devnet programState
-address = "5MFs7RGTjLi1wtKNBFRtuLipCkkjs4YQwRRU9sjnbQbS"
-
-[[test.validator.clone]] # devnet ssgf
-address = "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe"
-
-[[test.validator.clone]] # devnet amf
-address = "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog"
-
-[[test.validator.clone]] # devnet amf
-address = "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG"
