@@ -1,9 +1,6 @@
 use {
-    super::{PowerUp, PowerupKind},
-    crate::{
-        state::{RepairTarget, Shots, WeaponType},
-        utils::LimitedString,
-    },
+    super::{Effect, PowerUp, PowerupKind},
+    crate::{state::Bonuses, utils::LimitedString},
 };
 
 #[derive(Debug, Clone)]
@@ -15,7 +12,8 @@ pub struct ActivePowerup {
     // how long it take to activate
     pub charge_time: u8,
     // what the powerup does
-    pub effects: Vec<ActiveEffect>,
+    pub effects: Vec<Effect>,
+    pub bonuses: Option<Bonuses>,
     // the base type of the power up for filtering/ui purposes
     pub og_kind: PowerupKind,
 }
@@ -27,6 +25,7 @@ impl ActivePowerup {
             accumulated_charge: 0,
             charge_time: powerup.get_charge_time().unwrap(),
             effects: powerup.get_effects(),
+            bonuses: powerup.get_bonuses(),
             og_kind: powerup.get_kind(),
         }
     }
@@ -48,31 +47,4 @@ impl ActivePowerup {
     fn is_charged(&self) -> bool {
         self.accumulated_charge >= self.charge_time
     }
-}
-
-#[derive(Debug, Clone)]
-// Effect of active powerups
-pub enum ActiveEffect {
-    // shooting at the opponent. Support all weapon type
-    Fire {
-        damage: u8,
-        shots: Shots,
-        weapon_type: WeaponType,
-    },
-    Repair {
-        target: RepairTarget,
-        amount: u8,
-    },
-    // attempt to disrupt opponent active powerups
-    Jam {
-        chance: u8,
-        charge_burn: u8,
-    },
-    // Composite effect representing a chance to apply one of two effects
-    Composite {
-        effect1: Box<ActiveEffect>,
-        effect2: Box<ActiveEffect>,
-        probability1: u8,
-        probability2: u8,
-    },
 }

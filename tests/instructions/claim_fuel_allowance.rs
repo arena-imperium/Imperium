@@ -14,8 +14,9 @@ pub async fn claim_fuel_allowance(
     program_test_ctx: &RwLock<ProgramTestContext>,
     user: &Keypair,
     realm_pda: &Pubkey,
-    spaceship_pda: &Pubkey,
+    spaceship_index: u8,
 ) -> std::result::Result<(), BanksClientError> {
+    let (spaceship_pda, _) = utils::get_spaceship_pda(realm_pda, &user.pubkey(), spaceship_index);
     let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
 
     // ==== WHEN ==============================================================
@@ -26,7 +27,7 @@ pub async fn claim_fuel_allowance(
             user: user.pubkey(),
             realm: *realm_pda,
             user_account: user_account_pda,
-            spaceship: *spaceship_pda,
+            spaceship: spaceship_pda,
         };
 
         let accounts_meta = accounts.to_account_metas(None);
@@ -37,7 +38,7 @@ pub async fn claim_fuel_allowance(
     utils::create_and_execute_hologram_ix(
         program_test_ctx,
         accounts_meta,
-        hologram::instruction::ClaimFuelAllowance {},
+        hologram::instruction::ClaimFuelAllowance { spaceship_index },
         Some(&user.pubkey()),
         &[user],
         None,

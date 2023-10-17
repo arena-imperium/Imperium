@@ -2,7 +2,7 @@
 use switchboard_solana::FunctionRequestAccountData;
 use {
     crate::{
-        engine::{LT_STARTER_DEFFENSIVE_MODULES, LT_STARTER_OFFENSIVE_MODULES},
+        engine::LT_STARTER_OFFENSIVE_MODULES,
         error::HologramError,
         state::{
             spaceship, Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
@@ -26,6 +26,7 @@ pub struct CreateSpaceshipSettle<'info> {
     pub user: AccountInfo<'info>,
 
     #[account(
+        mut,
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
     )]
@@ -40,7 +41,7 @@ pub struct CreateSpaceshipSettle<'info> {
 
     #[account(
         mut,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
+        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), (user_account.spaceships.len() as u8).to_le_bytes().as_ref()],
         bump = spaceship.bump,
         constraint = spaceship.randomness.switchboard_request_info.account == switchboard_request.key(),
     )]
@@ -140,7 +141,7 @@ pub fn create_spaceship_settle(
         };
     }
 
-    // provide spaceship with starting modules and credits
+    // provide spaceship with starting module and credits
     {
         let spaceship = &mut ctx.accounts.spaceship;
         // provide starter offensive_module
@@ -150,19 +151,21 @@ pub fn create_spaceship_settle(
             msg!("Starter offensive module: {:?}", starter_offensive_module);
             spaceship.mount_module(starter_offensive_module)?;
         }
-        // provide starter defensive_module
-        {
-            let roll = rng.roll_dice(LT_STARTER_DEFFENSIVE_MODULES.len());
-            let starter_defensive_module = LT_STARTER_DEFFENSIVE_MODULES[roll as usize - 1].clone();
-            msg!("Starter defensive module: {:?}", starter_defensive_module);
-            spaceship.mount_module(starter_defensive_module)?;
-        }
         // provide starting imperial credits
         {
             spaceship
                 .wallet
                 .credit(STARTING_IMPERIAL_CREDITS, Currency::ImperialCredit)?;
         }
+    }
+
+    // set unique spaceship ID
+    {
+        msg!(
+            "Total spaceships created: {}",
+            ctx.accounts.realm.analytics.total_spaceships_created
+        );
+        ctx.accounts.spaceship.id = ctx.accounts.realm.analytics.total_spaceships_created;
     }
 
     let spaceship_lite = SpaceShipLite {

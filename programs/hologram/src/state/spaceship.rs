@@ -13,6 +13,7 @@ use {
 pub struct SpaceShip {
     pub bump: u8,
     pub owner: Pubkey,
+    pub id: u64,
     pub name: LimitedString,
     pub analytics: SpaceShipAnalytics,
     //
@@ -218,6 +219,11 @@ impl HitPoints {
         }
     }
 
+    pub fn increase_max(&mut self, amount: u8) {
+        self.max = self.max.saturating_add(amount);
+        self.current = self.current.saturating_add(amount);
+    }
+
     pub fn depleted(&self) -> bool {
         self.current == 0
     }
@@ -234,11 +240,8 @@ impl HitPoints {
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub enum ModuleClass {
     Weapon(WeaponModuleStats),
-    // Repairers
-    Repairer(RepairModuleStats),
-    // Passives
-    ShieldAmplifier,  // reduce shield layer regeneration time
-    TrackingComputer, // reduce opponent dodge chances
+    Repairer(Bonuses, RepairModuleStats),
+    Capacitative(Bonuses, Passive),
 }
 
 impl PartialEq for ModuleClass {
@@ -289,6 +292,27 @@ pub struct RepairModuleStats {
     pub charge_time: u8,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Default)]
+pub struct Bonuses {
+    pub hull_hitpoints: u8,
+    pub shield_layers: u8,
+    pub dodge_chance: u8,
+    pub jamming_nullifying_chance: u8,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+pub enum Passive {
+    // when the hull has taken a given amount of damage recentely (5 turns), it will heal a specific amount of HP
+    CapacitativeRepair {
+        threshold: u8,
+        repair_amount: u8,
+        target: RepairTarget,
+    },
+    ShieldRecharge {
+        amount: u8,
+    },
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct JammerModuleStats {
     pub charge_burn: u8,
@@ -301,5 +325,5 @@ pub enum WeaponType {
     Projectile,
     Missile,
     Laser,
-    Beam,
+    Plasma,
 }

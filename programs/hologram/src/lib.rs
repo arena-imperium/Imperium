@@ -9,11 +9,11 @@ use {anchor_lang::prelude::*, instructions::*};
 #[cfg(feature = "localnet")]
 declare_id!("GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet");
 #[cfg(feature = "devnet")]
-declare_id!("Dymz8qnireZUqjMFyqBmUYLrNfrKCZZ7z7PcYPFkF1D9");
+declare_id!("FLy3EQ483Ji32H1otioGcUq99uGairFyWSMtnsBDZhHi");
 #[cfg(feature = "mainnet-beta")]
 declare_id!("Hologram1111");
 
-pub const SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION: u8 = 75;
+pub const SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION: u8 = 150; // minimum value ~1mn
 pub const STARTING_IMPERIAL_CREDITS: u8 = NI_PRICE + 5;
 pub const MAX_ORDNANCE: u8 = 16;
 // PowerUp score is the sum of all the powerups for a ship.
@@ -85,7 +85,12 @@ pub mod hologram {
     }
 
     // Queue for matchmaking in the arena (softcore)
-    pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Result<()> {
+    #[allow(unused_variables)]
+    pub fn arena_matchmaking(
+        ctx: Context<ArenaMatchmaking>,
+        spaceship_index: u8,
+        faction: Faction,
+    ) -> Result<()> {
         instructions::arena_matchmaking(ctx, faction)
     }
     // Switchboard function callback
@@ -99,12 +104,21 @@ pub mod hologram {
     }
 
     // Once per FUEL_ALLOWANCE_COOLDOWN players can claim free Fuel for each of their spaceships
-    pub fn claim_fuel_allowance(ctx: Context<ClaimFuelAllowance>) -> Result<()> {
+    #[allow(unused_variables)]
+    pub fn claim_fuel_allowance(
+        ctx: Context<ClaimFuelAllowance>,
+        spaceship_index: u8,
+    ) -> Result<()> {
         instructions::claim_fuel_allowance(ctx)
     }
 
     // Purchase a crate, will roll for a RNG based drop to power up the spaceship
-    pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> {
+    #[allow(unused_variables)]
+    pub fn pick_crate(
+        ctx: Context<PickCrate>,
+        spaceship_index: u8,
+        crate_type: CrateType,
+    ) -> Result<()> {
         instructions::pick_crate(ctx, crate_type)
     }
     // Switchboard function callback

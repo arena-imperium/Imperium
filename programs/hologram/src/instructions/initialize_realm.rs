@@ -29,8 +29,6 @@ pub struct InitializeRealm<'info> {
     // spaceship seed generation function
     #[account(
         constraint =
-            // Ensure our authority owns this function
-            // spaceship_seed_generation_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
             !spaceship_seed_generation_function.load()?.requests_disabled
     )]
@@ -39,8 +37,6 @@ pub struct InitializeRealm<'info> {
     /// arena matchmaking function
     #[account(
         constraint =
-            // Ensure our authority owns this function
-            // arena_matchmaking_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
             !arena_matchmaking_function.load()?.requests_disabled
     )]
@@ -49,8 +45,6 @@ pub struct InitializeRealm<'info> {
     /// crate picking function
     #[account(
         constraint =
-            // Ensure our authority owns this function
-            // arena_matchmaking_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
             !crate_picking_function.load()?.requests_disabled
     )]
