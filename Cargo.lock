@@ -2469,9 +2469,9 @@ dependencies = [
 
 [[package]]
 name = "cuicui_chirp"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e2113f9ca4644d12bb261c7bbd35c2aaed4183b8c70021028a128628d84e913"
+checksum = "3501ff1d71a015b770a31353e9e5ca863157edd639d530ee06fbda2dc287b304"
 dependencies = [
  "anyhow",
  "bevy",
@@ -2486,9 +2486,9 @@ dependencies = [
 
 [[package]]
 name = "cuicui_chirp_macros"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "680131d5f3aa6f0b11ea0375a151b332c8178efa43b397a7e35877d24e847901"
+checksum = "abe2f59ff7fcb052c487c401dfe45c9efb22443bd103b64b08a27809303299b2"
 dependencies = [
  "proc-macro2 1.0.67",
  "quote 1.0.33",
@@ -2497,18 +2497,18 @@ dependencies = [
 
 [[package]]
 name = "cuicui_dsl"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc2164f23b9913a9ab1727acd09b663a3823663cb27fc8bd16da4c7cd2191e1f"
+checksum = "d8c6799ec12bec39b828df4111c09e095f46ecba5e0325e753bffd8a31c30442"
 dependencies = [
  "bevy",
 ]
 
 [[package]]
 name = "cuicui_layout"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b91d379a66bfb3e2d451250425c453f15ce8c98cb36f404b1ccd2f2b912a2f28"
+checksum = "fedf8d120d81ab37d6f789b25654fbd0af64e15186903bcfc14892b47abf12be"
 dependencies = [
  "anyhow",
  "bevy",
@@ -2521,9 +2521,9 @@ dependencies = [
 
 [[package]]
 name = "cuicui_layout_bevy_ui"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1be5244b10a09d1ab3da9e265252a0040023e73daa0a514344417ca131e7a265"
+checksum = "e924eb86f52cbe7fe7b4fac28c31d06f32556fad162d3eeb956ee0aaf27c4e8e"
 dependencies = [
  "bevy",
  "bevy_mod_sysfail",
@@ -3908,6 +3908,7 @@ dependencies = [
  "bincode",
  "borsh 0.10.3",
  "bytemuck",
+ "cuicui_chirp",
  "cuicui_dsl",
  "cuicui_layout",
  "cuicui_layout_bevy_ui",

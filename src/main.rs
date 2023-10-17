@@ -6,6 +6,7 @@ mod solana;
 mod asset_loading;
 mod game_ui;
 
+use std::time::Duration;
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
@@ -37,7 +38,15 @@ fn main() {
                 ..default()
             }),
             ..default()
-        }));
+        })
+        .set({
+            // Add hot reloading for assets
+        let delay = Duration::from_millis(200);
+        let watch_for_changes = bevy::asset::ChangeWatcher::with_delay(delay);
+        let asset_folder = "assets".to_owned();
+        AssetPlugin { asset_folder, watch_for_changes }
+    })
+    );
     app.add_systems(Startup, set_window_icon);
     app.add_plugins(WorldInspectorPlugin::new());
     app.add_plugins(AssetLoadingPlugin);

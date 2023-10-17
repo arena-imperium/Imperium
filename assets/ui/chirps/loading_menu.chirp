@@ -1,0 +1,13 @@
+fn button() {
+    Button(image("ui/textures/button.png") width(80%))
+}
+Root(screen_root row distrib_start main_margin(50) image("ui/textures/background.png")) {
+    Column(column rules(50%, 100%) main_margin(10)) {
+        TitleCard(width(100%) image("ui/textures/board.png"))
+        // Call it like a rust macro
+        button!()
+        button!()
+        button!()
+        button!()
+    }
+}
