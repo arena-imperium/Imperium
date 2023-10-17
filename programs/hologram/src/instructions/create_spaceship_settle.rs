@@ -41,7 +41,7 @@ pub struct CreateSpaceshipSettle<'info> {
 
     #[account(
         mut,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
+        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), (user_account.spaceships.len() as u8).to_le_bytes().as_ref()],
         bump = spaceship.bump,
         constraint = spaceship.randomness.switchboard_request_info.account == switchboard_request.key(),
     )]

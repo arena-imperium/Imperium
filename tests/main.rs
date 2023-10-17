@@ -29,7 +29,7 @@ const REALM_NAME: &str = "HoloRealm";
 
 const SWITCHBOARD_ATTESTATION_QUEUE: &str = "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE";
 const IMPERIUM_SSGF: &str = "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe";
-const IMPERIUM_AMF: &str = "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog";
+const IMPERIUM_AMF: &str = "5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx";
 const IMPERIUM_CPF: &str = "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG";
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -165,17 +165,14 @@ pub async fn test_integration() {
     // ------------------------------------------------------------------------------------------------
     {
         let user = &keypairs[USER_1];
-        let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-        let user_account =
-            utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
         // we pick the first spaceship of the player for this test
-        let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+        let spaceship_index = 0;
 
         assert!(instructions::claim_fuel_allowance(
             &program_test_ctx,
             &user,
             &realm_pda,
-            &spaceship_pda,
+            spaceship_index,
         )
         .await
         .is_err());
@@ -187,13 +184,9 @@ pub async fn test_integration() {
     // ---------------------------------------------------------------------------------------------
     {
         let user = &keypairs[USER_1];
-        let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-        let user_account =
-            utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
-        // we pick the first spaceship of the player for this test
-        let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+        let spaceship_index = 0;
 
-        instructions::claim_fuel_allowance(&program_test_ctx, &user, &realm_pda, &spaceship_pda)
+        instructions::claim_fuel_allowance(&program_test_ctx, &user, &realm_pda, spaceship_index)
             .await
             .unwrap();
     }
@@ -208,20 +201,15 @@ pub async fn test_integration() {
             .iter()
             .for_each(|user| {
                 let user = Arc::clone(&keypairs[*user]);
-                let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
                 let ctx = Arc::clone(&program_test_ctx);
-                let admin_key = keypairs[ADMIN].pubkey();
+
                 let task = tokio::spawn(async move {
-                    let user_account =
-                        utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
-                    // we pick the first spaceship of the player for these tests
-                    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+                    let spaceship_index = 0;
                     instructions::pick_crate(
                         &ctx,
                         &user,
                         &realm_pda,
-                        &admin_key,
-                        &spaceship_pda,
+                        spaceship_index,
                         CrateType::NavyIssue,
                     )
                     .await
@@ -247,21 +235,15 @@ pub async fn test_integration() {
             .for_each(|(i, user)| {
                 let user = Arc::clone(&keypairs[*user]);
                 let ctx = Arc::clone(&program_test_ctx);
-                let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-                let admin_key = keypairs[ADMIN].pubkey();
 
                 let task = async move {
-                    let user_account =
-                        utils::get_account::<UserAccount>(&*ctx, &user_account_pda).await;
-                    // we pick the first spaceship of the player for these tests
-                    let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+                    let spaceship_index = 0;
 
                     instructions::arena_matchmaking(
                         &ctx,
                         &user,
                         &realm_pda,
-                        &admin_key,
-                        &spaceship_pda,
+                        spaceship_index,
                         factions[i % factions.len()],
                     )
                     .await
@@ -283,18 +265,13 @@ pub async fn test_integration() {
     warp_forward(&program_test_ctx, 1).await;
     {
         let user = &keypairs[USER_1];
-        let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
-        let user_account =
-            utils::get_account::<UserAccount>(&program_test_ctx, &user_account_pda).await;
-        // we pick the first spaceship of the player for these tests
-        let spaceship_pda = user_account.spaceships.first().unwrap().spaceship;
+        let spaceship_index = 0;
 
         instructions::arena_matchmaking(
             &program_test_ctx,
             &user,
             &realm_pda,
-            &keypairs[ADMIN].pubkey(),
-            &spaceship_pda,
+            spaceship_index,
             Faction::Imperium,
         )
         .await

@@ -28,10 +28,10 @@ pub async fn create_spaceship(
     // Fetch the user account
     let user_account = utils::get_account::<UserAccount>(program_test_ctx, &user_account_pda).await;
     // Read the number of spaceships
-    let num_spaceships = user_account.spaceships.len();
+    let spaceship_count = user_account.spaceships.len();
 
     let (spaceship_pda, spaceship_bump) =
-        pda::get_spaceship_pda(&realm_pda, &user.pubkey(), num_spaceships);
+        pda::get_spaceship_pda(&realm_pda, &user.pubkey(), spaceship_count as u8);
     let (switchboard_state_pda, _) = utils::get_switchboard_state_pda();
     let switchboard_ssgf_request_keypair = Keypair::new();
     let switchboard_amf_request_keypair = Keypair::new();

@@ -18,11 +18,7 @@ pub fn get_user_account_pda(realm_pda: &Pubkey, user: &Pubkey) -> (Pubkey, u8) {
     )
 }
 
-pub fn get_spaceship_pda(
-    realm_pda: &Pubkey,
-    user: &Pubkey,
-    spaceship_index: usize,
-) -> (Pubkey, u8) {
+pub fn get_spaceship_pda(realm_pda: &Pubkey, user: &Pubkey, spaceship_index: u8) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[
             b"spaceship",

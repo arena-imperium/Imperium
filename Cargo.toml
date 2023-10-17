@@ -116,7 +116,7 @@ spl-token = "4.0"
 spl-associated-token-account = "2.2.0"
 solana-program-test = "1.16"
 # Solana related Crates
-switchboard-solana = { version = "0.28.29", features = ["no-entrypoint"] }
+switchboard-solana = { version = "0.28.33", features = ["no-entrypoint"] }
 #
 tokio = { version = "1.0.0", features = ["macros"] }
 borsh = "0.10.3"

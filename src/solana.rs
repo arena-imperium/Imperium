@@ -145,14 +145,14 @@ impl Default for HologramServer {
         let client = Arc::new(SolanaClient::new(payer.clone(), cluster));
         HologramServer {
             solana_client: client,
-            realm_name: "Holorealm".to_string(), // @HARDCODED
-            admin_pubkey: payer.pubkey().clone(),
+            realm_name: "Holorealm1".to_string(), // @HARDCODED
+            admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
             spaceship_seed_generation_function: Pubkey::from_str(
                 "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe",
             )
             .unwrap(), // @HARDCODED
             arena_matchmaking_function: Pubkey::from_str(
-                "HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog",
+                "5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx",
             )
             .unwrap(), // @HARDCODED
             crate_picking_function: Pubkey::from_str(
@@ -168,10 +168,10 @@ impl Default for HologramServer {
 }
 
 // DEVNET test spaceship seed generation function 5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe
-// DEVNET test arena matchmaking function HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
+// DEVNET test arena matchmaking function 5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx
 // DEVNET test crate picking function EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 // https://app.switchboard.xyz/build/function/5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe
-// https://app.switchboard.xyz/build/function/HQQC7a5KaVYS2ZK3oGohHqvTQqx4qZvbRxRVhEbz4sog
+// https://app.switchboard.xyz/build/function/5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx
 // https://app.switchboard.xyz/build/function/EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 
 // See anchor client blocking sources https://github.com/coral-xyz/anchor/blob/cec9946111a1c651fd21235c2a554eda05c3ffa3/client/src/blocking.rs
@@ -206,6 +206,32 @@ impl HologramServer {
             &"Nebuchadnezzar".to_string(),
             &realm_pda,
             &self.solana_client.payer.pubkey(),
+        );
+    }
+
+    pub fn fire_default_pick_crate_task(&self, commands: &mut Commands) {
+        let (realm_pda, _) = Self::get_realm_pda(&self.realm_name);
+        let user = &self.solana_client.payer.pubkey();
+        let spaceship_index = 0;
+        self.fire_pick_crate_task(
+            commands,
+            &realm_pda,
+            &user,
+            spaceship_index,
+            CrateType::NavyIssue,
+        );
+    }
+
+    pub fn fire_default_arena_matchmaking_task(&self, commands: &mut Commands) {
+        let (realm_pda, _) = Self::get_realm_pda(&self.realm_name);
+        let user = &self.solana_client.payer.pubkey();
+        let spaceship_index = 0;
+        self.fire_arena_matchmaking_task(
+            commands,
+            &realm_pda,
+            &user,
+            spaceship_index,
+            Faction::Imperium,
         );
     }
 
@@ -251,8 +277,8 @@ impl HologramServer {
                 realm: realm_pda,
                 spaceship_seed_generation_function,
                 arena_matchmaking_function,
-                system_program: solana_program::system_program::id(),
                 crate_picking_function,
+                system_program: solana_program::system_program::id(),
             };
 
             Self::send_and_confirm_instruction_blocking(
@@ -362,9 +388,9 @@ impl HologramServer {
                 .program(hologram::id())?
                 .account(user_account_pda)?;
             let new_spaceship_index = user_account.spaceships.len();
-            let spaceship_index = new_spaceship_index;
 
-            let (spaceship_pda, _) = Self::get_spaceship_pda(&realm_pda, &user, spaceship_index);
+            let (spaceship_pda, _) =
+                Self::get_spaceship_pda(&realm_pda, &user, new_spaceship_index as u8);
             let (switchboard_state_pda, _) = Self::get_switchboard_state();
             let switchboard_ssgf_request_keypair = Keypair::new();
             let switchboard_ssgf_request_escrow = get_associated_token_address(
@@ -420,7 +446,7 @@ impl HologramServer {
                     switchboard_amf_request_keypair,
                     switchboard_cpf_request_keypair,
                 ],
-                450_000,
+                650_000,
             )
         });
 
@@ -445,19 +471,19 @@ impl HologramServer {
         commands: &mut Commands,
         realm_pda: &Pubkey,
         user: &Pubkey,
-        spaceship_pda: &Pubkey,
+        spaceship_index: u8,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
         let realm_pda = realm_pda.clone();
         let user = user.clone();
         let payer = client.payer().clone();
-        let spaceship_pda = spaceship_pda.clone();
+        let (spaceship_pda, _) = Self::get_spaceship_pda(&realm_pda, &user, spaceship_index.into());
 
         let task = thread_pool.spawn(async move {
             log::info!("<Solana> Sending claim_fuel_allowance IX");
             let (user_account_pda, _) = Self::get_user_account_pda(&realm_pda, &user);
-            let instruction = hologram::instruction::ClaimFuelAllowance {};
+            let instruction = hologram::instruction::ClaimFuelAllowance { spaceship_index };
 
             let accounts = hologram::accounts::ClaimFuelAllowance {
                 user,
@@ -503,17 +529,16 @@ impl HologramServer {
         commands: &mut Commands,
         realm_pda: &Pubkey,
         user: &Pubkey,
-        spaceship_pda: &Pubkey,
+        spaceship_index: u8,
         // Location
         faction: Faction,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
-        let admin_pubkey = self.admin_pubkey;
         let arena_matchmaking_function = self.arena_matchmaking_function;
         let realm_pda = realm_pda.clone();
         let user = user.clone();
-        let spaceship_pda = spaceship_pda.clone();
+        let (spaceship_pda, _) = Self::get_spaceship_pda(&realm_pda, &user, spaceship_index.into());
         let payer = client.payer().clone();
         let switchboard_attestation_queue = self.switchboard_attestation_queue;
 
@@ -531,12 +556,14 @@ impl HologramServer {
                 spaceship.arena_matchmaking.switchboard_request_info.account;
             let switchboard_amf_request_escrow =
                 get_associated_token_address(&switchboard_amf_request, &native_mint::ID);
-            let instruction = hologram::instruction::ArenaMatchmaking { faction };
+            let instruction = hologram::instruction::ArenaMatchmaking {
+                faction,
+                spaceship_index,
+            };
 
             let accounts = hologram::accounts::ArenaMatchmaking {
                 user,
                 realm: realm_pda,
-                admin: admin_pubkey,
                 user_account: user_account_pda,
                 spaceship: spaceship_pda,
                 switchboard_state: switchboard_state_pda,
@@ -578,22 +605,21 @@ impl HologramServer {
     /// - user: Public key of the user owning the spaceship
     /// - spaceship_pda: Public key of the spaceship that registers
     /// - crate_type: The type of crate to pick
-    fn fire_pick_crate_task<T: 'static + AccountDeserialize + Send>(
+    fn fire_pick_crate_task(
         &self,
         commands: &mut Commands,
         realm_pda: &Pubkey,
         user: &Pubkey,
-        spaceship_pda: &Pubkey,
+        spaceship_index: u8,
         // Location
         crate_type: CrateType,
     ) {
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
-        let admin_pubkey = self.admin_pubkey;
         let crate_picking_function = self.crate_picking_function;
         let realm_pda = realm_pda.clone();
         let user = user.clone();
-        let spaceship_pda = spaceship_pda.clone();
+        let (spaceship_pda, _) = Self::get_spaceship_pda(&realm_pda, &user, spaceship_index.into());
         let payer = client.payer().clone();
         let switchboard_attestation_queue = self.switchboard_attestation_queue;
 
@@ -610,11 +636,13 @@ impl HologramServer {
             let switchboard_cpf_request = spaceship.crate_picking.switchboard_request_info.account;
             let switchboard_cpf_request_escrow =
                 get_associated_token_address(&switchboard_cpf_request, &native_mint::ID);
-            let instruction = hologram::instruction::PickCrate { crate_type };
+            let instruction = hologram::instruction::PickCrate {
+                crate_type,
+                spaceship_index,
+            };
 
             let accounts = hologram::accounts::PickCrate {
                 user,
-                admin: admin_pubkey,
                 realm: realm_pda,
                 user_account: user_account_pda,
                 spaceship: spaceship_pda,
@@ -788,7 +816,7 @@ impl HologramServer {
     pub fn get_spaceship_pda(
         realm_pda: &Pubkey,
         user: &Pubkey,
-        spaceship_index: usize,
+        spaceship_index: u8,
     ) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[

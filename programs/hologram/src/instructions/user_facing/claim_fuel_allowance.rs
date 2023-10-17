@@ -7,6 +7,7 @@ use {
 };
 
 #[derive(Accounts)]
+#[instruction(spaceship_index:u8)]
 pub struct ClaimFuelAllowance<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -25,9 +26,8 @@ pub struct ClaimFuelAllowance<'info> {
 
     #[account(
         mut,
-        // seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
-        // bump = spaceship.bump,
-        constraint = user_account.spaceships.iter().map(|s|{s.spaceship}).collect::<Vec<_>>().contains(&spaceship.key()),
+        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), spaceship_index.to_le_bytes().as_ref()],
+        bump = spaceship.bump,
     )]
     pub spaceship: Account<'info, SpaceShip>,
 }

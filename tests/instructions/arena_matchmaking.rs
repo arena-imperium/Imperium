@@ -1,6 +1,8 @@
-pub use crate::utils;
 use {
-    crate::{utils::pda, IMPERIUM_AMF, SWITCHBOARD_ATTESTATION_QUEUE},
+    crate::{
+        utils::{self, pda},
+        IMPERIUM_AMF, SWITCHBOARD_ATTESTATION_QUEUE,
+    },
     anchor_lang::ToAccountMetas,
     hologram::{
         instructions::{roll_opponent_spaceship, Faction},
@@ -20,11 +22,12 @@ pub async fn arena_matchmaking(
     program_test_ctx: &RwLock<ProgramTestContext>,
     user: &Keypair,
     realm_pda: &Pubkey,
-    realm_admin: &Pubkey,
-    spaceship_pda: &Pubkey,
+    spaceship_index: u8,
     faction: Faction,
 ) -> std::result::Result<(), BanksClientError> {
-    let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
+    let (spaceship_pda, _) =
+        utils::get_spaceship_pda(realm_pda, &user.pubkey(), spaceship_index);
+    let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
     let realm_before = utils::get_account::<Realm>(program_test_ctx, &realm_pda).await;
     let matchmaking_queue_before = realm_before
         .get_matching_matchmaking_queue(&spaceship_before)
@@ -39,7 +42,7 @@ pub async fn arena_matchmaking(
     let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
 
     // Fetch the spaceship account
-    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
+    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
 
     let switchboard_amf_request = spaceship.arena_matchmaking.switchboard_request_info.account;
     let (switchboard_state_pda, _) = utils::get_switchboard_state_pda();
@@ -50,9 +53,8 @@ pub async fn arena_matchmaking(
         let accounts = hologram::accounts::ArenaMatchmaking {
             user: user.pubkey(),
             realm: *realm_pda,
-            admin: *realm_admin,
             user_account: user_account_pda,
-            spaceship: *spaceship_pda,
+            spaceship: spaceship_pda,
             switchboard_state: switchboard_state_pda,
             switchboard_attestation_queue: Pubkey::from_str(SWITCHBOARD_ATTESTATION_QUEUE).unwrap(),
             arena_matchmaking_function: Pubkey::from_str(IMPERIUM_AMF).unwrap(),
@@ -71,7 +73,10 @@ pub async fn arena_matchmaking(
     utils::create_and_execute_hologram_ix(
         program_test_ctx,
         accounts_meta,
-        hologram::instruction::ArenaMatchmaking { faction },
+        hologram::instruction::ArenaMatchmaking {
+            faction,
+            spaceship_index,
+        },
         Some(&user.pubkey()),
         &[user],
         None,
@@ -80,7 +85,7 @@ pub async fn arena_matchmaking(
     .await?;
 
     // ==== THEN ==============================================================
-    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
+    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
     let realm = utils::get_account::<Realm>(program_test_ctx, &realm_pda).await;
     let matchmaking_queue = realm.get_matching_matchmaking_queue(&spaceship).unwrap();
     let spaceships_in_queue = matchmaking_queue
@@ -127,7 +132,7 @@ pub async fn arena_matchmaking(
     // For matchmaking, this will be called ONLY when the queue was filled. This is when a fight happen
     if matchmaking_queue_before.is_filled() {
         let spaceship_before =
-            utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
+            utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
         let realm_before = utils::get_account::<Realm>(program_test_ctx, &realm_pda).await;
         let matchmaking_queue_before = realm_before
             .get_matching_matchmaking_queue(&spaceship_before)
@@ -153,7 +158,7 @@ pub async fn arena_matchmaking(
                 user: user.pubkey(),
                 realm: *realm_pda,
                 user_account: user_account_pda,
-                spaceship: *spaceship_pda,
+                spaceship: spaceship_pda,
                 switchboard_request: switchboard_amf_request,
                 arena_matchmaking_function: Pubkey::from_str(IMPERIUM_AMF).unwrap(),
                 opponent_1_spaceship: opponents[0],
@@ -185,7 +190,7 @@ pub async fn arena_matchmaking(
         .await?;
 
         // ==== THEN ==============================================================
-        let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
+        let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
         let realm = utils::get_account::<Realm>(program_test_ctx, &realm_pda).await;
         let matchmaking_queue = realm.get_matching_matchmaking_queue(&spaceship).unwrap();
         let spaceships_in_queue = matchmaking_queue
