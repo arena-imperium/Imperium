@@ -22,7 +22,7 @@ Mainnet:
 Github: <https://github.com/arena-imperium/spaceship_seed_generation_function>
 
 `arena_matchmaking_function`: It serves for matching two player without letting the player pick his opponent (since random is deterministic using xorshift)
-Devnet: <https://app.switchboard.xyz/build/function/5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx>
+Devnet: <https://app.switchboard.xyz/build/function/4fxj8rHfhhrE7gLLeo5w1Zt2TbiVeVDVAw7PgBC31VBL>
 Mainnet:
 Github: <https://github.com/arena-imperium/arena_matchmaking_function>
 

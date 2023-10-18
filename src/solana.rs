@@ -152,7 +152,7 @@ impl Default for HologramServer {
             )
             .unwrap(), // @HARDCODED
             arena_matchmaking_function: Pubkey::from_str(
-                "5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx",
+                "4fxj8rHfhhrE7gLLeo5w1Zt2TbiVeVDVAw7PgBC31VBL",
             )
             .unwrap(), // @HARDCODED
             crate_picking_function: Pubkey::from_str(
@@ -168,10 +168,10 @@ impl Default for HologramServer {
 }
 
 // DEVNET test spaceship seed generation function 5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe
-// DEVNET test arena matchmaking function 5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx
+// DEVNET test arena matchmaking function 4fxj8rHfhhrE7gLLeo5w1Zt2TbiVeVDVAw7PgBC31VBL
 // DEVNET test crate picking function EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 // https://app.switchboard.xyz/build/function/5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe
-// https://app.switchboard.xyz/build/function/5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx
+// https://app.switchboard.xyz/build/function/4fxj8rHfhhrE7gLLeo5w1Zt2TbiVeVDVAw7PgBC31VBL
 // https://app.switchboard.xyz/build/function/EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG
 
 // See anchor client blocking sources https://github.com/coral-xyz/anchor/blob/cec9946111a1c651fd21235c2a554eda05c3ffa3/client/src/blocking.rs

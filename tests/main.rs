@@ -29,7 +29,7 @@ const REALM_NAME: &str = "HoloRealm";
 
 const SWITCHBOARD_ATTESTATION_QUEUE: &str = "CkvizjVnm2zA5Wuwan34NhVT3zFc7vqUyGnA6tuEF5aE";
 const IMPERIUM_SSGF: &str = "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe";
-const IMPERIUM_AMF: &str = "5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx";
+const IMPERIUM_AMF: &str = "4fxj8rHfhhrE7gLLeo5w1Zt2TbiVeVDVAw7PgBC31VBL";
 const IMPERIUM_CPF: &str = "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG";
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

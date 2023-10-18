@@ -6,7 +6,7 @@ skip-lint = false
 hologram = "GiN7xhFgwGTciboPZHyGu2v16LDezaXgkhMW9Pv5xiet"
 
 [programs.devnet]
-hologram = "FLy3EQ483Ji32H1otioGcUq99uGairFyWSMtnsBDZhHi"
+hologram = "BDWigaQZHnLxc2vZ5MqvorW5ki5uFpaNWezeyUoBaZgj"
 
 [registry]
 url = "https://api.apr.dev"
@@ -40,7 +40,7 @@ address = "5MFs7RGTjLi1wtKNBFRtuLipCkkjs4YQwRRU9sjnbQbS"
 address = "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe"
 
 [[test.validator.clone]] # devnet amf
-address = "5ne1egWVPsFyqhuq7S228ztugDYqCarFFWr8dSozohWx"
+address = "4fxj8rHfhhrE7gLLeo5w1Zt2TbiVeVDVAw7PgBC31VBL"
 
 [[test.validator.clone]] # devnet amf
 address = "EyAwVLdvBrrU2fyGsZbZEFArLBxT6j6zo59DByHF3AxG"
