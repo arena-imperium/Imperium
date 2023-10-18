@@ -136,14 +136,18 @@ impl SpaceShipBattleCard {
             weapon_type,
             shots,
         });
-        // hit roll (plasma attacks cannot be dodged)
-        if weapon_type != WeaponType::Plasma {
-            let hit_roll = rng.roll_dice(100);
-            let did_hit = hit_roll >= target.dodge_chance as u64;
-            if !did_hit {
-                #[cfg(feature = "render-hooks")]
-                event_callback(BattleEvent::Dodge { origin_id: self.id });
-                return;
+
+        // Dodge roll
+        match weapon_type {
+            WeaponType::Plasma | WeaponType::Missile => { /* attacks cannot be dodged */ }
+            _ => {
+                let hit_roll = rng.roll_dice(100);
+                let did_hit = hit_roll >= target.dodge_chance as u64;
+                if !did_hit {
+                    #[cfg(feature = "render-hooks")]
+                    event_callback(BattleEvent::Dodge { origin_id: self.id });
+                    return;
+                }
             }
         }
 
