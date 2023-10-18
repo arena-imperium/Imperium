@@ -60,6 +60,12 @@ cuicui_layout_bevy_ui = "0.10.1"
 cuicui_layout = "0.10.1"
 cuicui_dsl = "0.10.1"
 cuicui_chirp = "0.10.1"
+# Enable "frame pacing", a way to reduce input latency
+bevy_framepace = "0.13.3"
+# Add mouse interaction
+bevy_mod_picking = { version = "0.15.0", default-features = false, features = [
+    "backend_bevy_ui",
+] }
 
 # keep the following in sync with Bevy's dependencies
 winit = { version = "0.28", default-features = false }

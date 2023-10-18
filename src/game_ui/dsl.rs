@@ -1,59 +1,78 @@
 use bevy::ecs::system::EntityCommands;
-use bevy::prelude::{BuildChildren, Color, Entity, Font, Handle, NodeBundle, Style, TextBundle, TextStyle, UiRect, Val};
+use bevy::log;
+use bevy::prelude::{ReflectComponent, BuildChildren, Color, Component, Entity, Font, Handle, NodeBundle, Reflect, Style, TextBundle, TextStyle, UiRect, Val, Commands};
 use cuicui_chirp::parse_dsl_impl;
 use cuicui_dsl::DslBundle;
 use cuicui_layout_bevy_ui::UiDsl;
+use bevy_mod_picking;
+use bevy_mod_picking::prelude::{Click, On, Pointer};
+
+#[derive(Reflect, Component, Default)]
+#[reflect(Component)]
+enum UiAction {
+    #[default]
+    None,
+    PrintHello,
+    PrintGoodbye,
+}
 /*
-// `DslBundle` requires `Default`
-#[derive(Default)]
+type OnClick = On<Pointer<Click>>;
+
+impl<'a> From<&'a UiAction> for OnClick {
+    fn from(value: &'a UiAction) -> Self {
+        match value {
+            UiAction::LogInfo(text) => {
+                let text = text.clone();
+                OnClick::run(move || info!("{text}"))
+            }
+            &UiAction::EmitSwitchTab(index) => {
+                OnClick::run(move |mut ev: EventWriter<_>| ev.send(SwitchTab(index)))
+            }
+            &UiAction::EmitSwitchGraph(index) => {
+                OnClick::run(move |mut ev: EventWriter<_>| ev.send(SwitchGraph(index)))
+            }
+            ReflectOnClick::Invalid => unreachable!("Should never spawn an invalid ReflectOnClick"),
+        }
+    }
+}*/
+
 pub struct ImperiumDsl {
     inner: UiDsl,
-    /// use custom text implementation to get around cuicui text not working
-    f_text: Option<Box<str>>,
-    f_text_color: Color,
-    f_font_size: f32,
-    f_font: Option<Handle<Font>>,
+    action: UiAction,
 }
 
 impl Default for ImperiumDsl {
     fn default() -> Self {
         Self {
             inner: Default::default(),
-            f_text: None,
-            f_text_color: Color::WHITE,
-            f_font_size: 12.0,
-            font: None,
+            action: UiAction::PrintHello,
         }
     }
 }
 #[parse_dsl_impl(delegate = inner)]
 impl ImperiumDsl {
-    fn f_text(&mut self) {
-        self.f_text = true;
+    fn print_hello(&mut self) {
+        self.action = UiAction::PrintHello;
+    }
+
+    fn print_goodbye(&mut self) {
+        self.action = UiAction::PrintGoodbye;
     }
 }
 
 
 impl DslBundle for ImperiumDsl {
     fn insert(&mut self, cmds: &mut EntityCommands) -> Entity {
-        let id = self.inner.insert(cmds);
-        if let Some(text) = self.f_text.take() {
-            let child_bundle = TextBundle::from_section(
-                text,
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: self.f_font_size,
-                    color: Color::WHITE,
-                },
-            )
-            .with_style(Style {
-                margin: UiRect::all(Val::Px(5.)),
-                ..default()
-            });
-            cmds.with_children(|c| {
-                c.spawn(child_bundle);
-            });
-        }
-        id
+        type OnClick = On<Pointer<Click>>;
+
+        match self.action {
+            UiAction::PrintHello =>
+                {cmds.insert(OnClick::run(|cmds: Commands| log::info!("Hello world!")));},
+
+            UiAction::PrintGoodbye =>
+                {cmds.insert(OnClick::run(|cmds: Commands| log::info!("Farewell, odious world!")));},
+            UiAction::None => {}
+        };
+        cmds.id()
     }
-}*/
+}

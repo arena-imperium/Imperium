@@ -1105,6 +1105,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_eventlistener"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "233f729a5a2c7182f89b17c5d603cd604d095ee68d22c81b29be3cd30324f77d"
+dependencies = [
+ "bevy_eventlistener_core",
+ "bevy_eventlistener_derive",
+]
+
+[[package]]
+name = "bevy_eventlistener_core"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccd344e21cb61878a24169bff3f2e0bc5584df77b06732b5223a13a96a92dfe9"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
+name = "bevy_eventlistener_derive"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "407110082f2a861eb198c254226aa4a24c239fcff235f2aec41b0b0db5e8937f"
+dependencies = [
+ "bevy_eventlistener_core",
+ "proc-macro2 1.0.67",
+ "quote 1.0.33",
+ "syn 2.0.37",
+]
+
+[[package]]
+name = "bevy_framepace"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07d7576b5cd203ad30feb8df8993236599cb06b24b672d8aa904caeb278b6f87"
+dependencies = [
+ "bevy",
+ "spin_sleep",
+]
+
+[[package]]
 name = "bevy_gizmos"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1282,6 +1323,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_mod_picking"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ce0837727f451ec62dad98a7bd35a8ff929e5a148bb0044122aba02683c09df"
+dependencies = [
+ "bevy",
+ "bevy_eventlistener",
+ "bevy_picking_core",
+ "bevy_picking_input",
+ "bevy_picking_ui",
+]
+
+[[package]]
 name = "bevy_mod_sysfail"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1326,6 +1380,36 @@ dependencies = [
  "bytemuck",
  "naga_oil",
  "radsort",
+]
+
+[[package]]
+name = "bevy_picking_core"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37b10f159071accb3f17f86b70a2cafed27f96a828f155721d8f82706d5a65af"
+dependencies = [
+ "bevy",
+ "bevy_eventlistener",
+]
+
+[[package]]
+name = "bevy_picking_input"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1cc165dccadf85856cd713f1dabf5c845c7b6fd56e2c901a53f69f3693c5149"
+dependencies = [
+ "bevy",
+ "bevy_picking_core",
+]
+
+[[package]]
+name = "bevy_picking_ui"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1533a7723939a1dfad933da76a4cfb0d37eb15abd64519c0db2477f04de1ee8b"
+dependencies = [
+ "bevy",
+ "bevy_picking_core",
 ]
 
 [[package]]
@@ -3904,7 +3988,9 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_asset_loader",
  "bevy_egui",
+ "bevy_framepace",
  "bevy_kira_audio",
+ "bevy_mod_picking",
  "bincode",
  "borsh 0.10.3",
  "bytemuck",
@@ -7501,6 +7587,16 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "spin_sleep"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cafa7900db085f4354dbc7025e25d7a839a14360ea13b5fc4fd717f2d3b23134"
+dependencies = [
+ "once_cell",
+ "winapi",
+]
 
 [[package]]
 name = "spirv"
