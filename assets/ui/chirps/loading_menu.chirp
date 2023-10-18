@@ -1,13 +1,47 @@
 fn button() {
-    Button(image("ui/textures/button.png") width(80%))
+    Button(image("ui/textures/button.png") width(1.0*))
 }
-Root(screen_root row distrib_start main_margin(50) image("ui/textures/background.png")) {
-    Column(column rules(50%, 100%) main_margin(10)) {
-        TitleCard(width(100%) image("ui/textures/board.png"))
-        // Call it like a rust macro
-        button!()
-        button!()
-        button!()
-        button!()
+Root(screen_root main_margin(50) image("textures/backgroundwithoutplanets.png")) {
+    Column(column rules(100%, 100%)) {
+        Column(column layout("vdSaC") rules(1.0*, 1.0*) main_margin(10) ) {
+            TitleCard(width(1.0*) image("ui/textures/board.png"))
+            // Call it like a rust macro
+            button!()
+            button!()
+            button!()
+            button!()
+            button!()
+            button!()
+            button!()
+        }
     }
 }
+
+// note: Changing asset location doesn't work without recompiling
+
+// rules() = specify 2 of the following items, (x, y):
+// * = absolute ratio of original image size (or size of children-contents)
+// % percentage of parent
+// px fixed number of pixels
+
+// layout; must have one of each in this order. First is default.
+// Don't use layout at all if you want to center thigns right in the middle
+// v = vertical
+// > = horiz
+// -----
+// "dS" = Items are clumped together at the left/top.
+// "dE" = Items are distributed evenly, with no space left on the sides of the container.
+// "dC" = Items are clumped together at the right/bottom.
+// "oS" = Items overlap at the left/top.
+// "oE" = Items overlap centered on the middle of the container.
+// "oC" = Items overlap at the right/bottom.
+// -----
+// "aS" = The items within the container are all aligned to the top or left.
+              ///
+              /// If the container's axis is `Direction::Vertical`, a start alignment
+              /// will align all items to the left.
+// "aC" = The items within the container are all centered on the container's axis.
+// "aE" = The items within the container are all aligned to the bottom or right.
+              ///
+              /// If the container's axis is `Direction::Vertical`, an end alignment
+              /// will align all items to the right.
