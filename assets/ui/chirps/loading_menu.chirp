@@ -1,7 +1,11 @@
 fn button() {
-    Button(image("ui/textures/button.png") width(1.0*))
+    Overlay(column layout("voCaC") rules(1.0*, 1.0*)){
+        Button(image("ui/textures/button.png") rules(1.0*, 1.0*) )
+        Text(font("fonts/FiraSans-Bold.ttf") text("test"))
+    }
 }
-Root(screen_root main_margin(50) image("textures/backgroundwithoutplanets.png")) {
+Root(screen_root row distrib_start main_margin(50) image("textures/backgroundwithoutplanets.png")) {
+    // Extra column to center the thing
     Column(column rules(100%, 100%)) {
         Column(column layout("vdSaC") rules(1.0*, 1.0*) main_margin(10) ) {
             TitleCard(width(1.0*) image("ui/textures/board.png"))
@@ -13,6 +17,7 @@ Root(screen_root main_margin(50) image("textures/backgroundwithoutplanets.png"))
             button!()
             button!()
             button!()
+
         }
     }
 }
@@ -24,8 +29,8 @@ Root(screen_root main_margin(50) image("textures/backgroundwithoutplanets.png"))
 // % percentage of parent
 // px fixed number of pixels
 
-// layout; must have one of each in this order. First is default.
-// Don't use layout at all if you want to center thigns right in the middle
+// layout(); must have one of each in this order. First is default.
+// Don't use layout at all if you want to center things right in the middle
 // v = vertical
 // > = horiz
 // -----
@@ -33,8 +38,8 @@ Root(screen_root main_margin(50) image("textures/backgroundwithoutplanets.png"))
 // "dE" = Items are distributed evenly, with no space left on the sides of the container.
 // "dC" = Items are clumped together at the right/bottom.
 // "oS" = Items overlap at the left/top.
-// "oE" = Items overlap centered on the middle of the container.
-// "oC" = Items overlap at the right/bottom.
+// "oC" = Items overlap centered on the middle of the container.
+// "oE" = Items overlap at the right/bottom.
 // -----
 // "aS" = The items within the container are all aligned to the top or left.
               ///

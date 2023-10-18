@@ -46,10 +46,10 @@ fn setup(mut cmds: Commands, serv: Res<AssetServer>) {
 
     //let dsl = UiDsl::default();
 
-    cmds.spawn(SpriteBundle {
+    /*cmds.spawn(SpriteBundle {
         texture: serv.load("textures/backgroundwithoutplanets.png"),
         ..default()
-    });
+    });*/
 }
 
 fn loading_screen(mut next_state: ResMut<NextState<Scene>>,) {
