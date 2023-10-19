@@ -1,5 +1,6 @@
 mod dsl;
 mod mirror;
+mod highlight;
 
 use bevy::prelude::*;
 use bevy::app::{App, Plugin, Update};
@@ -9,11 +10,12 @@ use cuicui_chirp::ChirpBundle;
 use cuicui_layout::{LayoutRootCamera};
 use cuicui_layout_bevy_ui::{UiDsl as Dsl, UiDsl};
 use crate::game_ui::dsl::{ImperiumDsl, OnClick, UiAction};
+use crate::game_ui::highlight::HighlightPlugin;
 use crate::game_ui::mirror::MirrorPlugin;
 
 
 /// Ie: what gamemode/scene are we currently in?
-#[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States)]
+#[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States, Copy)]
 pub enum Scene {
     #[default]
     Loading,
@@ -36,6 +38,7 @@ impl Plugin for GamePlugin {
         app.add_plugins(cuicui_chirp::loader::Plugin::new::<ImperiumDsl>());
         app.add_plugins(DefaultPickingPlugins);
         app.add_plugins(MirrorPlugin::<OnClick, UiAction>::new_from());
+        app.add_plugins(HighlightPlugin);
         app.add_systems(Startup, setup);
         app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
         app.add_systems(Update, station_login.run_if(in_state(Scene::Station)));

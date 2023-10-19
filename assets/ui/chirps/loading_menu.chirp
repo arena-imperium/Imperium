@@ -1,6 +1,6 @@
 fn button() {
     Overlay(column layout("voCaC") rules(1.0*, 1.0*)){
-        Button(actionable() image("ui/textures/button.png") rules(1.0*, 1.0*) )
+        Button(button("") highlight image("ui/textures/button.png") rules(1.0*, 1.0*) )
         Text(font("fonts/FiraSans-Bold.ttf") text("test"))
     }
 }
