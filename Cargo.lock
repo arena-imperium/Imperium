@@ -4003,6 +4003,7 @@ dependencies = [
  "futures-lite",
  "hologram",
  "image",
+ "lazy_static",
  "maplit",
  "rand 0.8.5",
  "serde",

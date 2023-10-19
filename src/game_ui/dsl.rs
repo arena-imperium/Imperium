@@ -1,43 +1,57 @@
 use bevy::ecs::system::EntityCommands;
+use bevy::utils::HashMap;
 use bevy::log;
-use bevy::prelude::{ReflectComponent, Color, Component, Entity, Font, Handle, NodeBundle, Reflect, Style, TextBundle, TextStyle, UiRect, Val, Commands, ResMut, NextState};
+use bevy::prelude::{ReflectComponent, Color, Component, Entity, Font, Handle, NodeBundle, Reflect, Style, TextBundle, TextStyle, UiRect, Val, Commands, ResMut, NextState, IntoSystem};
 use cuicui_chirp::parse_dsl_impl;
 use cuicui_dsl::DslBundle;
 use cuicui_layout_bevy_ui::UiDsl;
 use bevy_mod_picking;
 use bevy_mod_picking::prelude::{Click, On, Pointer};
+use lazy_static::lazy_static;
 use crate::game_ui::highlight::Highlight;
 use crate::game_ui::Scene;
+use std::sync::RwLock;
+use std::any::Any;
+type OnClickFunction = Box<dyn Fn() -> OnClick + Send + Sync>;
+
+lazy_static! {
+    static ref ON_CLICK_MAP: RwLock<HashMap<&'static str, OnClickFunction>> = {
+        let mut m: HashMap<&'static str, OnClickFunction> = HashMap::new();
+        m.insert("PrintHello", Box::new(|| OnClick::run(|| log::info!("Hello test"))));
+        m.insert("PrintGoodbye", Box::new(|| OnClick::run(|| log::info!("Goodbye test"))));
+        RwLock::new(m)
+    };
+}
 
 #[derive(Reflect, Component, Default)]
 #[reflect(Component)]
-pub enum UiAction {
-    #[default]
-    None,
-    PrintHello,
-    PrintGoodbye,
-    TransitionScene(Scene)
+pub struct UiAction {
+    action_lookup: String,
+}
+
+impl UiAction {
+    pub fn new(action: String) -> Self {
+        Self {
+            action_lookup: action,
+        }
+    }
+
+    pub fn add_action<F: Fn() -> OnClick + 'static + Send + Sync>(action_name: &'static str, func: F) {
+        let mut map = ON_CLICK_MAP.write().unwrap();
+        map.insert(action_name, Box::new(func));
+    }
 }
 
 pub type OnClick = On<Pointer<Click>>;
 
-// Converts UiAction struct into a command/single run system,
+// Converts UiAction struct into a command/single run system
 impl<'a> From<&'a UiAction> for OnClick {
     fn from(value: &'a UiAction) -> Self {
-        match value {
-            UiAction::PrintHello => {
-                OnClick::run(|cmds: Commands| log::info!("Hello world!"))
-            },
-
-            UiAction::PrintGoodbye => {
-                OnClick::run(|cmds: Commands| log::info!("Farewell, odious world!"))
-            },
-            UiAction::None => {
-                OnClick::run(||{log::info!("Nothing happened")})
-            }
-            UiAction::TransitionScene(scene) => {
-                OnClick::run(|cmds: Commands, mut next_state: ResMut<NextState<Scene>>| {next_state.set(*scene);})
-            }
+        let map = ON_CLICK_MAP.read().unwrap();
+        if let Some(func) = map.get(value.action_lookup.as_str()) {
+            func()
+        } else {
+            OnClick::run(|| log::info!("Nothing happened"))
         }
     }
 }
@@ -97,8 +111,9 @@ impl ImperiumDsl {
 impl DslBundle for ImperiumDsl {
     fn insert(&mut self, cmds: &mut EntityCommands) -> Entity {
         if self.is_button {
-            /// Todo: change the action inserted based on data contents
-            cmds.insert(UiAction::None);
+            if let Some(data) = self.data.take(){
+                cmds.insert(UiAction::new(data.into()));
+            }
         }
         if self.is_highlightable {
             cmds.insert(Highlight::new(Color::DARK_GREEN));

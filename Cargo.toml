@@ -93,6 +93,7 @@ shellexpand = "3.1.0"
 futures-lite = "1.13.0"
 #
 tokio = { workspace = true }
+lazy_static = "1.4.0"
 
 [build-dependencies]
 embed-resource = "1.4"
