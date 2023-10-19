@@ -9,19 +9,19 @@ use bevy_mod_picking::prelude::{Click, On, Pointer};
 
 #[derive(Reflect, Component, Default)]
 #[reflect(Component)]
-enum UiAction {
+pub enum UiAction {
     #[default]
     None,
     PrintHello,
     PrintGoodbye,
 }
-/*
-type OnClick = On<Pointer<Click>>;
+
+pub type OnClick = On<Pointer<Click>>;
 
 impl<'a> From<&'a UiAction> for OnClick {
     fn from(value: &'a UiAction) -> Self {
         match value {
-            UiAction::LogInfo(text) => {
+            /*UiAction::LogInfo(text) => {
                 let text = text.clone();
                 OnClick::run(move || info!("{text}"))
             }
@@ -31,48 +31,48 @@ impl<'a> From<&'a UiAction> for OnClick {
             &UiAction::EmitSwitchGraph(index) => {
                 OnClick::run(move |mut ev: EventWriter<_>| ev.send(SwitchGraph(index)))
             }
-            ReflectOnClick::Invalid => unreachable!("Should never spawn an invalid ReflectOnClick"),
+            ReflectOnClick::Invalid => unreachable!("Should never spawn an invalid ReflectOnClick"),*/
+
+            UiAction::PrintHello => {
+                OnClick::run(|cmds: Commands| log::info!("Hello world!"))
+            },
+
+            UiAction::PrintGoodbye => {
+                OnClick::run(|cmds: Commands| log::info!("Farewell, odious world!"))
+            },
+            UiAction::None => {
+                OnClick::run(||{log::info!("Nothing happened")})
+            }
         }
     }
-}*/
+}
 
 pub struct ImperiumDsl {
     inner: UiDsl,
-    action: UiAction,
+    is_action: bool,
 }
 
 impl Default for ImperiumDsl {
     fn default() -> Self {
         Self {
             inner: Default::default(),
-            action: UiAction::PrintHello,
+            is_action: false,
         }
     }
 }
 #[parse_dsl_impl(delegate = inner)]
 impl ImperiumDsl {
-    fn print_hello(&mut self) {
-        self.action = UiAction::PrintHello;
-    }
-
-    fn print_goodbye(&mut self) {
-        self.action = UiAction::PrintGoodbye;
+    fn actionable(&mut self) {
+        self.is_action = true;
     }
 }
 
 
 impl DslBundle for ImperiumDsl {
     fn insert(&mut self, cmds: &mut EntityCommands) -> Entity {
-        type OnClick = On<Pointer<Click>>;
-
-        match self.action {
-            UiAction::PrintHello =>
-                {cmds.insert(OnClick::run(|cmds: Commands| log::info!("Hello world!")));},
-
-            UiAction::PrintGoodbye =>
-                {cmds.insert(OnClick::run(|cmds: Commands| log::info!("Farewell, odious world!")));},
-            UiAction::None => {}
-        };
-        cmds.id()
+        if self.is_action {
+            cmds.insert(UiAction::None);
+        }
+        self.inner.insert(cmds)
     }
 }
