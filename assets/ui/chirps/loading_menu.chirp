@@ -7,7 +7,7 @@ fn button() {
 Root(screen_root row distrib_start main_margin(50) image("textures/backgroundwithoutplanets.png")) {
     // Extra column to center the thing
     Column(column rules(100%, 100%)) {
-        Column(column layout("vdSaC") rules(1.0*, 1.0*) main_margin(10) ) {
+        Column(column layout("vdSaS") rules(1.0*, 1.0*) main_margin(10) ) {
             TitleCard(width(1.0*) image("ui/textures/board.png"))
             // Call it like a rust macro
             button!()
@@ -17,7 +17,7 @@ Root(screen_root row distrib_start main_margin(50) image("textures/backgroundwit
             button!()
             button!()
             button!()
-
+            Text(text_box("test") rules(300px, 50px))
         }
     }
 }

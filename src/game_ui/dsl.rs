@@ -12,6 +12,8 @@ use crate::game_ui::highlight::Highlight;
 use crate::game_ui::Scene;
 use std::sync::RwLock;
 use std::any::Any;
+use crate::game_ui::egui_wrappers::{EguiLabel, EguiTextBox};
+
 type OnClickFunction = Box<dyn Fn() -> OnClick + Send + Sync>;
 
 lazy_static! {
@@ -36,6 +38,10 @@ impl UiAction {
         }
     }
 
+    /// usage:
+    /// ```
+    /// UiAction::add_action("NewAction", || OnClick::run(|| log::info!("This is a new action")));
+    /// ```
     pub fn add_action<F: Fn() -> OnClick + 'static + Send + Sync>(action_name: &'static str, func: F) {
         let mut map = ON_CLICK_MAP.write().unwrap();
         map.insert(action_name, Box::new(func));
@@ -119,10 +125,14 @@ impl DslBundle for ImperiumDsl {
             cmds.insert(Highlight::new(Color::DARK_GREEN));
         }
         if self.is_text_box {
-            // Todo: insert an egui text box here that modifies the data stored
-            // in key value par associated with data in egui's internal memory.
-            //let mut node_bundle = bevy_ui::NodeBundle::default();
-            //node_bundle.transform.
+            if let Some(data) = self.data.take(){
+                cmds.insert(EguiTextBox{ id: data.into()});
+            }
+        }
+        if self.is_label {
+            if let Some(data) = self.data.take(){
+                cmds.insert(EguiLabel{ egui_text_ref: data.into()});
+            }
         }
         self.inner.insert(cmds)
     }

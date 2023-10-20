@@ -1,6 +1,7 @@
 mod dsl;
 mod mirror;
 mod highlight;
+mod egui_wrappers;
 
 use bevy::prelude::*;
 use bevy::app::{App, Plugin, Update};
@@ -10,6 +11,7 @@ use cuicui_chirp::ChirpBundle;
 use cuicui_layout::{LayoutRootCamera};
 use cuicui_layout_bevy_ui::{UiDsl as Dsl, UiDsl};
 use crate::game_ui::dsl::{ImperiumDsl, OnClick, UiAction};
+use crate::game_ui::egui_wrappers::CuiCuiEguiPlugin;
 use crate::game_ui::highlight::HighlightPlugin;
 use crate::game_ui::mirror::MirrorPlugin;
 
@@ -34,11 +36,19 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<Scene>();
         app.init_resource::<LoginState>();
+
+        // Ui crates and functionality stuff
         app.add_plugins(cuicui_layout_bevy_ui::Plugin);
         app.add_plugins(cuicui_chirp::loader::Plugin::new::<ImperiumDsl>());
         app.add_plugins(DefaultPickingPlugins);
         app.add_plugins(MirrorPlugin::<OnClick, UiAction>::new_from());
+
+        // custom ui modules
         app.add_plugins(HighlightPlugin);
+        // Needed for text boxes and dynamic labels
+        app.add_plugins(CuiCuiEguiPlugin);
+
+
         app.add_systems(Startup, setup);
         app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
         app.add_systems(Update, station_login.run_if(in_state(Scene::Station)));
