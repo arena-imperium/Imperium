@@ -4,20 +4,23 @@
 mod dev_ui;
 mod solana;
 mod asset_loading;
+mod game_ui;
 
+use std::time::Duration;
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
 use image::ImageFormat::Png;
 use image::load;
 use {
-    bevy::{prelude::*, window::PrimaryWindow, winit::WinitWindows, DefaultPlugins},
+    bevy::{DefaultPlugins, prelude::*, window::PrimaryWindow, winit::WinitWindows},
     bevy_inspector_egui::quick::WorldInspectorPlugin,
     std::io::Cursor,
     winit::window::Icon,
 };
+use game_ui::GamePlugin;
 use crate::asset_loading::AssetLoadingPlugin;
-use crate::dev_ui::{DevUI};
+use crate::dev_ui::DevUI;
 use crate::solana::SolanaPlugin;
 
 fn main() {
@@ -35,7 +38,15 @@ fn main() {
                 ..default()
             }),
             ..default()
-        }));
+        })
+        .set({
+            // Add hot reloading for assets
+        let delay = Duration::from_millis(200);
+        let watch_for_changes = bevy::asset::ChangeWatcher::with_delay(delay);
+        let asset_folder = "assets".to_owned();
+        AssetPlugin { asset_folder, watch_for_changes }
+    })
+    );
     app.add_systems(Startup, set_window_icon);
     app.add_plugins(WorldInspectorPlugin::new());
     app.add_plugins(AssetLoadingPlugin);
@@ -68,30 +79,6 @@ fn set_window_icon(
     };
 }
 
-/// Ie: what gamemode/scene are we currently in?
-#[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States)]
-pub enum Scene {
-    #[default]
-    Loading,
-    // Starting scene, where the player can setup a connection with their wallet
-    NotLoggedIn,
-    LoginWindow,
-    // Here the menu is drawn and waiting for player interaction
-    Hanger,
-}
-
-pub struct GamePlugin;
-impl Plugin for GamePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_state::<Scene>();
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::NotLoggedIn)));
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
-        app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
-    }
-}
-
-fn loading_screen() {}
 /*
 /// Called every frame; our main loop.
 ///

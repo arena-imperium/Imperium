@@ -1,10 +1,10 @@
 use {
-    crate::{solana::HologramServer, Scene},
     bevy::{
         log,
         prelude::{App, Commands, Plugin, Res, Update},
     },
-    bevy_egui::{egui, EguiContext, EguiContexts, EguiPlugin},
+    bevy_egui::{egui, EguiContexts, EguiPlugin},
+    crate::solana::HologramServer,
 };
 
 pub struct DevUI;
