@@ -85,10 +85,10 @@ impl<T: Component, U: Component + GetTypeRegistration> MirrorPlugin<T, U> {
     pub fn new_to() -> MirrorPlugin<T, U, ToPlugin> where U: ToMirror<T> {
         MirrorPlugin(PhantomData)
     }
-    #[must_use]
+    /*#[must_use]
     pub fn new() -> MirrorPlugin<T, U, BiPlugin> where U: ToMirror<T> + FromMirror<T> {
         MirrorPlugin(PhantomData)
-    }
+    }*/
 }
 
 impl<T: Component, U: Component> Plugin for MirrorPlugin<T, U, FromPlugin>

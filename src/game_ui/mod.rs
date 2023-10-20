@@ -1,20 +1,19 @@
+use bevy::app::{App, Plugin, Update};
+use bevy::log;
+use bevy::prelude::*;
+use bevy_mod_picking::DefaultPickingPlugins;
+use cuicui_chirp::ChirpBundle;
+use cuicui_layout::LayoutRootCamera;
+
+use crate::game_ui::dsl::{ImperiumDsl, OnClick, UiAction};
+use crate::game_ui::egui_wrappers::{CuiCuiEguiPlugin, StrMap};
+use crate::game_ui::highlight::HighlightPlugin;
+use crate::game_ui::mirror::MirrorPlugin;
+
 mod dsl;
 mod mirror;
 mod highlight;
 mod egui_wrappers;
-
-use bevy::prelude::*;
-use bevy::app::{App, Plugin, Update};
-use bevy_mod_picking::{DefaultPickingPlugins, events};
-use bevy_mod_picking::prelude::{On, Pointer};
-use cuicui_chirp::ChirpBundle;
-use cuicui_layout::{LayoutRootCamera};
-use cuicui_layout_bevy_ui::{UiDsl as Dsl, UiDsl};
-use crate::game_ui::dsl::{ImperiumDsl, OnClick, UiAction};
-use crate::game_ui::egui_wrappers::CuiCuiEguiPlugin;
-use crate::game_ui::highlight::HighlightPlugin;
-use crate::game_ui::mirror::MirrorPlugin;
-
 
 /// Ie: what gamemode/scene are we currently in?
 #[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States, Copy)]
@@ -56,10 +55,26 @@ impl Plugin for GamePlugin {
     }
 }
 
-fn setup(mut cmds: Commands, serv: Res<AssetServer>) {
+fn setup(mut cmds: Commands, serv: Res<AssetServer>, mut text_map: ResMut<StrMap>) {
     // Use LayoutRootCamera to mark a camera as the screen boundaries.
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scale = 0.3;
+
+    UiAction::add_action("PrintHello", || OnClick::run(
+        // This is a system, you can pass in any bevy resources in the closure
+        ||{
+        log::info!("HI! you clicked a button! nice. now what..")
+    }));
+    text_map.insert("my_label".to_owned(), "Label_contents_test".to_owned());
+    text_map.insert("counter".to_owned(), "0".to_owned());
+
+    UiAction::add_action("increment_counter", || OnClick::run(
+        |mut text_map: ResMut<StrMap>|{
+            let string = text_map.get_mut("counter").unwrap();
+            let mut num: i32 = string.parse().unwrap();
+            num += 1;
+            *string = num.to_string();
+        }));
 
     cmds.spawn((camera_bundle, LayoutRootCamera));
     cmds.spawn(ChirpBundle::new(serv.load("ui/chirps/loading_menu.chirp")));

@@ -1,26 +1,27 @@
+use std::sync::RwLock;
+
 use bevy::ecs::system::EntityCommands;
-use bevy::utils::HashMap;
 use bevy::log;
-use bevy::prelude::{ReflectComponent, Color, Component, Entity, Font, Handle, NodeBundle, Reflect, Style, TextBundle, TextStyle, UiRect, Val, Commands, ResMut, NextState, IntoSystem};
+use bevy::prelude::{Color, Component, Entity, Reflect, ReflectComponent};
+use bevy::utils::HashMap;
+use bevy_mod_picking;
+use bevy_mod_picking::prelude::{Click, On, Pointer};
 use cuicui_chirp::parse_dsl_impl;
 use cuicui_dsl::DslBundle;
 use cuicui_layout_bevy_ui::UiDsl;
-use bevy_mod_picking;
-use bevy_mod_picking::prelude::{Click, On, Pointer};
 use lazy_static::lazy_static;
-use crate::game_ui::highlight::Highlight;
-use crate::game_ui::Scene;
-use std::sync::RwLock;
-use std::any::Any;
+
 use crate::game_ui::egui_wrappers::{EguiLabel, EguiTextBox};
+use crate::game_ui::highlight::Highlight;
 
 type OnClickFunction = Box<dyn Fn() -> OnClick + Send + Sync>;
 
+// Lazy static is used here because there is no easy way to to keep track
+// of the functions that are activated by a button press dynamically.
+// If you can think of a better method let let me know
 lazy_static! {
     static ref ON_CLICK_MAP: RwLock<HashMap<&'static str, OnClickFunction>> = {
-        let mut m: HashMap<&'static str, OnClickFunction> = HashMap::new();
-        m.insert("PrintHello", Box::new(|| OnClick::run(|| log::info!("Hello test"))));
-        m.insert("PrintGoodbye", Box::new(|| OnClick::run(|| log::info!("Goodbye test"))));
+        let m: HashMap<&'static str, OnClickFunction> = HashMap::new();
         RwLock::new(m)
     };
 }
@@ -97,6 +98,17 @@ impl ImperiumDsl {
     }
 
     /// allows dynamic text from egui key value par
+    ///
+    /// Create with `text_box(field_id_str)`
+    ///
+    /// To read or modify the field, use the StrMap resource like:
+    /// ```
+    /// fn draw_label(
+    ///     mut text_map: ResMut<StrMap>,
+    /// ) {
+    ///     let text_ref = text_map.entry(field_id_str).or_default();
+    /// }
+    /// ```
     fn text_box(&mut self, text: &str) {
         self.is_text_box = true;
         self.data = Some(text.into());
@@ -107,6 +119,17 @@ impl ImperiumDsl {
 
     /// Like the text box, allows dyinamic text from egui key value par
     /// but this time uneditable
+    ///
+    /// Create with `text_box(field_id_str)`
+    ///
+    /// To read or modify the field, use the StrMap resource like:
+    /// ```
+    /// fn draw_label(
+    ///     mut text_map: ResMut<StrMap>,
+    /// ) {
+    ///     let text_ref = text_map.entry(field_id_str).or_default();
+    /// }
+    /// ```
     fn label(&mut self, text: &str) {
         self.is_label = true;
         self.data = Some(text.into());
@@ -131,7 +154,7 @@ impl DslBundle for ImperiumDsl {
         }
         if self.is_label {
             if let Some(data) = self.data.take(){
-                cmds.insert(EguiLabel{ egui_text_ref: data.into()});
+                cmds.insert(EguiLabel{ id: data.into()});
             }
         }
         self.inner.insert(cmds)

@@ -1,6 +1,6 @@
-fn button() {
+fn button(action) {
     Overlay(column layout("voCaC") rules(1.0*, 1.0*)){
-        Button(button("PrintHello") highlight image("ui/textures/button.png") rules(1.0*, 1.0*) )
+        Button(button(action) highlight image("ui/textures/button.png") rules(1.0*, 1.0*) )
         Text(font("fonts/FiraSans-Bold.ttf") text("test"))
     }
 }
@@ -10,14 +10,15 @@ Root(screen_root row distrib_start main_margin(50) image("textures/backgroundwit
         Column(column layout("vdSaS") rules(1.0*, 1.0*) main_margin(10) ) {
             TitleCard(width(1.0*) image("ui/textures/board.png"))
             // Call it like a rust macro
-            button!()
-            button!()
-            button!()
-            button!()
-            button!()
+            button!("PrintHello")
+            button!("increment_counter")
+            button!("increment_counter")
+            Text(label("counter") rules(300px, 50px))
             button!()
             button!()
             Text(text_box("test") rules(300px, 50px))
+            Text(text_box("test1") rules(300px, 50px))
+            Text(text_box("test2") rules(300px, 50px))
         }
     }
 }
