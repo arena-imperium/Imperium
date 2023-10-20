@@ -21,16 +21,16 @@ pub struct CreateSpaceship<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
+    /// CHECK: validated by the realm admin
+    #[account(constraint = admin.key() == realm.admin)]
+    pub admin: AccountInfo<'info>,
+
     #[account(
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
         has_one = admin,
     )]
     pub realm: Box<Account<'info, Realm>>,
-
-    /// CHECK: validated by the realm admin
-    #[account(constraint = admin.key() == realm.admin)]
-    pub admin: AccountInfo<'info>,
 
     // Note: resize is made in the request rather than settle for simplicity
     // this cannot backfire as the len is increased in the settle part.
@@ -47,7 +47,7 @@ pub struct CreateSpaceship<'info> {
     #[account(
         init_if_needed, // this might be called again if the settlement ix fails
         payer=user,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
+        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), (user_account.spaceships.len() as u8).to_le_bytes().as_ref()],
         bump,
         space = SpaceShip::LEN + std::mem::size_of::<Module>(), // make space for the starter civilian weapon module
     )]
@@ -256,7 +256,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             ctx.accounts.switchboard_program.clone(),
             // max_container_params_len - the length of the vec containing the container params
             // default: 256 bytes
-            Some(400),
+            Some(600),
             // container_params - the container params
             // default: empty vec
             Some(request_params.into_bytes()),
@@ -312,7 +312,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             ctx.accounts.switchboard_program.clone(),
             // max_container_params_len - the length of the vec containing the container params
             // default: 256 bytes
-            Some(180),
+            Some(360),
             // container_params - the container params
             // default: empty vec
             Some(request_params.into_bytes()),
@@ -354,7 +354,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
 
         let request_init_and_trigger_ctx = FunctionRequestInitAndTrigger {
             request: ctx.accounts.switchboard_ssgf_request.clone(),
-            authority: ctx.accounts.admin.to_account_info(),
+            authority: ctx.accounts.user_account.to_account_info(),
             function: ctx
                 .accounts
                 .spaceship_seed_generation_function
@@ -383,7 +383,7 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
             Some(SWITCHBOARD_FUNCTION_SLOT_UNTIL_EXPIRATION as u64),
             // max_container_params_len - the length of the vec containing the container params
             // default: 256 bytes
-            Some(160),
+            Some(360),
             // container_params - the container params
             // default: empty vec
             Some(request_params.into_bytes()),
@@ -415,11 +415,6 @@ pub fn create_spaceship(ctx: Context<CreateSpaceship>, name: String) -> Result<(
         spaceship.fuel.max = BASE_MAX_FUEL;
         spaceship.fuel.current = BASE_MAX_FUEL;
         spaceship.fuel.daily_allowance_last_collection = Realm::get_time()?;
-
-        // all stats defaulted to 0
-
-        // experience fields defaulted to 0
-        spaceship.experience.exp_to_next_level = spaceship.experience.experience_to_next_level();
 
         // hull is rolled during settle callback
     }

@@ -33,6 +33,7 @@ impl RandomNumberGenerator {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use {super::*, proptest::prelude::*};

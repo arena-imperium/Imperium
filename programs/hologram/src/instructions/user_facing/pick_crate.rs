@@ -6,6 +6,7 @@ use {
             Drone, Module, Mutation, Realm, SpaceShip, SpaceShipLite,
             SwitchboardFunctionRequestStatus, UserAccount,
         },
+        MAX_ORDNANCE,
     },
     anchor_lang::prelude::*,
     switchboard_solana::{
@@ -15,13 +16,10 @@ use {
 };
 
 #[derive(Accounts)]
+#[instruction(spaceship_index:u8)]
 pub struct PickCrate<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
-
-    /// CHECK: validated by the realm admin
-    #[account(constraint = admin.key() == realm.admin)]
-    pub admin: AccountInfo<'info>,
 
     #[account(
         seeds=[b"realm", realm.name.to_bytes()],
@@ -42,9 +40,8 @@ pub struct PickCrate<'info> {
         realloc = SpaceShip::LEN + std::mem::size_of::<Module>() * (spaceship.modules.len() + 1) + std::mem::size_of::<Drone>() * (spaceship.drones.len() + 1) + std::mem::size_of::<Mutation>() * (spaceship.mutations.len() + 1),
         realloc::payer = user,
         realloc::zero = false,
-        // seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), unknown index],
-        // bump = spaceship.bump,
-        constraint = user_account.spaceships.iter().map(|s|{s.spaceship}).collect::<Vec<_>>().contains(&spaceship.key()),
+        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), spaceship_index.to_le_bytes().as_ref()],
+        bump = spaceship.bump,
     )]
     pub spaceship: Box<Account<'info, SpaceShip>>,
 
@@ -124,6 +121,12 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
 
     // Validations
     {
+        // verify that the user Ordnance is not maxxed
+        require!(
+            ctx.accounts.spaceship.ordnance() < MAX_ORDNANCE,
+            HologramError::MaxOrdnanceReached
+        );
+
         // verify that the spaceship.wallet contains the necessary amount of currency matching the price
         // this is done in the settlement too
         let crate_price = match crate_type {
@@ -170,7 +173,7 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
         {
             let request_set_config_ctx = FunctionRequestSetConfig {
                 request: ctx.accounts.switchboard_request.clone(),
-                authority: ctx.accounts.admin.clone(),
+                authority: ctx.accounts.user_account.to_account_info(),
             };
             let request_params = format!(
                 "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},CRATE_TYPE{}",
@@ -188,6 +191,7 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
                 false,
                 &[user_account_seed],
             )?;
+            msg!("Switchboard function parameters updated");
         }
 
         // Trigger the request account for the crate_picking_function
@@ -196,7 +200,7 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
         {
             let request_trigger_ctx = FunctionRequestTrigger {
                 request: ctx.accounts.switchboard_request.clone(),
-                authority: ctx.accounts.admin.clone(),
+                authority: ctx.accounts.user_account.to_account_info(),
                 escrow: ctx.accounts.switchboard_request_escrow.to_account_info(),
                 function: ctx.accounts.crate_picking_function.to_account_info(),
                 state: ctx.accounts.switchboard_state.to_account_info(),
@@ -220,6 +224,7 @@ pub fn pick_crate(ctx: Context<PickCrate>, crate_type: CrateType) -> Result<()> 
                 None,
                 &[user_account_seed],
             )?;
+            msg!("Switchboard function request triggered");
         }
     }
 

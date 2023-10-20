@@ -1,9 +1,11 @@
+#[cfg(any(test, feature = "testing"))]
+use crate::engine::BattleEvent;
 #[allow(unused_imports)]
 use switchboard_solana::FunctionRequestAccountData;
 use {
     super::user_facing::Faction,
     crate::{
-        engine::FightEngine,
+        engine::{FightEngine, FightOutcome},
         error::HologramError,
         state::{
             spaceship, MatchmakingQueue, Realm, SpaceShip, SpaceShipLite,
@@ -85,9 +87,9 @@ pub struct ArenaMatchmakingSettle<'info> {
 pub struct ArenaMatchmakingMatchCompleted {
     pub realm_name: String,
     pub user: Pubkey,
-    pub user_won: bool,
-    pub winner: SpaceShipLite,
-    pub looser: SpaceShipLite,
+    pub outcome: FightOutcome,
+    pub spaceship: SpaceShipLite,
+    pub opponent_spaceship: SpaceShipLite,
 }
 
 pub fn arena_matchmaking_settle(
@@ -137,7 +139,7 @@ pub fn arena_matchmaking_settle(
     }
 
     // pick the opponent spaceship based on the random seed
-    let opponent_spaceship = {
+    let mut opponent_spaceship = {
         let spaceship = &mut ctx.accounts.spaceship;
         let mut rng = RandomNumberGenerator::new(generated_seed.into());
         let queue = ctx
@@ -193,41 +195,50 @@ pub fn arena_matchmaking_settle(
     };
 
     // FIGHT
-    let spaceship = &mut ctx.accounts.spaceship;
-    let spaceship_won = { FightEngine::fight(spaceship, opponent_spaceship, generated_seed) };
-    let (winner, looser) = if spaceship_won {
-        (&mut *spaceship, &mut *opponent_spaceship)
-    } else {
-        (&mut *opponent_spaceship, &mut *spaceship)
-    };
+    let mut spaceship = &mut ctx.accounts.spaceship;
 
-    // distribute rewards to winner
-    {
-        FightEngine::distribute_arena_experience(winner, looser)?;
-        FightEngine::distribute_arena_currency(winner, faction)?;
-    }
+    // The render feature is enabled for tests, that allow some basic TXT rendering of the game
+    // during rust BanksClient tests.
+    #[cfg(not(any(test, feature = "testing")))]
+    let event_handler = Box::new(|_| {});
+    #[cfg(not(any(test, feature = "testing")))]
+    let mut fight_engine = FightEngine::new(event_handler);
 
-    // advance seeds
+    #[cfg(feature = "testing")]
+    let event_handler = Box::new(|event| print_event(event));
+    #[cfg(feature = "testing")]
+    let mut fight_engine = FightEngine::new(event_handler);
+
+    let outcome = fight_engine.fight(spaceship, opponent_spaceship, generated_seed);
+
+    // distribute match rewards
     {
-        winner.randomness.advance_seed();
-        looser.randomness.advance_seed();
+        FightEngine::distribute_arena_currency(
+            &mut spaceship,
+            &mut opponent_spaceship,
+            faction,
+            outcome,
+        )?;
     }
 
     // analytics
     {
         ctx.accounts.realm.analytics.total_arena_matches += 1;
-
-        winner.analytics.total_arena_matches += 1;
-        looser.analytics.total_arena_matches += 1;
-        winner.analytics.total_arena_victories += 1;
+        match outcome {
+            FightOutcome::UserWon => spaceship.analytics.total_arena_victories += 1,
+            FightOutcome::OpponentWon => opponent_spaceship.analytics.total_arena_victories += 1,
+            FightOutcome::Draw => {}
+        }
+        spaceship.analytics.total_arena_matches += 1;
+        opponent_spaceship.analytics.total_arena_matches += 1;
     }
 
     emit!(ArenaMatchmakingMatchCompleted {
         realm_name: ctx.accounts.realm.name.to_string(),
         user: *ctx.accounts.user.key,
-        user_won: spaceship_won,
-        winner: SpaceShipLite::from_spaceship_account(winner),
-        looser: SpaceShipLite::from_spaceship_account(looser),
+        outcome,
+        spaceship: SpaceShipLite::from_spaceship_account(spaceship),
+        opponent_spaceship: SpaceShipLite::from_spaceship_account(opponent_spaceship),
     });
 
     #[cfg(target_os = "solana")]
@@ -236,6 +247,7 @@ pub fn arena_matchmaking_settle(
     Ok(())
 }
 
+// determine the opponent the spaceship will fight against
 pub fn roll_opponent_spaceship(
     rng: &mut RandomNumberGenerator,
     queue: &MatchmakingQueue,
@@ -254,5 +266,89 @@ pub fn roll_opponent_spaceship(
             return Ok(spaceship_key);
         }
         Err(HologramError::MatchmakingQueueNotFound.into())
+    }
+}
+
+// TXT rendering engine B)
+#[cfg(any(test, feature = "testing"))]
+fn print_event(event: BattleEvent) {
+    match event {
+        BattleEvent::TurnStart { turn } => msg!("- [Turn {}] -------------", turn),
+        BattleEvent::MatchEnded { .. } => msg!("- [Match ended] ----------"),
+        BattleEvent::Fire {
+            origin_id,
+            target_id,
+            damage,
+            weapon_type,
+            shots,
+        } => {
+            msg!(
+                "  - [{}] Fires {} {} at [{}] (may deal {} damage)",
+                origin_id,
+                shots,
+                weapon_type,
+                target_id,
+                damage
+            )
+        }
+        BattleEvent::Dodge { origin_id } => msg!("  - [{}] Dodged", origin_id),
+        BattleEvent::ShieldCounterPlasmaAttack { origin_id } => {
+            msg!("  - [{}] Shield countered plasma attack", origin_id)
+        }
+        BattleEvent::HullDamaged { origin_id, damage } => {
+            msg!("  - [{}] Takes {} Hull damages", origin_id, damage)
+        }
+        BattleEvent::ShieldLayerDown { origin_id } => {
+            msg!("  - [{}] Has lost one shield layer", origin_id)
+        }
+        BattleEvent::Jam {
+            origin_id,
+            target_id,
+            chance,
+            charge_burn,
+        } => msg!(
+            "  - [{}] Attempt to Jam [{}] burning {} with {}% chance of success",
+            origin_id,
+            target_id,
+            charge_burn,
+            chance
+        ),
+        BattleEvent::JamResisted { origin_id } => {
+            msg!("  - [{}] Jam resisted", origin_id)
+        }
+        BattleEvent::NothingToJam {
+            origin_id,
+            target_id,
+        } => {
+            msg!(
+                "  - [{}] Jam attempt on [{}] cannot lock any module",
+                origin_id,
+                target_id
+            )
+        }
+        BattleEvent::ActivePowerUpJammed {
+            origin_id,
+            target_id: _,
+            active_power_up_name,
+            active_power_up_index: _,
+            charge_burn,
+        } => {
+            msg!(
+                "  - [{}] {} jammed, loosing {} charges",
+                origin_id,
+                active_power_up_name,
+                charge_burn
+            )
+        }
+        BattleEvent::Repair {
+            origin_id,
+            repair_target,
+            amount,
+        } => msg!(
+            "  - [{}] Repaired {} {} HP",
+            origin_id,
+            repair_target,
+            amount
+        ),
     }
 }

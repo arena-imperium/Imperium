@@ -16,7 +16,7 @@ use {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub enum Faction {
-    Imperium,
+    Imperium = 1,
     Pirate,
     RogueDrone,
 }
@@ -32,6 +32,7 @@ impl Faction {
 }
 
 #[derive(Accounts)]
+#[instruction(spaceship_index:u8)]
 pub struct ArenaMatchmaking<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
@@ -40,13 +41,8 @@ pub struct ArenaMatchmaking<'info> {
         mut,
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
-        has_one = admin,
     )]
     pub realm: Box<Account<'info, Realm>>,
-
-    /// CHECK: validated by the realm admin
-    #[account(constraint = admin.key() == realm.admin)]
-    pub admin: AccountInfo<'info>,
 
     #[account(
         seeds=[b"user_account", realm.key().as_ref(), user.key.as_ref()],
@@ -56,11 +52,9 @@ pub struct ArenaMatchmaking<'info> {
 
     #[account(
         mut,
-        // seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), index_unknown here],
-        // bump = spaceship.bump,
+        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), spaceship_index.to_le_bytes().as_ref()],
+        bump = spaceship.bump,
         constraint = spaceship.arena_matchmaking.switchboard_request_info.account == switchboard_request.key(),
-        constraint = spaceship.owner == *user.key,
-        constraint = user_account.spaceships.iter().map(|s|{s.spaceship}).collect::<Vec<_>>().contains(&spaceship.key()),
     )]
     pub spaceship: Account<'info, SpaceShip>,
 
@@ -125,18 +119,19 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
             .switchboard_request_info
             .request_is_expired(current_slot)
         {
+            msg!("Matchmaking request is expired, cancelling");
             spaceship.arena_matchmaking.switchboard_request_info.status =
                 SwitchboardFunctionRequestStatus::Expired { slot: current_slot };
             // update matchmaking status
             spaceship.arena_matchmaking.matchmaking_status = MatchMakingStatus::None;
             // refund fuel cost
             spaceship.fuel.refill(ARENA_MATCHMAKING_FUEL_COST)?;
+            emit!(ArenaMatchmakingMatchingFailed {
+                realm_name: ctx.accounts.realm.name.to_string(),
+                user: ctx.accounts.user.key(),
+                spaceship: SpaceShipLite::from_spaceship_account(spaceship)
+            });
         }
-        emit!(ArenaMatchmakingMatchingFailed {
-            realm_name: ctx.accounts.realm.name.to_string(),
-            user: ctx.accounts.user.key(),
-            spaceship: SpaceShipLite::from_spaceship_account(spaceship)
-        });
     }
 
     // Validations
@@ -201,7 +196,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
         let realm_key = ctx.accounts.realm.key();
         let realm = &mut ctx.accounts.realm;
 
-        // find the queue matching spaceship level
+        // find the queue matching spaceship Ordnance
         let queue = realm.get_matching_matchmaking_queue_mut(spaceship)?;
 
         // check that the system is not processing more matchmaking requests than there is spaceships in the queue (due to the concurrency issue described above)
@@ -234,11 +229,10 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
                 ];
 
                 // Update the switchboard function parameters to include the queued spaceships
-
                 {
                     let request_set_config_ctx = FunctionRequestSetConfig {
                         request: ctx.accounts.switchboard_request.clone(),
-                        authority: ctx.accounts.admin.clone(),
+                        authority: ctx.accounts.user_account.to_account_info(),
                     };
                     let request_params = format!(
                         "PID={},USER={},REALM_PDA={},USER_ACCOUNT_PDA={},SPACESHIP_PDA={},FACTION={},OS_1_PDA={},OS_2_PDA={},OS_3_PDA={},OS_4_PDA={},OS_5_PDA={}",
@@ -254,6 +248,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
                         queue.spaceships[3].unwrap(),
                         queue.spaceships[4].unwrap(),
                     );
+                    msg!("{}", request_params);
 
                     request_set_config_ctx.invoke_signed(
                         ctx.accounts.switchboard_program.clone(),
@@ -261,16 +256,16 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
                         false,
                         &[user_account_seed],
                     )?;
+                    msg!("Switchboard function parameters updated");
                 }
 
                 // Trigger the request account for the arena_matchmaking_function
                 // This will instruct the off-chain oracles to execute the docker container and relay
                 // the result back to our program via the 'arena_matchmaking_settle' instruction.
-                #[cfg(not(any(test, feature = "testing")))]
                 {
                     let request_trigger_ctx = FunctionRequestTrigger {
                         request: ctx.accounts.switchboard_request.clone(),
-                        authority: ctx.accounts.admin.clone(),
+                        authority: ctx.accounts.user_account.to_account_info(),
                         escrow: ctx.accounts.switchboard_request_escrow.to_account_info(),
                         function: ctx.accounts.arena_matchmaking_function.to_account_info(),
                         state: ctx.accounts.switchboard_state.to_account_info(),
@@ -297,6 +292,7 @@ pub fn arena_matchmaking(ctx: Context<ArenaMatchmaking>, faction: Faction) -> Re
                         None,
                         &[user_account_seed],
                     )?;
+                    msg!("Switchboard function request triggered");
                 }
             }
 

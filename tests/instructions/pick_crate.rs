@@ -20,14 +20,14 @@ pub async fn pick_crate(
     program_test_ctx: &RwLock<ProgramTestContext>,
     user: &Keypair,
     realm_pda: &Pubkey,
-    realm_admin: &Pubkey,
-    spaceship_pda: &Pubkey,
+    spaceship_index: u8,
     crate_type: CrateType,
 ) -> std::result::Result<(), BanksClientError> {
     // ==== WHEN ==============================================================
     let (user_account_pda, _) = pda::get_user_account_pda(&realm_pda, &user.pubkey());
+    let (spaceship_pda, _) = utils::get_spaceship_pda(realm_pda, &user.pubkey(), spaceship_index);
     // Fetch the user account
-    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
+    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
     let switchboard_cpf_request = spaceship.crate_picking.switchboard_request_info.account;
     let (switchboard_state_pda, _) = utils::get_switchboard_state_pda();
     let switchboard_cpf_request_escrow =
@@ -36,10 +36,9 @@ pub async fn pick_crate(
     let accounts_meta = {
         let accounts = hologram::accounts::PickCrate {
             user: user.pubkey(),
-            admin: *realm_admin,
             realm: *realm_pda,
             user_account: user_account_pda,
-            spaceship: *spaceship_pda,
+            spaceship: spaceship_pda,
             switchboard_state: switchboard_state_pda,
             switchboard_attestation_queue: Pubkey::from_str(SWITCHBOARD_ATTESTATION_QUEUE).unwrap(),
             crate_picking_function: Pubkey::from_str(IMPERIUM_CPF).unwrap(),
@@ -58,7 +57,10 @@ pub async fn pick_crate(
     utils::create_and_execute_hologram_ix(
         program_test_ctx,
         accounts_meta,
-        hologram::instruction::PickCrate { crate_type },
+        hologram::instruction::PickCrate {
+            crate_type,
+            spaceship_index,
+        },
         Some(&user.pubkey()),
         &[user],
         None,
@@ -67,7 +69,7 @@ pub async fn pick_crate(
     .await?;
 
     // ==== THEN ==============================================================
-    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
+    let spaceship = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
 
     // verify that the crate_picking status is updated
     assert!(matches!(
@@ -77,7 +79,7 @@ pub async fn pick_crate(
 
     // ==== AND ===============================================================
     // Because using the localnet/banksclient setup we cannot rely on switchboard function, we call the settlement directly
-    let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, spaceship_pda).await;
+    let spaceship_before = utils::get_account::<SpaceShip>(program_test_ctx, &spaceship_pda).await;
 
     // ==== WHEN ==============================================================
     let enclave_signer = Keypair::new();
@@ -87,7 +89,7 @@ pub async fn pick_crate(
             user: user.pubkey(),
             realm: *realm_pda,
             user_account: user_account_pda,
-            spaceship: *spaceship_pda,
+            spaceship: spaceship_pda,
             crate_picking_function: Pubkey::from_str(IMPERIUM_CPF).unwrap(),
             switchboard_request: switchboard_cpf_request,
         };
@@ -138,24 +140,24 @@ pub async fn pick_crate(
     match crate_outcome {
         hologram::instructions::CrateOutcome::Module { .. } => {
             assert_eq!(spaceship.modules.len(), spaceship_before.modules.len() + 1);
-            assert_eq!(spaceship.powerup_score, spaceship_before.powerup_score + 1);
+            assert_eq!(spaceship.ordnance(), spaceship_before.ordnance() + 1);
         }
         hologram::instructions::CrateOutcome::Drone { .. } => {
             assert_eq!(spaceship.drones.len(), spaceship_before.drones.len() + 1);
-            assert_eq!(spaceship.powerup_score, spaceship_before.powerup_score + 1);
+            assert_eq!(spaceship.ordnance(), spaceship_before.ordnance() + 1);
         }
         hologram::instructions::CrateOutcome::Mutation => {
             assert_eq!(
                 spaceship.mutations.len(),
                 spaceship_before.mutations.len() + 1
             );
-            assert_eq!(spaceship.powerup_score, spaceship_before.powerup_score + 1);
+            assert_eq!(spaceship.ordnance(), spaceship_before.ordnance() + 1);
         }
         hologram::instructions::CrateOutcome::Scam => {
             assert_eq!(spaceship.modules.len(), spaceship_before.modules.len());
             assert_eq!(spaceship.drones.len(), spaceship_before.drones.len());
             assert_eq!(spaceship.mutations.len(), spaceship_before.mutations.len());
-            assert_eq!(spaceship.powerup_score, spaceship_before.powerup_score);
+            assert_eq!(spaceship.ordnance(), spaceship_before.ordnance());
         }
     }
 

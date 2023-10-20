@@ -3,12 +3,11 @@ use {
         error::HologramError,
         state::{MatchmakingQueue, Realm},
         utils::LimitedString,
-        ARENA_MATCHMAKING_LEVEL_PER_RANGE, ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE, MAX_LEVEL,
+        ARENA_MATCHMAKING_ORDNANCE_PER_RANGE, ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE, MAX_ORDNANCE,
     },
     anchor_lang::prelude::*,
     switchboard_solana::FunctionAccountData,
 };
-// The realm represent the game world. It is the top level of the game hierarchy.
 
 #[derive(Accounts)]
 #[instruction(name:String)]
@@ -23,15 +22,13 @@ pub struct InitializeRealm<'info> {
         payer=payer,
         seeds=[b"realm", name.as_bytes()],
         bump,
-        space = Realm::LEN + (MAX_LEVEL as usize / ARENA_MATCHMAKING_LEVEL_PER_RANGE as usize * std::mem::size_of::<MatchmakingQueue>()),
+        space = Realm::LEN + (MAX_ORDNANCE as usize / ARENA_MATCHMAKING_ORDNANCE_PER_RANGE as usize * std::mem::size_of::<MatchmakingQueue>()),
     )]
     pub realm: Account<'info, Realm>,
 
     // spaceship seed generation function
     #[account(
         constraint =
-            // Ensure our authority owns this function
-            // spaceship_seed_generation_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
             !spaceship_seed_generation_function.load()?.requests_disabled
     )]
@@ -40,8 +37,6 @@ pub struct InitializeRealm<'info> {
     /// arena matchmaking function
     #[account(
         constraint =
-            // Ensure our authority owns this function
-            // arena_matchmaking_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
             !arena_matchmaking_function.load()?.requests_disabled
     )]
@@ -50,8 +45,6 @@ pub struct InitializeRealm<'info> {
     /// crate picking function
     #[account(
         constraint =
-            // Ensure our authority owns this function
-            // arena_matchmaking_function.load()?.authority == *admin.key &&
             // Ensure custom requests are allowed
             !crate_picking_function.load()?.requests_disabled
     )]
@@ -102,9 +95,11 @@ pub fn initialize_realm(ctx: Context<InitializeRealm>, name: String) -> Result<(
     // Initialize arena matchmaking queue
     {
         let realm = &mut ctx.accounts.realm;
-        for i in (0..MAX_LEVEL).step_by(ARENA_MATCHMAKING_LEVEL_PER_RANGE as usize) {
+        // Note: spaceships starts at 2 ordnance and there will be a queue for 0-2(exclusive) ordnance but that
+        // way all case are covered (a player plucking modules even the civilian ones is still supported)
+        for i in (0..MAX_ORDNANCE).step_by(ARENA_MATCHMAKING_ORDNANCE_PER_RANGE as usize) {
             realm.arena_matchmaking_queue.push(MatchmakingQueue {
-                up_to_level: i + ARENA_MATCHMAKING_LEVEL_PER_RANGE,
+                up_to_ordnance: i + ARENA_MATCHMAKING_ORDNANCE_PER_RANGE,
                 spaceships: [None; ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE as usize],
                 matchmaking_request_count: 0,
             });

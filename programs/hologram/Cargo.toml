@@ -20,6 +20,7 @@ mainnet-beta = []
 devnet = []
 localnet = []
 testing = []
+"render-hooks" = []
 
 [dependencies]
 anchor-lang = { version = "0.28.0", features = ["init-if-needed"] }
@@ -29,16 +30,8 @@ solana-program = "1.16"
 solana-security-txt = "1.1.1"
 num-traits = "0.2.16"
 num = "0.4.1"
-switchboard-solana = "0.28.28"
+switchboard-solana = "0.28.33"
 lazy_static = "1.4.0"
-# anchor-lang = { workspace = true }
-# anchor-spl = { workspace = true }
-# spl-token = { workspace = true }
-# solana-program = { workspace = true }
-# solana-security-txt = { workspace = true }
-# num-traits = "0.2.16"
-# num = "0.4.1"
-# switchboard-solana = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.2.0"

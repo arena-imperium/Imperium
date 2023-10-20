@@ -2,13 +2,14 @@
 use switchboard_solana::FunctionRequestAccountData;
 use {
     crate::{
-        engine::LT_STARTER_WEAPON,
+        engine::LT_STARTER_OFFENSIVE_MODULES,
         error::HologramError,
         state::{
             spaceship, Currency, Realm, SpaceShip, SpaceShipLite, SwitchboardFunctionRequestStatus,
             UserAccount,
         },
         utils::RandomNumberGenerator,
+        STARTING_IMPERIAL_CREDITS,
     },
     anchor_lang::prelude::*,
     spaceship::Hull,
@@ -25,6 +26,7 @@ pub struct CreateSpaceshipSettle<'info> {
     pub user: AccountInfo<'info>,
 
     #[account(
+        mut,
         seeds=[b"realm", realm.name.to_bytes()],
         bump = realm.bump,
     )]
@@ -39,7 +41,7 @@ pub struct CreateSpaceshipSettle<'info> {
 
     #[account(
         mut,
-        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), user_account.spaceships.len().to_le_bytes().as_ref()],
+        seeds=[b"spaceship", realm.key().as_ref(), user.key.as_ref(), (user_account.spaceships.len() as u8).to_le_bytes().as_ref()],
         bump = spaceship.bump,
         constraint = spaceship.randomness.switchboard_request_info.account == switchboard_request.key(),
     )]
@@ -119,9 +121,10 @@ pub fn create_spaceship_settle(
         ctx.accounts.spaceship.randomness.iteration = 1;
     }
 
+    let mut rng = RandomNumberGenerator::new(generated_seed.into());
+
     // Roll the Hull with the first generated seed
     {
-        let mut rng = RandomNumberGenerator::new(generated_seed.into());
         let dice_roll = rng.roll_dice(10); // waiting for mem::variant_count::<Hull>() to be non nightly only rust...
         ctx.accounts.spaceship.hull = match dice_roll {
             1 => Hull::CommonOne,
@@ -138,17 +141,31 @@ pub fn create_spaceship_settle(
         };
     }
 
-    // provide the spaceship with it's first crate and stat points
-    // mount starter weapon
+    // provide spaceship with starting module and credits
     {
         let spaceship = &mut ctx.accounts.spaceship;
-        // provide starter weapon
-        spaceship.modules.push(LT_STARTER_WEAPON.clone());
-        spaceship.powerup_score = 1;
-        // provide 1 stat point
-        spaceship.experience.credit_stat_point(1);
-        // provide currency for 1 NI crate
-        spaceship.wallet.credit(30, Currency::ImperialCredit)?;
+        // provide starter offensive_module
+        {
+            let roll = rng.roll_dice(LT_STARTER_OFFENSIVE_MODULES.len());
+            let starter_offensive_module = LT_STARTER_OFFENSIVE_MODULES[roll as usize - 1].clone();
+            msg!("Starter offensive module: {:?}", starter_offensive_module);
+            spaceship.mount_module(starter_offensive_module)?;
+        }
+        // provide starting imperial credits
+        {
+            spaceship
+                .wallet
+                .credit(STARTING_IMPERIAL_CREDITS, Currency::ImperialCredit)?;
+        }
+    }
+
+    // set unique spaceship ID
+    {
+        msg!(
+            "Total spaceships created: {}",
+            ctx.accounts.realm.analytics.total_spaceships_created
+        );
+        ctx.accounts.spaceship.id = ctx.accounts.realm.analytics.total_spaceships_created;
     }
 
     let spaceship_lite = SpaceShipLite {
