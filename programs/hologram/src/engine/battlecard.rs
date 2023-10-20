@@ -269,6 +269,7 @@ impl SpaceShipBattleCard {
 
 #[cfg(feature = "render-hooks")]
 pub enum BattleEvent {
+    MatchStarted {},
     TurnStart {
         turn: u16,
     },

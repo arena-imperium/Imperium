@@ -273,6 +273,7 @@ pub fn roll_opponent_spaceship(
 #[cfg(any(test, feature = "testing"))]
 fn print_event(event: BattleEvent) {
     match event {
+        BattleEvent::MatchStarted { .. } => msg!("- [Match started] ----------"),
         BattleEvent::TurnStart { turn } => msg!("- [Turn {}] -------------", turn),
         BattleEvent::MatchEnded { .. } => msg!("- [Match ended] ----------"),
         BattleEvent::Fire {

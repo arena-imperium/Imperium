@@ -32,13 +32,17 @@ impl ActivePowerup {
 
     // charge the module and return true if it's been activated
     pub fn charge_and_activate(&mut self, amount: u8) -> bool {
-        self.accumulated_charge += amount;
+        self.charge(amount);
         self.activate()
     }
 
-    pub fn activate(&mut self) -> bool {
+    fn charge(&mut self, amount: u8) {
+        self.accumulated_charge = self.accumulated_charge.saturating_add(amount);
+    }
+
+    fn activate(&mut self) -> bool {
         if self.is_charged() {
-            self.accumulated_charge -= self.charge_time;
+            self.accumulated_charge = self.accumulated_charge.saturating_sub(self.charge_time);
             return true;
         }
         return false;
