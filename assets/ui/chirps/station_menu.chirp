@@ -4,7 +4,7 @@ fn button(action) {
         Text(font("fonts/FiraSans-Bold.ttf") text("test"))
     }
 }
-Root(screen_root row distrib_start main_margin(50) image("textures/backgroundwithoutplanets.png")) {
+Root(screen_root row distrib_start main_margin(50) ) {
     // Extra column to center the thing
     Column(column rules(100%, 100%)) {
         Column(column layout("vdSaS") rules(1.0*, 1.0*) main_margin(10) ) {

@@ -45,8 +45,11 @@ fn main() {
         let watch_for_changes = bevy::asset::ChangeWatcher::with_delay(delay);
         let asset_folder = "assets".to_owned();
         AssetPlugin { asset_folder, watch_for_changes }
-    })
+        })
+        // prevents blurry sprites
+        .set(ImagePlugin::default_nearest())
     );
+
     app.add_systems(Startup, set_window_icon);
     app.add_plugins(WorldInspectorPlugin::new());
     app.add_plugins(AssetLoadingPlugin);
