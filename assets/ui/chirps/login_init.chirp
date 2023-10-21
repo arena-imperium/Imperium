@@ -1,0 +1,8 @@
+
+Root(screen_root row distrib_start main_margin(50) ) {
+    // Extra column to center the thing
+    Column(column layout("vdEaC") rules(100%, 100%) margin(100)) {
+        // Call it like a rust macro
+        Text(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Press any key to request station access"))
+    }
+}

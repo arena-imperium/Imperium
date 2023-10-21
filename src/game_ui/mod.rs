@@ -3,7 +3,8 @@ use bevy::log;
 use bevy::prelude::*;
 use bevy::render::render_resource::Texture;
 use bevy_mod_picking::DefaultPickingPlugins;
-use cuicui_chirp::ChirpBundle;
+use cuicui_chirp::{ChirpBundle, ChirpReader};
+use cuicui_dsl::dsl;
 use cuicui_layout::LayoutRootCamera;
 
 use crate::game_ui::dsl::{ImperiumDsl, OnClick, UiAction};
@@ -100,6 +101,9 @@ fn loading_screen(mut next_state: ResMut<NextState<Scene>>) {
     }
 }
 
+#[derive(Default, Component)]
+pub struct LoginInitUi;
+
 // Setup the scene for when the station is focused on
 fn on_station_login(
     mut cmds: Commands,
@@ -107,7 +111,10 @@ fn on_station_login(
     mut text_map: ResMut<StrMap>,
     camera_query: Query<Entity, With<Camera>>,
 ) {
-    cmds.spawn(ChirpBundle::new(serv.load("ui/chirps/station_menu.chirp")));
+    cmds.spawn((
+        ChirpBundle::new(serv.load("ui/chirps/login_init.chirp")),
+        LoginInitUi,
+    ));
 
     cmds.spawn(SpriteBundle {
         texture: serv.load("textures/bg_large.png"),
@@ -168,7 +175,11 @@ fn station_login(
     serv: Res<AssetServer>,
     mut next_state: ResMut<NextState<Scene>>,
     mut login_state: ResMut<LoginState>,
+    keyboard_input: Res<Input<KeyCode>>,
 ) {
+    if keyboard_input.any_just_pressed() {
+        if !login_state {}
+    }
 }
 
 fn hanger(mut next_state: ResMut<NextState<Scene>>) {
