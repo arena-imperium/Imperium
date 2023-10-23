@@ -5,14 +5,14 @@ use switchboard_solana::FunctionRequestAccountData;
 use {
     super::user_facing::Faction,
     crate::{
-        engine::{FightEngine, FightOutcome},
+        engine::{FightEngine, FightOutcome, SpaceShipBattleCard},
         error::HologramError,
         state::{
             spaceship, MatchmakingQueue, Realm, SpaceShip, SpaceShipLite,
             SwitchboardFunctionRequestStatus, UserAccount,
         },
         utils::RandomNumberGenerator,
-        ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE,
+        ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE, MATCH_MAX_TURN,
     },
     anchor_lang::prelude::*,
     spaceship::MatchMakingStatus,
@@ -204,12 +204,18 @@ pub fn arena_matchmaking_settle(
     #[cfg(not(any(test, feature = "testing")))]
     let mut fight_engine = FightEngine::new(event_handler);
 
-    #[cfg(feature = "testing")]
+    #[cfg(any(test, feature = "testing"))]
     let event_handler = Box::new(|event| print_event(event));
-    #[cfg(feature = "testing")]
+    #[cfg(any(test, feature = "testing"))]
     let mut fight_engine = FightEngine::new(event_handler);
 
-    let outcome = fight_engine.fight(spaceship, opponent_spaceship, generated_seed);
+    // generate SpaceShipBattleCards, another data-representation of a SpaceShip object optimized for battle (injected to help with test, seems silly here)
+    let outcome = fight_engine.fight(
+        &mut SpaceShipBattleCard::new(&spaceship),
+        &mut SpaceShipBattleCard::new(&opponent_spaceship),
+        generated_seed,
+        MATCH_MAX_TURN,
+    );
 
     // distribute match rewards
     {
@@ -271,7 +277,7 @@ pub fn roll_opponent_spaceship(
 
 // TXT rendering engine B)
 #[cfg(any(test, feature = "testing"))]
-fn print_event(event: BattleEvent) {
+pub fn print_event(event: BattleEvent) {
     match event {
         BattleEvent::MatchStarted { .. } => msg!("- [Match started] ----------"),
         BattleEvent::TurnStart { turn } => msg!("- [Turn {}] -------------", turn),
