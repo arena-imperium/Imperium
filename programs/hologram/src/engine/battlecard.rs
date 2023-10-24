@@ -174,40 +174,43 @@ impl SpaceShipBattleCard {
             charge_burn,
         });
         if rng.roll_dice(100 as usize) <= jam_chance as u64 {
+            let target_id = target.id;
             let active_powerups_iter_mut = target.get_active_powerups_mutable_iterator();
-            todo!("unimplemented");
-            // // filter powerups with charge only
-            // let active_powerups_with_charge_indexes: Vec<usize> = active_powerups_iter_mut
-            //     .enumerate()
-            //     .filter(|(_, a)| a.accumulated_charge != 0)
-            //     .map(|(i, _)| i)
-            //     .collect();
+            // filter powerups to get the active one, with some accumulated_charge
+            let mut active_powerups_iter_mut_with_charge = active_powerups_iter_mut
+                .filter(|a| a.accumulated_charge != 0)
+                .peekable();
 
-            // if active_powerups_with_charge_indexes.is_empty() {
-            //     #[cfg(any(test, feature = "render-hooks"))]
-            //     event_callback(BattleEvent::NothingToJam {
-            //         origin_id: self.id,
-            //         target_id: target.id,
-            //     });
-            //     return;
-            // }
+            // if there is no active powerup with charge, we can't jam anything and abort
+            if active_powerups_iter_mut_with_charge.peek().is_none() {
+                #[cfg(any(test, feature = "render-hooks"))]
+                event_callback(BattleEvent::NothingToJam {
+                    origin_id: self.id,
+                    target_id,
+                });
+                return;
+            }
 
-            // let roll = rng.roll_dice(active_powerups_with_charge_indexes.len());
-            // let index = active_powerups_with_charge_indexes[roll as usize];
-            // #[cfg(any(test, feature = "render-hooks"))]
-            // {
-            //     let target_powerup_name = active_powerups[index].name.clone();
-            //     event_callback(BattleEvent::ActivePowerUpJammed {
-            //         origin_id: self.id,
-            //         target_id: target.id,
-            //         active_power_up_name: target_powerup_name.to_string(),
-            //         active_power_up_index: index,
-            //         charge_burn,
-            //     });
-            // }
-            // active_powerups[index].accumulated_charge = target.active_powerups[index]
-            //     .accumulated_charge
-            //     .saturating_sub(charge_burn);
+            // now we know there is at least one active powerup with charge, we can pick one at random
+            // collect all element in a vector
+            let mut active_powerups_with_charge: Vec<&mut ConcretePowerup> =
+                active_powerups_iter_mut_with_charge.collect();
+            let random_index = rng.roll_dice(active_powerups_with_charge.len()) as usize;
+            #[cfg(any(test, feature = "render-hooks"))]
+            {
+                let target_powerup_name = active_powerups_with_charge[random_index].name.clone();
+                event_callback(BattleEvent::ActivePowerUpJammed {
+                    origin_id: self.id,
+                    target_id,
+                    active_power_up_name: target_powerup_name.to_string(),
+                    active_power_up_index: random_index,
+                    charge_burn,
+                });
+            }
+            active_powerups_with_charge[random_index].accumulated_charge =
+                active_powerups_with_charge[random_index]
+                    .accumulated_charge
+                    .saturating_sub(charge_burn);
         } else {
             #[cfg(any(test, feature = "render-hooks"))]
             event_callback(BattleEvent::JamResisted { origin_id: self.id });
