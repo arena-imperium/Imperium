@@ -43,11 +43,11 @@ Root(screen_root row distrib_start main_margin(50) ) {
 // "oE" = Items overlap at the right/bottom.
 // -----
 // "aS" = The items within the container are all aligned to the top or left.
-              ///
-              /// If the container's axis is `Direction::Vertical`, a start alignment
-              /// will align all items to the left.
+//
+// If the container's axis is `Direction::Vertical`, a start alignment
+// will align all items to the left.
 // "aC" = The items within the container are all centered on the container's axis.
 // "aE" = The items within the container are all aligned to the bottom or right.
-              ///
-              /// If the container's axis is `Direction::Vertical`, an end alignment
-              /// will align all items to the right.
+//
+// If the container's axis is `Direction::Vertical`, an end alignment
+// will align all items to the right.
