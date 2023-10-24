@@ -22,6 +22,7 @@ pub enum Effect {
         chance: u8,
         charge_burn: u8,
     },
+    
     // [Higher order Effects]
     // HO effect representing a chance to apply an effect or do nothing
     Chance {

@@ -5,7 +5,7 @@ use {
         state::{Bonuses, Drone, DroneClass, DroneSize, Module, ModuleClass, Mutation, Passive},
         utils::LimitedString,
     },
-    std::{any::Any, sync::Arc},
+    std::sync::Arc,
 };
 
 // tag trait for Modules, Drones and Mutations
@@ -72,25 +72,21 @@ impl PowerUp for Module {
                 amount: rms.repair_amount,
             },
             ModuleClass::Capacitative(_, passive) => {
-                if let Passive::CapacitativeRepair {
+                let Passive::CapacitativeRepair {
                     recent_damage_threshold: threshold,
                     heat: _,
                     repair_amount,
                     target,
-                } = &passive
-                {
-                    let threshold_clone = threshold.clone();
-                    Effect::Conditionnal {
-                        condition: ConditionFn {
-                            func: Arc::new(move |sbc| sbc.recent_hull_damage() >= threshold_clone),
-                        },
-                        effect: Box::new(Effect::Repair {
-                            target: *target,
-                            amount: *repair_amount,
-                        }),
-                    }
-                } else {
-                    panic!("wrong passive")
+                } = &passive;
+                let threshold_clone = threshold.clone();
+                Effect::Conditionnal {
+                    condition: ConditionFn {
+                        func: Arc::new(move |sbc| sbc.recent_hull_damage() >= threshold_clone),
+                    },
+                    effect: Box::new(Effect::Repair {
+                        target: *target,
+                        amount: *repair_amount,
+                    }),
                 }
             }
         }
