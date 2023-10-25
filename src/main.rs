@@ -5,6 +5,7 @@ mod asset_loading;
 mod dev_ui;
 mod game_ui;
 pub mod input_util;
+mod scenes;
 mod solana;
 
 #[cfg(debug_assertions)]
@@ -13,8 +14,9 @@ use std::time::Duration;
 
 use crate::asset_loading::AssetLoadingPlugin;
 use crate::dev_ui::DevUI;
+use crate::scenes::ScenesPlugin;
 use crate::solana::SolanaPlugin;
-use game_ui::GamePlugin;
+use game_ui::GameGuiPlugin;
 use image::load;
 use image::ImageFormat::Png;
 use {
@@ -60,7 +62,8 @@ fn main() {
     app.add_plugins(WorldInspectorPlugin::new());
     app.add_plugins(AssetLoadingPlugin);
     app.add_plugins(SolanaPlugin);
-    app.add_plugins(GamePlugin);
+    app.add_plugins(GameGuiPlugin);
+    app.add_plugins(ScenesPlugin);
     app.add_plugins(DevUI);
     #[cfg(debug_assertions)]
     {
@@ -118,3 +121,14 @@ fn update() {
     }
 }
  */
+
+/// Ie: what gamemode/scene are we currently in?
+#[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States, Copy)]
+pub enum Scene {
+    #[default]
+    Loading,
+    /// Starting scene, where the player can setup a connection with their wallet
+    Station,
+    /// Here the menu is drawn and waiting for player interaction
+    Hanger,
+}
