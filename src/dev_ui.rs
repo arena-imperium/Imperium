@@ -1,10 +1,10 @@
 use {
+    crate::solana::HologramServer,
     bevy::{
         log,
         prelude::{App, Commands, Plugin, Res, Update},
     },
     bevy_egui::{egui, EguiContexts, EguiPlugin},
-    crate::solana::HologramServer,
 };
 
 pub struct DevUI;
@@ -43,40 +43,3 @@ pub fn dev_ui(mut contexts: EguiContexts, server: Res<HologramServer>, mut comma
             }
         });
 }
-/*
-pub fn login_window(egui: &mut EguiContext, server: &mut HologramServer) -> Option<Scene>{
-    let window_width = 200.0;
-    let window_height = 100.0;
-
-    let screen_rect = egui.screen_rect();
-    let window_start_x = (screen_rect.width() - window_width) / 2.0;
-    let window_start_y = (screen_rect.height() - window_height) / 2.0;
-
-    let window_rect = egui::Rect::from_min_size(
-        egui::pos2(window_start_x, window_start_y),
-        egui::vec2(window_width, window_height)
-    );
-    let mut new_scene = None;
-    egui::Window::new("Centered Window")
-        .fixed_pos(window_rect.min)
-        .fixed_size(window_rect.size())
-        .title_bar(false)
-        .resizable(false)
-        .show(c.egui, |ui| {
-
-                ui.label("Hanger entry id request");
-
-            ui.horizontal_centered(|ui| {
-                if ui.button("Cancel").clicked(){
-                    new_scene = Scene::Login(Login::NotLoggedIn)
-                }
-                // Add any additional UI elements here
-                if ui.button("Connect Pilot ID").clicked(){
-                    new_scene = Scene::Hanger
-                }
-            });
-        });
-    new_scene
-    None
-}
- */

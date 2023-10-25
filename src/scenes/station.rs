@@ -2,6 +2,7 @@ use crate::game_ui::dsl::{OnClick, UiAction};
 use crate::game_ui::egui_wrappers::StrMap;
 use crate::game_ui::LoginState;
 use crate::input_util::all_key_codes;
+use crate::solana::HologramServer;
 use crate::Scene;
 use bevy::asset::AssetServer;
 use bevy::hierarchy::{BuildChildren, DespawnRecursiveExt};
@@ -51,8 +52,6 @@ pub fn on_station_init(
         .spawn((
             SpriteBundle {
                 texture: serv.load("textures/station.png"),
-                // Todo: when proper texture is made, rescale.
-                // or just get a smaller placeholder texture
                 transform: Transform::from_xyz(0.0, 0.0, -1.0),
                 ..default()
             },
@@ -129,10 +128,14 @@ pub fn station_login(
                     OnClick::run(
                         |mut login_state: ResMut<LoginState>,
                          text_map: Res<StrMap>,
-                         mut next_state: ResMut<NextState<crate::Scene>>| {
+                         mut next_state: ResMut<NextState<crate::Scene>>,
+                         server: Res<HologramServer>,
+                         mut commands: Commands| {
                             let login_data = text_map.get("login_data").unwrap();
                             // Todo: make actual solana login logic here
                             //  And add extra states for waiting for login return val.
+                            server.fire_fetch_account_task(&mut commands);
+
                             // For now we just directly consider any input as acceptable.
                             if login_data != "" {
                                 log::info!("Logging in, loading hanger");

@@ -20,7 +20,7 @@ impl Plugin for ScenesPlugin {
 }
 
 fn loading_screen(mut next_state: ResMut<NextState<Scene>>) {
-    // Todo: when UI is decided on, draw bar showing loaded assets
+    // Todo: when Asset loading takes a while, draw bar showing loaded assets
     let loaded = true;
     if loaded {
         next_state.set(Scene::Station);
