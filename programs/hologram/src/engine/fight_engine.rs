@@ -1,11 +1,11 @@
 use {
-    super::{ActivePowerup, BattleEvent, Effect, SpaceShipBattleCard},
+    super::{BattleEvent, ConcretePowerup, Effect, SpaceShipBattleCard},
     crate::{
         instructions::user_facing::Faction,
         state::{RepairTarget, SpaceShip},
         utils::RandomNumberGenerator,
         CHARGE_PER_TURN, CURRENCY_REWARD_FOR_ARENA_LOOSER, CURRENCY_REWARD_FOR_ARENA_WINNER,
-        MATCH_MAX_TURN,
+        HEAT_DISSIPATION_PER_TURN,
     },
     anchor_lang::prelude::*,
 };
@@ -67,37 +67,54 @@ impl FightEngine {
     // Return true if the spaceship won the fight against opponent_spaceship
     pub fn fight(
         &mut self,
-        spaceship: &SpaceShip,
-        opponent_spaceship: &SpaceShip,
+        mut s: &mut SpaceShipBattleCard,
+        mut os: &mut SpaceShipBattleCard,
         fight_seed: u32,
+        max_turns: u16,
     ) -> FightOutcome {
         let mut rng = RandomNumberGenerator::new(fight_seed as u64);
 
-        // generate SpaceShipBattleCards, another data-representation of a SpaceShip object optimized for battle
-        let mut s = SpaceShipBattleCard::new(&spaceship);
-        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        #[cfg(any(test, feature = "render-hooks"))]
+        (self.event_callback)(BattleEvent::MatchStarted {});
 
         let mut turn = 0;
-        while turn < MATCH_MAX_TURN {
-            #[cfg(feature = "render-hooks")]
+        // will iterate until one of the spaceship is defeated or MATCH_MAX_TURN is reached
+        while turn < max_turns {
+            #[cfg(any(test, feature = "render-hooks"))]
             (self.event_callback)(BattleEvent::TurnStart { turn });
+
+            // stopping condition, a player or both are defeated
             if s.is_defeated() || os.is_defeated() {
                 break;
             }
 
-            // charge active modules of the spaceship and keep track of the ones reaching activation treshold
+            // these vectors will collect all effect that are to be applied to each spaceship
+            // said effects come from active and passive modules
             let mut s_effects_to_apply = Vec::new();
             let mut os_effects_to_apply = Vec::new();
+
             let collect_effects =
-                |powerups: &mut Vec<ActivePowerup>, effects_to_apply: &mut Vec<Effect>| {
-                    for a in powerups.iter_mut() {
-                        if a.charge_and_activate(CHARGE_PER_TURN) {
-                            effects_to_apply.extend(a.effects.clone());
+                |powerups: &mut Vec<ConcretePowerup>,
+                 effects_to_apply: &mut Vec<(Effect, usize)>| {
+                    for (i, p) in powerups.iter_mut().enumerate() {
+                        match p.is_active() {
+                            true => {
+                                if p.charge_and_activate(CHARGE_PER_TURN) {
+                                    effects_to_apply.push((p.effect.clone(), i));
+                                }
+                            }
+                            false => {
+                                p.dissipate_heat(HEAT_DISSIPATION_PER_TURN);
+                                if p.is_off_cooldown() {
+                                    effects_to_apply.push((p.effect.clone(), i));
+                                }
+                            }
                         }
                     }
                 };
-            collect_effects(&mut s.active_powerups, &mut s_effects_to_apply);
-            collect_effects(&mut os.active_powerups, &mut os_effects_to_apply);
+            collect_effects(&mut s.concrete_powerups, &mut s_effects_to_apply);
+            collect_effects(&mut os.concrete_powerups, &mut os_effects_to_apply);
+            // TODO: might want to add some random shuffling of all action for more balance later on (create a (effect, emittor, target) array and shuffle it)
             self.apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
             self.apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
 
@@ -115,52 +132,81 @@ impl FightEngine {
             _ => FightOutcome::Draw,
         };
 
-        #[cfg(feature = "render-hooks")]
+        #[cfg(any(test, feature = "render-hooks"))]
         (self.event_callback)(BattleEvent::MatchEnded { outcome });
         outcome
     }
 
     fn apply_effects(
         &mut self,
-        effects: Vec<Effect>,
+        effects: Vec<(Effect, usize)>,
         s_origin: &mut SpaceShipBattleCard,
         s_target: &mut SpaceShipBattleCard,
         rng: &mut RandomNumberGenerator,
     ) {
-        for effect in effects {
-            self.apply_effect(effect, s_origin, s_target, rng);
+        for (effect, source_powerup_index) in effects {
+            self.apply_effect(effect, source_powerup_index, s_origin, s_target, rng);
         }
     }
 
+    // apply an effect to a spaceship
+    // return wether something happened or not (in case of chance based and conditionnal effects)
     fn apply_effect(
         &mut self,
         effect: Effect,
+        source_powerup_index: usize,
         s_origin: &mut SpaceShipBattleCard,
         s_target: &mut SpaceShipBattleCard,
         rng: &mut RandomNumberGenerator,
-    ) {
-        match effect {
+    ) -> bool {
+        // effect is considered 'triggered' if the proba or condition was met
+        let effect_triggered = match effect {
             Effect::Fire {
                 damage,
                 shots,
                 weapon_type,
-            } => s_origin.fire_at(
-                s_target,
-                rng,
-                damage,
-                shots,
-                weapon_type,
-                &mut self.event_callback,
-            ),
-            Effect::Repair { target, amount } => match target {
-                RepairTarget::Hull => s_origin.hull_hitpoints.resplenish(amount),
-                RepairTarget::Shield => s_origin.shield_layers.resplenish(amount),
-            },
+            } => {
+                s_origin.fire_at(
+                    s_target,
+                    rng,
+                    damage,
+                    shots,
+                    weapon_type,
+                    &mut self.event_callback,
+                );
+                true
+            }
+            Effect::Repair { target, amount } => {
+                #[cfg(any(test, feature = "render-hooks"))]
+                (self.event_callback)(BattleEvent::Repair {
+                    origin_id: s_origin.id,
+                    repair_target: target,
+                    amount,
+                });
+                match target {
+                    RepairTarget::Hull => s_origin.hull_hitpoints.resplenish(amount),
+                    RepairTarget::Shield => s_origin.shield_layers.resplenish(amount),
+                };
+                true
+            }
             Effect::Jam {
                 chance,
                 charge_burn,
             } => {
                 s_origin.jam(s_target, rng, chance, charge_burn, &mut self.event_callback);
+                true
+            }
+            Effect::Chance {
+                probability,
+                effect,
+            } => {
+                let roll = rng.roll_dice(100) as u8;
+                if roll <= probability {
+                    self.apply_effect(*effect, source_powerup_index, s_origin, s_target, rng);
+                    true
+                } else {
+                    false
+                }
             }
             Effect::Composite {
                 effect1,
@@ -171,16 +217,230 @@ impl FightEngine {
                 let total_probabilities = probability1 + probability2;
                 let roll = rng.roll_dice(total_probabilities as usize) as u8;
                 if roll <= probability1 {
-                    self.apply_effect(*effect1, s_origin, s_target, rng);
+                    self.apply_effect(*effect1, source_powerup_index, s_origin, s_target, rng);
                 } else {
-                    self.apply_effect(*effect2, s_origin, s_target, rng);
+                    self.apply_effect(*effect2, source_powerup_index, s_origin, s_target, rng);
+                }
+                true
+            }
+            Effect::Conditionnal { condition, effect } => {
+                if (condition.func)(s_origin) {
+                    self.apply_effect(*effect, source_powerup_index, s_origin, s_target, rng)
+                } else {
+                    false
                 }
             }
-            Effect::Conditionnal { condition, effect } => todo!(),
-            Effect::DamageAbsorbtion {
-                weapon_type,
-                chance,
-            } => todo!(),
+        };
+
+        // if it's a passive and it was triggered, heat it (put it in cooldown period)
+        if effect_triggered {
+            let source_powerup = &mut s_origin.concrete_powerups[source_powerup_index];
+            if !source_powerup.is_active() {
+                source_powerup.heat();
+            }
         }
+        effect_triggered
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use {
+        super::*,
+        crate::{
+            engine::{LT_MODULES_COMMON, LT_MODULES_RARE, LT_MODULES_UNCOMMON},
+            instructions::print_event,
+            state::mock_spaceship,
+            utils::LimitedString,
+            MATCH_MAX_TURN,
+        },
+    };
+
+    #[test]
+    fn test_fight_empty_spaceships_should_draw() {
+        let mut fight_engine = FightEngine::new(Box::new(|_| {})); // event| print_event(event)
+        let spaceship = mock_spaceship(vec![], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(vec![], vec![], vec![]);
+        let fight_seed = 1;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let outcome = fight_engine.fight(&mut s, &mut os, fight_seed, MATCH_MAX_TURN);
+
+        assert!(matches!(outcome, FightOutcome::Draw));
+    }
+
+    #[test]
+    fn test_plasma_damage_nullified_by_shield() {
+        let mut fight_engine = FightEngine::new(Box::new(|_| {}));
+        let slicer_module = LT_MODULES_COMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Slicer"))
+            .unwrap();
+        let capacitative_shield_battery_module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Capacitative Shield Battery"))
+            .unwrap();
+        let spaceship = mock_spaceship(vec![slicer_module], vec![], vec![]);
+        let opponent_spaceship =
+            mock_spaceship(vec![capacitative_shield_battery_module], vec![], vec![]);
+        let fight_seed = 1;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let turns = 18;
+        let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
+
+        assert!(os.shield_layers.current == os.shield_layers.max);
+        assert!(os.hull_hitpoints.current == os.hull_hitpoints.max);
+    }
+
+    #[test]
+    fn test_laser_blocked_by_shield() {
+        let mut fight_engine = FightEngine::new(Box::new(|_| {}));
+        let pulse_laser_module = LT_MODULES_COMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Pulse Laser"))
+            .unwrap();
+        let capacitative_shield_battery_module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Capacitative Shield Battery"))
+            .unwrap();
+        let spaceship = mock_spaceship(vec![pulse_laser_module], vec![], vec![]);
+        let opponent_spaceship =
+            mock_spaceship(vec![capacitative_shield_battery_module], vec![], vec![]);
+        let fight_seed = 1;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let turns = 10;
+        let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
+
+        assert!(os.shield_layers.current == os.shield_layers.max - 1);
+        assert!(os.hull_hitpoints.current == os.hull_hitpoints.max);
+    }
+
+    #[test]
+    fn test_fight_missile_weapon() {
+        let mut fight_engine = FightEngine::new(Box::new(|_| {}));
+        let module = LT_MODULES_COMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Light Missile Launcher I"))
+            .unwrap();
+        let spaceship = mock_spaceship(vec![module], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(vec![], vec![], vec![]);
+        let fight_seed = 1;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let outcome = fight_engine.fight(&mut s, &mut os, fight_seed, MATCH_MAX_TURN);
+
+        assert!(matches!(outcome, FightOutcome::UserWon));
+    }
+
+    #[test]
+    fn test_fight_laser_weapon() {
+        let mut fight_engine = FightEngine::new(Box::new(|_| {}));
+        let module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Heavy Pulse Laser"))
+            .unwrap();
+        let spaceship = mock_spaceship(vec![module], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(vec![], vec![], vec![]);
+        let fight_seed = 1;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let outcome = fight_engine.fight(&mut s, &mut os, fight_seed, MATCH_MAX_TURN);
+
+        assert!(matches!(outcome, FightOutcome::UserWon));
+    }
+
+    #[test]
+    fn test_fight_projectile_weapon() {
+        let mut fight_engine = FightEngine::new(Box::new(|_| {}));
+        let module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("125mm Dual Autocannon"))
+            .unwrap();
+        let spaceship = mock_spaceship(vec![module], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(vec![], vec![], vec![]);
+        let fight_seed = 1;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let outcome = fight_engine.fight(&mut s, &mut os, fight_seed, MATCH_MAX_TURN);
+
+        assert!(matches!(outcome, FightOutcome::UserWon));
+    }
+
+    #[test]
+    fn test_fight_capacitative_shield_repair() {
+        let mut fight_engine = FightEngine::new(Box::new(|_| {}));
+        let capacitative_shield_battery_module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Capacitative Shield Battery"))
+            .unwrap();
+        let heavy_pulse_laser_module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Heavy Pulse Laser"))
+            .unwrap();
+        let spaceship = mock_spaceship(vec![capacitative_shield_battery_module], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(
+            vec![
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module,
+            ],
+            vec![],
+            vec![],
+        );
+        let fight_seed = 4;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let turns = 17;
+        let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
+
+        assert!(s.shield_layers.current == s.shield_layers.max);
+    }
+
+    #[test]
+    fn test_fight_capacitative_hull_repair() {
+        let mut fight_engine = FightEngine::new(Box::new(|e| print_event(e)));
+        let capacitative_shield_battery_module = LT_MODULES_RARE
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Capacitative Armor"))
+            .unwrap();
+        let heavy_pulse_laser_module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Heavy Pulse Laser"))
+            .unwrap();
+        let spaceship = mock_spaceship(vec![capacitative_shield_battery_module], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(
+            vec![
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module.clone(),
+                heavy_pulse_laser_module,
+            ],
+            vec![],
+            vec![],
+        );
+        let fight_seed = 4;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let turns = 18;
+        let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
+
+        // minus damages + heal
+        assert!(s.hull_hitpoints.current == s.hull_hitpoints.max - 8 + 2);
     }
 }

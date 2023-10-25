@@ -7,6 +7,7 @@ use {
             RepairModuleStats, RepairTarget, Shots, WeaponModuleStats, WeaponType,
         },
         utils::{LimitedString, RandomNumberGenerator},
+        BASE_HEAT,
     },
     anchor_lang::{require, Result},
 };
@@ -26,12 +27,11 @@ impl LootEngine {
     ) -> Result<Module> {
         let drop_rarity = Self::get_drop_rarity(rng, faction_rarity_enabled);
 
-        // For now only offensive modules, later on make a first roll to choose if offensive, defensive, bonuses etc.
         let loot_table = match drop_rarity {
             Common => LT_MODULES_COMMON.to_vec(),
-            Uncommon => LT_MODULES_OFFENSIVE_UNCOMMON.to_vec(),
-            Rare => LT_MODULES_OFFENSIVE_RARE.to_vec(),
-            Faction => LT_MODULES_OFFENSIVE_FACTION.to_vec(),
+            Uncommon => LT_MODULES_UNCOMMON.to_vec(),
+            Rare => LT_MODULES_RARE.to_vec(),
+            Faction => LT_MODULES_FACTION.to_vec(),
         };
         require!(!loot_table.is_empty(), HologramError::InvalidLootTable);
 
@@ -45,9 +45,8 @@ impl LootEngine {
     ) -> Result<Drone> {
         let drop_rarity = Self::get_drop_rarity(rng, faction_rarity_enabled);
 
-        // For now only offensive modules, later on make a first roll to choose if offensive, defensive, bonuses etc.
         let loot_table = match drop_rarity {
-            Common => LT_DRONE_OFFENSIVE_COMMON.to_vec(),
+            Common => LT_DRONE_COMMON.to_vec(),
             Uncommon => LT_DRONE_OFFENSIVE_UNCOMMON.to_vec(),
             Rare => LT_DRONE_OFFENSIVE_RARE.to_vec(),
             Faction => LT_DRONE_OFFENSIVE_FACTION.to_vec(),
@@ -105,7 +104,6 @@ impl LootEngine {
     }
 }
 
-// lazy_static! {
 // ------------------ MODULES ---------------------------------------------------------------------
 // ------------------ STARTERS --------------------------------------------------------------------
 pub const LT_STARTER_OFFENSIVE_MODULES: [Module; 2] = [
@@ -134,7 +132,7 @@ pub const LT_STARTER_OFFENSIVE_MODULES: [Module; 2] = [
 ];
 
 // ------------------ COMMON ---------------------------------------------------------------------
-pub const LT_MODULES_COMMON: [Module; 8] = [
+pub const LT_MODULES_COMMON: [Module; 5] = [
     // Offensive ----------------------------------------------------------------------------------
     Module {
         name: LimitedString::new_const("Pulse Laser"),
@@ -191,65 +189,11 @@ pub const LT_MODULES_COMMON: [Module; 8] = [
         }),
         is_active: true,
     },
-    // Other ----------------------------------------------------------------------------------
-    Module {
-        name: LimitedString::new_const("Compact Shield Booster"),
-        rarity: Rare,
-        class: ModuleClass::Repairer(
-            Bonuses {
-                hull_hitpoints: 0,
-                shield_layers: 1,
-                dodge_chance: 0,
-                jamming_nullifying_chance: 0,
-            },
-            RepairModuleStats {
-                repair_amount: 1,
-                charge_time: 16,
-                target: RepairTarget::Shield,
-            },
-        ),
-        is_active: true,
-    },
-    Module {
-        name: LimitedString::new_const("Capacitative Armor"),
-        rarity: Rare,
-        class: ModuleClass::Capacitative(
-            Bonuses {
-                hull_hitpoints: 5,
-                shield_layers: 0,
-                dodge_chance: 0,
-                jamming_nullifying_chance: 0,
-            },
-            Passive::CapacitativeRepair {
-                threshold: 5,
-                repair_amount: 3,
-                target: RepairTarget::Hull,
-            },
-        ),
-        is_active: false,
-    },
-    Module {
-        name: LimitedString::new_const("Capacitative Shield Battery"),
-        rarity: Uncommon,
-        class: ModuleClass::Capacitative(
-            Bonuses {
-                hull_hitpoints: 0,
-                shield_layers: 1,
-                dodge_chance: 0,
-                jamming_nullifying_chance: 0,
-            },
-            Passive::CapacitativeRepair {
-                threshold: 5,
-                repair_amount: 3,
-                target: RepairTarget::Shield,
-            },
-        ),
-        is_active: false,
-    },
 ];
 
 // ------------------ UNCOMMON ---------------------------------------------------------------------
-pub const LT_MODULES_OFFENSIVE_UNCOMMON: [Module; 3] = [
+pub const LT_MODULES_UNCOMMON: [Module; 4] = [
+    // Offensive ----------------------------------------------------------------------------------
     Module {
         name: LimitedString::new_const("Heavy Pulse Laser"),
         rarity: Uncommon,
@@ -283,9 +227,31 @@ pub const LT_MODULES_OFFENSIVE_UNCOMMON: [Module; 3] = [
         }),
         is_active: true,
     },
+    // Other ----------------------------------------------------------------------------------
+    Module {
+        name: LimitedString::new_const("Capacitative Shield Battery"),
+        rarity: Uncommon,
+        class: ModuleClass::Capacitative(
+            Bonuses {
+                hull_hitpoints: 0,
+                shield_layers: 1,
+                dodge_chance: 0,
+                jamming_nullifying_chance: 0,
+            },
+            Passive::CapacitativeRepair {
+                recent_damage_threshold: 8,
+                repair_amount: 1,
+                heat: BASE_HEAT,
+                target: RepairTarget::Shield,
+            },
+        ),
+        is_active: false,
+    },
 ];
 
-pub const LT_MODULES_OFFENSIVE_RARE: [Module; 3] = [
+// ------------------ RARE ---------------------------------------------------------------------
+pub const LT_MODULES_RARE: [Module; 5] = [
+    // Offensive ----------------------------------------------------------------------------------
     Module {
         name: LimitedString::new_const("280mm 'Howitzer' Artillery"),
         rarity: Rare,
@@ -319,9 +285,49 @@ pub const LT_MODULES_OFFENSIVE_RARE: [Module; 3] = [
         }),
         is_active: true,
     },
+    // Other ----------------------------------------------------------------------------------
+    Module {
+        name: LimitedString::new_const("Compact Shield Booster"),
+        rarity: Rare,
+        class: ModuleClass::Repairer(
+            Bonuses {
+                hull_hitpoints: 0,
+                shield_layers: 1,
+                dodge_chance: 0,
+                jamming_nullifying_chance: 0,
+            },
+            RepairModuleStats {
+                repair_amount: 1,
+                charge_time: 16,
+                target: RepairTarget::Shield,
+            },
+        ),
+        is_active: true,
+    },
+    Module {
+        name: LimitedString::new_const("Capacitative Armor"),
+        rarity: Rare,
+        class: ModuleClass::Capacitative(
+            Bonuses {
+                hull_hitpoints: 5,
+                shield_layers: 0,
+                dodge_chance: 0,
+                jamming_nullifying_chance: 0,
+            },
+            Passive::CapacitativeRepair {
+                recent_damage_threshold: 5,
+                heat: BASE_HEAT,
+                repair_amount: 2,
+                target: RepairTarget::Hull,
+            },
+        ),
+        is_active: false,
+    },
 ];
 
-pub const LT_MODULES_OFFENSIVE_FACTION: [Module; 1] = [Module {
+// ------------------ FACTION ---------------------------------------------------------------------
+pub const LT_MODULES_FACTION: [Module; 1] = [Module {
+    // Offensive ----------------------------------------------------------------------------------
     name: LimitedString::new_const("Polarised Repeating Laser"),
     rarity: Faction,
     class: ModuleClass::Weapon(WeaponModuleStats {
@@ -333,8 +339,10 @@ pub const LT_MODULES_OFFENSIVE_FACTION: [Module; 1] = [Module {
     is_active: true,
 }];
 
-// ------------------ DRONES ------------------
-pub const LT_DRONE_OFFENSIVE_COMMON: [Drone; 2] = [
+// ------------------ DRONES ---------------------------------------------------------------------
+// ------------------ COMMON ---------------------------------------------------------------------
+pub const LT_DRONE_COMMON: [Drone; 2] = [
+    // Offensive ----------------------------------------------------------------------------------
     Drone {
         name: LimitedString::new_const("Hornet"),
         rarity: Common,
@@ -439,5 +447,3 @@ pub const LT_MUTATIONS_RARE: [Mutation; 1] = [Mutation {
     rarity: Uncommon,
     is_active: false,
 }];
-
-// }

@@ -22,23 +22,24 @@ pub enum Effect {
         chance: u8,
         charge_burn: u8,
     },
-    // Composite effect representing a chance to apply one of two effects
+    
+    // [Higher order Effects]
+    // HO effect representing a chance to apply an effect or do nothing
+    Chance {
+        probability: u8,
+        effect: Box<Effect>,
+    },
+    // HO effect representing a chance to apply one of two effects
     Composite {
         effect1: Box<Effect>,
         effect2: Box<Effect>,
         probability1: u8,
         probability2: u8,
     },
-    // Conditionnal effect that only happen when the condition function return true
+    // HO effect that only happen when the condition function return true
     Conditionnal {
         condition: ConditionFn,
         effect: Box<Effect>,
-    },
-    //
-    // % chance to cancel a type of damage
-    DamageAbsorbtion {
-        weapon_type: WeaponType,
-        chance: u8,
     },
 }
 

@@ -2,7 +2,6 @@ use {
     crate::utils::pda,
     hologram::{
         instructions::{CrateType, Faction},
-        state::UserAccount,
         FUEL_ALLOWANCE_COOLDOWN,
     },
     instructions::utils::warp_forward,
