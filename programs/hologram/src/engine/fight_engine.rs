@@ -67,17 +67,21 @@ impl FightEngine {
     // Return true if the spaceship won the fight against opponent_spaceship
     pub fn fight(
         &mut self,
-        mut s: &mut SpaceShipBattleCard,
-        mut os: &mut SpaceShipBattleCard,
+        mut user: &mut SpaceShipBattleCard,
+        mut opponent: &mut SpaceShipBattleCard,
         fight_seed: u32,
         max_turns: u16,
     ) -> FightOutcome {
+        pub enum SpaceShipType {
+            User,
+            Opponent,
+        }
         let mut rng = RandomNumberGenerator::new(fight_seed as u64);
 
         #[cfg(any(test, feature = "render-hooks"))]
         (self.event_callback)(BattleEvent::MatchStarted {});
 
-        let mut all_effects_to_apply: Vec<(Effect, usize, bool)> = Vec::new();
+        let mut all_effects_to_apply: Vec<(Effect, usize, SpaceShipType)> = Vec::new();
 
         let mut turn = 0;
         // will iterate until one of the spaceship is defeated or MATCH_MAX_TURN is reached
@@ -86,7 +90,7 @@ impl FightEngine {
             (self.event_callback)(BattleEvent::TurnStart { turn });
 
             // stopping condition, a player or both are defeated
-            if s.is_defeated() || os.is_defeated() {
+            if user.is_defeated() || opponent.is_defeated() {
                 break;
             }
 
@@ -95,8 +99,8 @@ impl FightEngine {
             //
             // each effect is paired with an index, which represent it's "origin" module in the spaceship's concrete_powerups vector
             // this is used by the game engine for cross interactions between modules and other advanced mechanics
-            let mut s_effects_to_apply = Vec::new();
-            let mut os_effects_to_apply = Vec::new();
+            let mut user_effects_to_apply = Vec::new();
+            let mut opponent_effects_to_apply = Vec::new();
 
             // This clone effects, which is not desirable, because they are being mutated in the same scope
             let collect_effects =
@@ -118,48 +122,49 @@ impl FightEngine {
                         }
                     }
                 };
-            collect_effects(&mut s.concrete_powerups, &mut s_effects_to_apply);
-            collect_effects(&mut os.concrete_powerups, &mut os_effects_to_apply);
-            // // TODO: might want to add some random shuffling of all action for more balance later on (create a (effect, emittor, target) array and shuffle it)
-            // self.apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
-            // self.apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
+            collect_effects(&mut user.concrete_powerups, &mut user_effects_to_apply);
+            collect_effects(
+                &mut opponent.concrete_powerups,
+                &mut opponent_effects_to_apply,
+            );
 
-            // Note: we're storing a boolean in the all_effects_to_apply vector to indicate whether the effect is from spaceship s (true) or spaceship os (false). We then use this boolean to decide which spaceship to borrow when applying the effects. This way, we only borrow one spaceship at a time,
-
-            // Collect all effects into a single vector
+            // Collect all effects into a single vector: the effect, it's index in the origin spaceship, and an enum value to indicate which spaceship it comes from
             all_effects_to_apply.clear();
             all_effects_to_apply.extend(
-                s_effects_to_apply
+                user_effects_to_apply
                     .iter()
-                    .map(|(effect, index)| (effect.clone(), *index, true)),
+                    .map(|(effect, index)| (effect.clone(), *index, SpaceShipType::User)),
             );
             all_effects_to_apply.extend(
-                os_effects_to_apply
+                opponent_effects_to_apply
                     .iter()
-                    .map(|(effect, index)| (effect.clone(), *index, false)),
+                    .map(|(effect, index)| (effect.clone(), *index, SpaceShipType::Opponent)),
             );
 
             // Shuffle the effects
             rng.shuffle(&mut all_effects_to_apply);
 
             // Apply the effects
-            for (effect, index, is_s) in &all_effects_to_apply {
-                if *is_s {
-                    self.apply_effect(effect, *index, &mut s, &mut os, &mut rng);
-                } else {
-                    self.apply_effect(effect, *index, &mut os, &mut s, &mut rng);
+            for (effect, index, spaceship_type) in &all_effects_to_apply {
+                match spaceship_type {
+                    SpaceShipType::User => {
+                        self.apply_effect(effect, *index, &mut user, &mut opponent, &mut rng);
+                    }
+                    SpaceShipType::Opponent => {
+                        self.apply_effect(effect, *index, &mut opponent, &mut user, &mut rng);
+                    }
                 }
             }
 
-            s.end_of_turn_internals();
-            os.end_of_turn_internals();
+            user.end_of_turn_internals();
+            opponent.end_of_turn_internals();
 
             // advance turn
             turn += 1;
         }
 
         // define fight outcome
-        let outcome = match (s.is_defeated(), os.is_defeated()) {
+        let outcome = match (user.is_defeated(), opponent.is_defeated()) {
             (true, false) => FightOutcome::OpponentWon,
             (false, true) => FightOutcome::UserWon,
             _ => FightOutcome::Draw,
