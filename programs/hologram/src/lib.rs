@@ -40,6 +40,7 @@ pub const MATCH_MAX_TURN: u16 = 1000;
 pub const CHARGE_PER_TURN: u8 = 1;
 pub const HEAT_DISSIPATION_PER_TURN: u8 = 1;
 pub const BASE_HEAT: u8 = 5;
+pub const BASE_JAM_CHANCE: u8 = 100;
 
 solana_security_txt::security_txt! {
     name: "Hologram",

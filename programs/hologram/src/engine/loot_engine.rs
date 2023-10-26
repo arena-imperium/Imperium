@@ -2,7 +2,8 @@ use {
     crate::{
         error::HologramError,
         state::{
-            Bonuses, Drone, DroneClass, DroneSize, Module, ModuleClass, Mutation, Passive,
+            Bonuses, Drone, DroneClass, DroneSize, JammerModuleStats, Module, ModuleClass,
+            Mutation, Passive,
             Rarity::{self, *},
             RepairModuleStats, RepairTarget, Shots, WeaponModuleStats, WeaponType,
         },
@@ -250,7 +251,7 @@ pub const LT_MODULES_UNCOMMON: [Module; 4] = [
 ];
 
 // ------------------ RARE ---------------------------------------------------------------------
-pub const LT_MODULES_RARE: [Module; 5] = [
+pub const LT_MODULES_RARE: [Module; 6] = [
     // Offensive ----------------------------------------------------------------------------------
     Module {
         name: LimitedString::new_const("280mm 'Howitzer' Artillery"),
@@ -319,6 +320,23 @@ pub const LT_MODULES_RARE: [Module; 5] = [
                 heat: BASE_HEAT,
                 repair_amount: 2,
                 target: RepairTarget::Hull,
+            },
+        ),
+        is_active: false,
+    },
+    Module {
+        name: LimitedString::new_const("'Phantom' Burst Jammer"),
+        rarity: Rare,
+        class: ModuleClass::Jammer(
+            Bonuses {
+                hull_hitpoints: 0,
+                shield_layers: 0,
+                dodge_chance: 0,
+                jamming_nullifying_chance: 10,
+            },
+            JammerModuleStats {
+                charge_burn: 5,
+                charge_time: 15,
             },
         ),
         is_active: false,

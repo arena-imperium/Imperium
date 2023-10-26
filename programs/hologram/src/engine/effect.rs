@@ -19,7 +19,6 @@ pub enum Effect {
     },
     // attempt to disrupt opponent active powerups
     Jam {
-        chance: u8,
         charge_burn: u8,
     },
     

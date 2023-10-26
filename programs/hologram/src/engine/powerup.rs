@@ -31,7 +31,9 @@ impl PowerUp for Module {
 
     fn is_active(&self) -> bool {
         match &self.class {
-            ModuleClass::Weapon(_) | ModuleClass::Repairer(_, _) => true,
+            ModuleClass::Weapon(_) | ModuleClass::Repairer(_, _) | ModuleClass::Jammer(_, _) => {
+                true
+            }
             ModuleClass::Capacitative(_, _) => false,
         }
     }
@@ -41,6 +43,7 @@ impl PowerUp for Module {
             ModuleClass::Weapon(wms) => Some(wms.charge_time as u8),
             ModuleClass::Repairer(_, rms) => Some(rms.charge_time as u8),
             ModuleClass::Capacitative(_, _) => None,
+            ModuleClass::Jammer(_, jms) => Some(jms.charge_time as u8),
         }
     }
 
@@ -57,6 +60,7 @@ impl PowerUp for Module {
                 } = &passive;
                 Some(*heat)
             }
+            ModuleClass::Jammer(_, _) => None,
         }
     }
 
@@ -89,15 +93,18 @@ impl PowerUp for Module {
                     }),
                 }
             }
+            ModuleClass::Jammer(_, jms) => Effect::Jam {
+                charge_burn: jms.charge_burn,
+            },
         }
     }
 
     fn get_bonuses(&self) -> Option<Bonuses> {
         match &self.class {
             ModuleClass::Weapon(_) => None,
-            ModuleClass::Repairer(bonuses, _) | ModuleClass::Capacitative(bonuses, _) => {
-                Some(bonuses.clone())
-            }
+            ModuleClass::Repairer(bonuses, _)
+            | ModuleClass::Capacitative(bonuses, _)
+            | ModuleClass::Jammer(bonuses, _) => Some(bonuses.clone()),
         }
     }
 
@@ -138,7 +145,6 @@ impl PowerUp for Drone {
                 weapon_type: wms.weapon_type,
             },
             DroneClass::ECM(jms) => Effect::Jam {
-                chance: jms.chance,
                 charge_burn: jms.charge_burn,
             },
         }

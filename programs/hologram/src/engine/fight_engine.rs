@@ -189,11 +189,8 @@ impl FightEngine {
                 };
                 true
             }
-            Effect::Jam {
-                chance,
-                charge_burn,
-            } => {
-                s_origin.jam(s_target, rng, chance, charge_burn, &mut self.event_callback);
+            Effect::Jam { charge_burn } => {
+                s_origin.jam(s_target, rng, charge_burn, &mut self.event_callback);
                 true
             }
             Effect::Chance {
@@ -248,9 +245,9 @@ mod tests {
     use {
         super::*,
         crate::{
-            engine::{LT_MODULES_COMMON, LT_MODULES_RARE, LT_MODULES_UNCOMMON},
+            engine::{PowerUp, LT_MODULES_COMMON, LT_MODULES_RARE, LT_MODULES_UNCOMMON},
             instructions::print_event,
-            state::mock_spaceship,
+            state::{mock_spaceship, ModuleClass},
             utils::LimitedString,
             MATCH_MAX_TURN,
         },
@@ -291,8 +288,8 @@ mod tests {
         let turns = 18;
         let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
 
-        assert!(os.shield_layers.current == os.shield_layers.max);
-        assert!(os.hull_hitpoints.current == os.hull_hitpoints.max);
+        assert_eq!(os.shield_layers.current, os.shield_layers.max);
+        assert_eq!(os.hull_hitpoints.current, os.hull_hitpoints.max);
     }
 
     #[test]
@@ -316,8 +313,8 @@ mod tests {
         let turns = 10;
         let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
 
-        assert!(os.shield_layers.current == os.shield_layers.max - 1);
-        assert!(os.hull_hitpoints.current == os.hull_hitpoints.max);
+        assert_eq!(os.shield_layers.current, os.shield_layers.max - 1);
+        assert_eq!(os.hull_hitpoints.current, os.hull_hitpoints.max);
     }
 
     #[test]
@@ -407,7 +404,7 @@ mod tests {
         let turns = 17;
         let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
 
-        assert!(s.shield_layers.current == s.shield_layers.max);
+        assert_eq!(s.shield_layers.current, s.shield_layers.max);
     }
 
     #[test]
@@ -441,6 +438,90 @@ mod tests {
         let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
 
         // minus damages + heal
-        assert!(s.hull_hitpoints.current == s.hull_hitpoints.max - 8 + 2);
+        assert_eq!(s.hull_hitpoints.current, s.hull_hitpoints.max - 8 + 2);
+    }
+
+    #[test]
+    fn test_fight_jam_module_resisted() {
+        let mut fight_engine = FightEngine::new(Box::new(|e| print_event(e)));
+        let phantom_burst_jammer_module = LT_MODULES_RARE
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("'Phantom' Burst Jammer"))
+            .unwrap();
+        let heavy_pulse_laser_module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Heavy Pulse Laser"))
+            .unwrap();
+        let phantom_burst_jammer_module_charge_burn =
+            if let ModuleClass::Jammer(_, jms) = phantom_burst_jammer_module.class {
+                jms.charge_burn.clone()
+            } else {
+                panic!("wrong module class")
+            };
+        let heavy_pulse_laser_charge_time = heavy_pulse_laser_module.get_charge_time().unwrap();
+        let spaceship = mock_spaceship(vec![phantom_burst_jammer_module], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(vec![heavy_pulse_laser_module], vec![], vec![]);
+        let fight_seed = 1;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let turns = 15;
+        let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
+
+        assert_ne!(
+            s.concrete_powerups.first().unwrap().accumulated_charge,
+            heavy_pulse_laser_charge_time - phantom_burst_jammer_module_charge_burn
+        );
+    }
+
+    #[test]
+    fn test_fight_jam_module() {
+        let mut fight_engine = FightEngine::new(Box::new(|e| print_event(e)));
+        let phantom_burst_jammer_module = LT_MODULES_RARE
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("'Phantom' Burst Jammer"))
+            .unwrap();
+        let heavy_pulse_laser_module = LT_MODULES_UNCOMMON
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("Heavy Pulse Laser"))
+            .unwrap();
+        let phantom_burst_jammer_module_charge_burn =
+            if let ModuleClass::Jammer(_, jms) = phantom_burst_jammer_module.class {
+                jms.charge_burn.clone()
+            } else {
+                panic!("wrong module class")
+            };
+        let heavy_pulse_laser_charge_time = heavy_pulse_laser_module.get_charge_time().unwrap();
+        let spaceship = mock_spaceship(vec![phantom_burst_jammer_module], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(vec![heavy_pulse_laser_module], vec![], vec![]);
+        let fight_seed = 2;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let turns = 15;
+        let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
+
+        // -1 cause we are still at turn 15 here
+        assert_eq!(
+            os.concrete_powerups.first().unwrap().accumulated_charge,
+            heavy_pulse_laser_charge_time - 1 - phantom_burst_jammer_module_charge_burn
+        );
+    }
+
+    #[test]
+    fn test_fight_jam_module_nothing_to_jam() {
+        let mut fight_engine = FightEngine::new(Box::new(|e| print_event(e)));
+        let phantom_burst_jammer_module = LT_MODULES_RARE
+            .into_iter()
+            .find(|m| m.name == LimitedString::new("'Phantom' Burst Jammer"))
+            .unwrap();
+        let spaceship = mock_spaceship(vec![phantom_burst_jammer_module], vec![], vec![]);
+        let opponent_spaceship = mock_spaceship(vec![], vec![], vec![]);
+        let fight_seed = 2;
+
+        let mut s = SpaceShipBattleCard::new(&spaceship);
+        let mut os = SpaceShipBattleCard::new(&opponent_spaceship);
+        let turns = MATCH_MAX_TURN;
+        let _ = fight_engine.fight(&mut s, &mut os, fight_seed, turns);
     }
 }
