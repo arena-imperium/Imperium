@@ -30,6 +30,9 @@ impl Plugin for StationScenePlugin {
 #[derive(Default, Component)]
 pub struct LoginInitUi;
 
+#[derive(Default, Component)]
+pub struct StationSceneObj;
+
 // Setup the scene for when the station is focused on
 pub fn on_station_init(
     mut cmds: Commands,
@@ -40,13 +43,17 @@ pub fn on_station_init(
     cmds.spawn((
         ChirpBundle::new(serv.load("ui/chirps/login_init.chirp")),
         LoginInitUi,
+        StationSceneObj,
     ));
 
-    cmds.spawn(SpriteBundle {
-        texture: serv.load("textures/bg_large.png"),
-        transform: Transform::from_xyz(0.0, 0.0, -10.0),
-        ..default()
-    });
+    cmds.spawn((
+        SpriteBundle {
+            texture: serv.load("textures/bg_large.png"),
+            transform: Transform::from_xyz(0.0, 0.0, -10.0),
+            ..default()
+        },
+        StationSceneObj,
+    ));
     // Spawn the station
     let station_entity = cmds
         .spawn((
@@ -56,6 +63,7 @@ pub fn on_station_init(
                 ..default()
             },
             Station,
+            StationSceneObj,
         ))
         .id();
     // Make the camera follow the station
@@ -68,11 +76,12 @@ pub fn on_station_init(
 pub fn on_station_exit(
     mut cmds: Commands,
     ui: Query<Entity, With<LoginInitUi>>,
-    station: Query<Entity, With<Station>>,
+    station_scene: Query<Entity, With<StationSceneObj>>,
 ) {
     cmds.entity(ui.iter().next().unwrap()).despawn_recursive();
-    cmds.entity(station.iter().next().unwrap())
-        .despawn_recursive();
+    for entity in &station_scene {
+        cmds.entity(entity).despawn();
+    }
 }
 
 /// Station component. Currently we only have this.
@@ -122,6 +131,7 @@ pub fn station_login(
                     // Possibly proc gen ui elements from available wallets?
                     ChirpBundle::new(serv.load("ui/chirps/login_window.chirp")),
                     LoginInitUi,
+                    StationSceneObj,
                 ));
                 UiAction::add_action("login", || {
                     // if this gets too big, split out into its own function
@@ -134,7 +144,7 @@ pub fn station_login(
                             let login_data = text_map.get("login_data").unwrap();
                             // Todo: make actual solana login logic here
                             //  And add extra states for waiting for login return val.
-                            server.fire_fetch_account_task(&mut commands);
+                            //server.fire_fetch_account_task(&mut commands);
 
                             // For now we just directly consider any input as acceptable.
                             if login_data != "" {
@@ -165,6 +175,7 @@ pub fn station_login(
                                 // Possibly proc gen ui elements from available wallets?
                                 ChirpBundle::new(serv.load("ui/chirps/login_init.chirp")),
                                 LoginInitUi,
+                                StationSceneObj,
                             ));
                             *login_state = LoginState::None;
                         },

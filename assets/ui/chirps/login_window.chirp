@@ -1,7 +1,7 @@
 fn button(action) {
     Overlay(column layout("voCaC") rules(1.0*, 1.0*)){
         Button(button(action) highlight image("ui/textures/button.png") rules(1.0*, 1.0*) )
-        Text(font("fonts/FiraSans-Bold.ttf") text("test"))
+        Text(font("fonts/FiraSans-Bold.ttf") text("Confirm"))
     }
 }
 Root(screen_root row distrib_start main_margin(50) ) {

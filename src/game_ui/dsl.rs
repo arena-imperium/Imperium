@@ -43,9 +43,16 @@ impl UiAction {
     /// ```
     /// UiAction::add_action("NewAction", || OnClick::run(|| log::info!("This is a new action")));
     /// ```
-    pub fn add_action<F: Fn() -> OnClick + 'static + Send + Sync>(action_name: &'static str, func: F) {
+    pub fn add_action<F: Fn() -> OnClick + 'static + Send + Sync>(
+        action_name: &'static str,
+        func: F,
+    ) {
         let mut map = ON_CLICK_MAP.write().unwrap();
         map.insert(action_name, Box::new(func));
+    }
+    pub fn remove_action(action_name: &'static str) {
+        let mut map = ON_CLICK_MAP.write().unwrap();
+        map.remove(action_name);
     }
 }
 
@@ -91,7 +98,6 @@ impl Default for ImperiumDsl {
 }
 #[parse_dsl_impl(delegate = inner)]
 impl ImperiumDsl {
-
     fn button(&mut self, text: &str) {
         self.is_button = true;
         self.data = Some(text.into());
@@ -136,11 +142,10 @@ impl ImperiumDsl {
     }
 }
 
-
 impl DslBundle for ImperiumDsl {
     fn insert(&mut self, cmds: &mut EntityCommands) -> Entity {
         if self.is_button {
-            if let Some(data) = self.data.take(){
+            if let Some(data) = self.data.take() {
                 cmds.insert(UiAction::new(data.into()));
             }
         }
@@ -148,13 +153,13 @@ impl DslBundle for ImperiumDsl {
             cmds.insert(Highlight::new(Color::DARK_GREEN));
         }
         if self.is_text_box {
-            if let Some(data) = self.data.take(){
-                cmds.insert(EguiTextBox{ id: data.into()});
+            if let Some(data) = self.data.take() {
+                cmds.insert(EguiTextBox { id: data.into() });
             }
         }
         if self.is_label {
-            if let Some(data) = self.data.take(){
-                cmds.insert(EguiLabel{ id: data.into()});
+            if let Some(data) = self.data.take() {
+                cmds.insert(EguiLabel { id: data.into() });
             }
         }
         self.inner.insert(cmds)
