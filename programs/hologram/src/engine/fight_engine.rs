@@ -77,6 +77,8 @@ impl FightEngine {
         #[cfg(any(test, feature = "render-hooks"))]
         (self.event_callback)(BattleEvent::MatchStarted {});
 
+        let mut all_effects_to_apply: Vec<(Effect, usize, bool)> = Vec::new();
+
         let mut turn = 0;
         // will iterate until one of the spaceship is defeated or MATCH_MAX_TURN is reached
         while turn < max_turns {
@@ -90,9 +92,13 @@ impl FightEngine {
 
             // these vectors will collect all effect that are to be applied to each spaceship
             // said effects come from active and passive modules
+            //
+            // each effect is paired with an index, which represent it's "origin" module in the spaceship's concrete_powerups vector
+            // this is used by the game engine for cross interactions between modules and other advanced mechanics
             let mut s_effects_to_apply = Vec::new();
             let mut os_effects_to_apply = Vec::new();
 
+            // This clone effects, which is not desirable, because they are being mutated in the same scope
             let collect_effects =
                 |powerups: &mut Vec<ConcretePowerup>,
                  effects_to_apply: &mut Vec<(Effect, usize)>| {
@@ -114,9 +120,36 @@ impl FightEngine {
                 };
             collect_effects(&mut s.concrete_powerups, &mut s_effects_to_apply);
             collect_effects(&mut os.concrete_powerups, &mut os_effects_to_apply);
-            // TODO: might want to add some random shuffling of all action for more balance later on (create a (effect, emittor, target) array and shuffle it)
-            self.apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
-            self.apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
+            // // TODO: might want to add some random shuffling of all action for more balance later on (create a (effect, emittor, target) array and shuffle it)
+            // self.apply_effects(s_effects_to_apply, &mut s, &mut os, &mut rng);
+            // self.apply_effects(os_effects_to_apply, &mut os, &mut s, &mut rng);
+
+            // Note: we're storing a boolean in the all_effects_to_apply vector to indicate whether the effect is from spaceship s (true) or spaceship os (false). We then use this boolean to decide which spaceship to borrow when applying the effects. This way, we only borrow one spaceship at a time,
+
+            // Collect all effects into a single vector
+            all_effects_to_apply.clear();
+            all_effects_to_apply.extend(
+                s_effects_to_apply
+                    .iter()
+                    .map(|(effect, index)| (effect.clone(), *index, true)),
+            );
+            all_effects_to_apply.extend(
+                os_effects_to_apply
+                    .iter()
+                    .map(|(effect, index)| (effect.clone(), *index, false)),
+            );
+
+            // Shuffle the effects
+            rng.shuffle(&mut all_effects_to_apply);
+
+            // Apply the effects
+            for (effect, index, is_s) in &all_effects_to_apply {
+                if *is_s {
+                    self.apply_effect(effect, *index, &mut s, &mut os, &mut rng);
+                } else {
+                    self.apply_effect(effect, *index, &mut os, &mut s, &mut rng);
+                }
+            }
 
             s.end_of_turn_internals();
             os.end_of_turn_internals();
@@ -137,23 +170,11 @@ impl FightEngine {
         outcome
     }
 
-    fn apply_effects(
-        &mut self,
-        effects: Vec<(Effect, usize)>,
-        s_origin: &mut SpaceShipBattleCard,
-        s_target: &mut SpaceShipBattleCard,
-        rng: &mut RandomNumberGenerator,
-    ) {
-        for (effect, source_powerup_index) in effects {
-            self.apply_effect(effect, source_powerup_index, s_origin, s_target, rng);
-        }
-    }
-
     // apply an effect to a spaceship
     // return wether something happened or not (in case of chance based and conditionnal effects)
     fn apply_effect(
         &mut self,
-        effect: Effect,
+        effect: &Effect,
         source_powerup_index: usize,
         s_origin: &mut SpaceShipBattleCard,
         s_target: &mut SpaceShipBattleCard,
@@ -169,9 +190,9 @@ impl FightEngine {
                 s_origin.fire_at(
                     s_target,
                     rng,
-                    damage,
-                    shots,
-                    weapon_type,
+                    *damage,
+                    *shots,
+                    *weapon_type,
                     &mut self.event_callback,
                 );
                 true
@@ -180,17 +201,17 @@ impl FightEngine {
                 #[cfg(any(test, feature = "render-hooks"))]
                 (self.event_callback)(BattleEvent::Repair {
                     origin_id: s_origin.id,
-                    repair_target: target,
-                    amount,
+                    repair_target: *target,
+                    amount: *amount,
                 });
                 match target {
-                    RepairTarget::Hull => s_origin.hull_hitpoints.resplenish(amount),
-                    RepairTarget::Shield => s_origin.shield_layers.resplenish(amount),
+                    RepairTarget::Hull => s_origin.hull_hitpoints.resplenish(*amount),
+                    RepairTarget::Shield => s_origin.shield_layers.resplenish(*amount),
                 };
                 true
             }
             Effect::Jam { charge_burn } => {
-                s_origin.jam(s_target, rng, charge_burn, &mut self.event_callback);
+                s_origin.jam(s_target, rng, *charge_burn, &mut self.event_callback);
                 true
             }
             Effect::Chance {
@@ -198,8 +219,8 @@ impl FightEngine {
                 effect,
             } => {
                 let roll = rng.roll_dice(100) as u8;
-                if roll <= probability {
-                    self.apply_effect(*effect, source_powerup_index, s_origin, s_target, rng);
+                if roll <= *probability {
+                    self.apply_effect(effect, source_powerup_index, s_origin, s_target, rng);
                     true
                 } else {
                     false
@@ -213,16 +234,16 @@ impl FightEngine {
             } => {
                 let total_probabilities = probability1 + probability2;
                 let roll = rng.roll_dice(total_probabilities as usize) as u8;
-                if roll <= probability1 {
-                    self.apply_effect(*effect1, source_powerup_index, s_origin, s_target, rng);
+                if roll <= *probability1 {
+                    self.apply_effect(effect1, source_powerup_index, s_origin, s_target, rng);
                 } else {
-                    self.apply_effect(*effect2, source_powerup_index, s_origin, s_target, rng);
+                    self.apply_effect(effect2, source_powerup_index, s_origin, s_target, rng);
                 }
                 true
             }
             Effect::Conditionnal { condition, effect } => {
                 if (condition.func)(s_origin) {
-                    self.apply_effect(*effect, source_powerup_index, s_origin, s_target, rng)
+                    self.apply_effect(effect, source_powerup_index, s_origin, s_target, rng)
                 } else {
                     false
                 }
