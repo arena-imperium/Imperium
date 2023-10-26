@@ -242,6 +242,7 @@ pub enum ModuleClass {
     Weapon(WeaponModuleStats),
     Repairer(Bonuses, RepairModuleStats),
     Capacitative(Bonuses, Passive),
+    Jammer(Bonuses, JammerModuleStats),
 }
 
 impl PartialEq for ModuleClass {
@@ -311,10 +312,9 @@ pub enum Passive {
     },
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub struct JammerModuleStats {
     pub charge_burn: u8,
-    pub chance: u8,
     pub charge_time: u8,
 }
 
