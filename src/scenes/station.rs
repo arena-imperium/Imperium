@@ -37,6 +37,56 @@ pub fn on_station_init(
     mut text_map: ResMut<StrMap>,
     camera_query: Query<Entity, With<Camera>>,
 ) {
+    // Need to add the actions before the ui.
+    UiAction::add_action("login", || {
+        // if this gets too big, split out into its own function
+        OnClick::run(
+            |mut login_state: ResMut<LoginState>,
+             text_map: Res<StrMap>,
+             mut next_state: ResMut<NextState<crate::Scene>>,
+             server: Res<HologramServer>,
+             mut commands: Commands| {
+                let login_data = text_map.get("login_data").unwrap();
+                // Todo: make actual solana login logic here
+                //  And add extra states for waiting for login return val.
+                //server.fire_fetch_account_task(&mut commands);
+
+                // For now we just directly consider any input as acceptable.
+                if login_data != "" {
+                    log::info!("Logging in, loading hanger");
+                    // Todo: Play confirmation sound
+                    // Transition directly to hanger.
+                    next_state.set(Scene::Hanger)
+                }
+                // We will count empty input as failure
+                else {
+                    log::info!("Logging in failed!");
+                    // Todo: Play error sound
+                    // Make ui window shake or something?
+                }
+            },
+        )
+    });
+    UiAction::add_action("close", || {
+        OnClick::run(
+            |mut cmds: Commands,
+             mut login_state: ResMut<LoginState>,
+             text_map: Res<StrMap>,
+             mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>| {
+                log::info!("Closing window");
+                // Switch which ui is visible
+                for (_menu_entity, mut visibility, mark) in sub_uis.iter_mut() {
+                    match mark.0.as_str() {
+                        "init" => *visibility = Visibility::Inherited,
+                        "window" => *visibility = Visibility::Hidden,
+                        _ => {}
+                    }
+                }
+                *login_state = LoginState::None;
+            },
+        )
+    });
+
     cmds.spawn((
         ChirpBundle::new(serv.load("ui/chirps/station_ui.chirp")),
         StationSceneObj,
@@ -60,6 +110,7 @@ pub fn on_station_init(
                 ..default()
             },
             StationSceneObj,
+            Station,
         ))
         .id();
     // Make the camera follow the station
@@ -88,11 +139,7 @@ pub struct Station;
 #[derive(Default, Component)]
 pub struct StationUI;
 
-pub fn station_move(
-    time: Res<Time>,
-    mut station_query: Query<&mut Transform, With<Station>>,
-    text_map: Res<StrMap>,
-) {
+pub fn station_move(time: Res<Time>, mut station_query: Query<&mut Transform, With<Station>>) {
     let radius = 200.0;
     let rate = 0.008;
 
@@ -132,55 +179,6 @@ pub fn station_login(
                         _ => {}
                     }
                 }
-                UiAction::add_action("login", || {
-                    // if this gets too big, split out into its own function
-                    OnClick::run(
-                        |mut login_state: ResMut<LoginState>,
-                         text_map: Res<StrMap>,
-                         mut next_state: ResMut<NextState<crate::Scene>>,
-                         server: Res<HologramServer>,
-                         mut commands: Commands| {
-                            let login_data = text_map.get("login_data").unwrap();
-                            // Todo: make actual solana login logic here
-                            //  And add extra states for waiting for login return val.
-                            //server.fire_fetch_account_task(&mut commands);
-
-                            // For now we just directly consider any input as acceptable.
-                            if login_data != "" {
-                                log::info!("Logging in, loading hanger");
-                                // Todo: Play confirmation sound
-                                // Transition directly to hanger.
-                                next_state.set(Scene::Hanger)
-                            }
-                            // We will count empty input as failure
-                            else {
-                                log::info!("Logging in failed!");
-                                // Todo: Play error sound
-                                // Make ui window shake or something?
-                            }
-                        },
-                    )
-                });
-                UiAction::add_action("close", || {
-                    OnClick::run(
-                        |mut cmds: Commands,
-                         mut login_state: ResMut<LoginState>,
-                         text_map: Res<StrMap>,
-                         mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>,
-                         serv: Res<AssetServer>| {
-                            log::info!("Closing window");
-                            // Switch which ui is visible
-                            for (_menu_entity, mut visibility, mark) in sub_uis.iter_mut() {
-                                match mark.0.as_str() {
-                                    "init" => *visibility = Visibility::Inherited,
-                                    "window" => *visibility = Visibility::Hidden,
-                                    _ => {}
-                                }
-                            }
-                            *login_state = LoginState::None;
-                        },
-                    )
-                });
                 *login_state = LoginState::LoginWindow;
             }
         }

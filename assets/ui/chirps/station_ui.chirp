@@ -22,7 +22,7 @@ fn login_window() {
             }
             Column(column layout("vdSaC") rules(1.0*, 1.0*) margin(50) image("ui/textures/board.png")) {
                 Text(text_box("login_data") rules(300px, 50px))
-                button!("login")
+                button!(login)
             }
         }
     }

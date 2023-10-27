@@ -21,6 +21,7 @@ type OnClickFunction = Box<dyn Fn() -> OnClick + Send + Sync>;
 // of the functions that are activated by a button press dynamically.
 // If you can think of a better method let let me know
 lazy_static! {
+    #[derive(Debug)]
     static ref ON_CLICK_MAP: RwLock<HashMap<&'static str, OnClickFunction>> = {
         let m: HashMap<&'static str, OnClickFunction> = HashMap::new();
         RwLock::new(m)
@@ -51,10 +52,6 @@ impl UiAction {
         let mut map = ON_CLICK_MAP.write().unwrap();
         map.insert(action_name, Box::new(func));
     }
-    pub fn remove_action(action_name: &'static str) {
-        let mut map = ON_CLICK_MAP.write().unwrap();
-        map.remove(action_name);
-    }
 }
 
 pub type OnClick = On<Pointer<Click>>;
@@ -66,6 +63,11 @@ impl<'a> From<&'a UiAction> for OnClick {
         if let Some(func) = map.get(value.action_lookup.as_str()) {
             func()
         } else {
+            log::warn!(
+                "Action map assignment failed!, action name: {}, map contents: {:?}",
+                value.action_lookup,
+                ON_CLICK_MAP,
+            );
             OnClick::run(|| log::info!("Nothing happened"))
         }
     }
