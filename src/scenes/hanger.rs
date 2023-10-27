@@ -1,12 +1,12 @@
-use crate::game_ui::egui_wrappers::StrMap;
 use crate::Scene;
 use bevy::log;
 use bevy::prelude::*;
 use cuicui_chirp::ChirpBundle;
+/*
 use cuicui_dsl::dsl;
 use cuicui_layout::dsl_functions::{child, pct};
 use cuicui_layout_bevy_ui::UiDsl;
-
+*/
 pub struct HangerScenePlugin;
 
 impl Plugin for HangerScenePlugin {
@@ -16,9 +16,8 @@ impl Plugin for HangerScenePlugin {
         app.add_systems(OnExit(Scene::Hanger), on_hanger_exit);
     }
 }
-fn hanger(mut next_state: ResMut<NextState<Scene>>, mut init: Local<bool>) {
+fn hanger(mut init: Local<bool>) {
     if !*init {
-        //next_state.set(Scene::Hanger);
         log::info!("Inside hanger");
         *init = true;
     }
@@ -34,8 +33,7 @@ pub struct HangerSceneObj;
 pub fn on_hanger_init(
     mut cmds: Commands,
     serv: Res<AssetServer>,
-    mut text_map: ResMut<StrMap>,
-    camera_query: Query<Entity, With<Camera>>,
+    // mut text_map: ResMut<StrMap>,
 ) {
     log::info!("hanger init");
     cmds.spawn((

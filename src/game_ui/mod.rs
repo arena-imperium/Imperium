@@ -1,4 +1,4 @@
-use bevy::app::{App, Plugin, Update};
+use bevy::app::{App, Plugin};
 use bevy::log;
 use bevy::prelude::*;
 use bevy_mod_picking::DefaultPickingPlugins;
@@ -45,7 +45,7 @@ impl Plugin for GameGuiPlugin {
     }
 }
 
-fn setup(mut cmds: Commands, serv: Res<AssetServer>, mut text_map: ResMut<StrMap>) {
+fn setup(mut cmds: Commands) {
     // Use LayoutRootCamera to mark a camera as the screen boundaries.
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scale = 0.3;
@@ -54,6 +54,8 @@ fn setup(mut cmds: Commands, serv: Res<AssetServer>, mut text_map: ResMut<StrMap
     camera_bundle.transform.translation.z = 10.0;
     cmds.spawn((camera_bundle, LayoutRootCamera));
 }
+
+#[allow(dead_code)]
 fn ui_test_scene(mut cmds: Commands, serv: Res<AssetServer>, mut text_map: ResMut<StrMap>) {
     UiAction::add_action("PrintHello", || {
         OnClick::run(

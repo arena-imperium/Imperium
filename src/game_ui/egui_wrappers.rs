@@ -1,7 +1,7 @@
 use bevy::ecs::reflect::ReflectComponent;
 use bevy::prelude::{
-    App, Commands, Component, ComputedVisibility, Deref, DerefMut, GlobalTransform, Plugin, Query,
-    Reflect, ResMut, Resource, Update, Visibility,
+    App, Component, ComputedVisibility, Deref, DerefMut, GlobalTransform, Plugin, Query, Reflect,
+    ResMut, Resource, Update,
 };
 use bevy::ui::Node;
 use bevy::utils::HashMap;

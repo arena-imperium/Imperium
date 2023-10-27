@@ -34,18 +34,15 @@ pub struct StationSceneObj;
 pub fn on_station_init(
     mut cmds: Commands,
     serv: Res<AssetServer>,
-    mut text_map: ResMut<StrMap>,
     camera_query: Query<Entity, With<Camera>>,
 ) {
     // Need to add the actions before the ui.
     UiAction::add_action("login", || {
         // if this gets too big, split out into its own function
         OnClick::run(
-            |mut login_state: ResMut<LoginState>,
-             text_map: Res<StrMap>,
+            |text_map: Res<StrMap>,
              mut next_state: ResMut<NextState<crate::Scene>>,
-             server: Res<HologramServer>,
-             mut commands: Commands| {
+             server: Res<HologramServer>| {
                 let login_data = text_map.get("login_data").unwrap();
                 // Todo: make actual solana login logic here
                 //  And add extra states for waiting for login return val.
@@ -69,9 +66,7 @@ pub fn on_station_init(
     });
     UiAction::add_action("close", || {
         OnClick::run(
-            |mut cmds: Commands,
-             mut login_state: ResMut<LoginState>,
-             text_map: Res<StrMap>,
+            |mut login_state: ResMut<LoginState>,
              mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>| {
                 log::info!("Closing window");
                 // Switch which ui is visible
@@ -151,9 +146,6 @@ pub fn station_move(time: Res<Time>, mut station_query: Query<&mut Transform, Wi
 }
 
 pub fn station_login(
-    mut cmds: Commands,
-    serv: Res<AssetServer>,
-    mut next_state: ResMut<NextState<crate::Scene>>,
     mut login_state: ResMut<LoginState>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
