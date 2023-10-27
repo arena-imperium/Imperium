@@ -1,4 +1,4 @@
-use crate::game_ui::dsl::{OnClick, UiAction};
+use crate::game_ui::dsl::{Mark, OnClick, UiAction};
 use crate::game_ui::egui_wrappers::StrMap;
 use crate::game_ui::LoginState;
 use crate::input_util::all_key_codes;
@@ -11,7 +11,7 @@ use bevy::log;
 use bevy::prelude::{
     default, in_state, App, Camera, Commands, Component, Entity, IntoSystemConfigs, KeyCode,
     MouseButton, NextState, OnEnter, OnExit, Plugin, Query, Res, ResMut, SpriteBundle, Time,
-    Transform, Update, With,
+    Transform, Update, Visibility, With,
 };
 use cuicui_chirp::ChirpBundle;
 
@@ -28,9 +28,6 @@ impl Plugin for StationScenePlugin {
 }
 
 #[derive(Default, Component)]
-pub struct LoginInitUi;
-
-#[derive(Default, Component)]
 pub struct StationSceneObj;
 
 // Setup the scene for when the station is focused on
@@ -41,9 +38,9 @@ pub fn on_station_init(
     camera_query: Query<Entity, With<Camera>>,
 ) {
     cmds.spawn((
-        ChirpBundle::new(serv.load("ui/chirps/login_init.chirp")),
-        LoginInitUi,
+        ChirpBundle::new(serv.load("ui/chirps/station_ui.chirp")),
         StationSceneObj,
+        StationUI,
     ));
 
     cmds.spawn((
@@ -62,7 +59,6 @@ pub fn on_station_init(
                 transform: Transform::from_xyz(0.0, 0.0, -1.0),
                 ..default()
             },
-            Station,
             StationSceneObj,
         ))
         .id();
@@ -75,7 +71,7 @@ pub fn on_station_init(
 // Despawn scene
 pub fn on_station_exit(
     mut cmds: Commands,
-    ui: Query<Entity, With<LoginInitUi>>,
+    ui: Query<Entity, With<StationUI>>,
     station_scene: Query<Entity, With<StationSceneObj>>,
 ) {
     cmds.entity(ui.iter().next().unwrap()).despawn_recursive();
@@ -89,6 +85,8 @@ pub fn on_station_exit(
 /// or even module/directory with solar system login.
 #[derive(Default, Component)]
 pub struct Station;
+#[derive(Default, Component)]
+pub struct StationUI;
 
 pub fn station_move(
     time: Res<Time>,
@@ -112,7 +110,7 @@ pub fn station_login(
     mut login_state: ResMut<LoginState>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
-    ui: Query<Entity, With<LoginInitUi>>,
+    mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>,
 ) {
     match login_state.as_ref() {
         LoginState::None => {
@@ -125,14 +123,15 @@ pub fn station_login(
                 // "message recieved"
                 // then interpolate/make the ui resize from zero in transition affect.
 
-                // for now will simply change the ui to show the login ui.
-                cmds.entity(ui.iter().next().unwrap()).despawn_recursive();
-                cmds.spawn((
-                    // Possibly proc gen ui elements from available wallets?
-                    ChirpBundle::new(serv.load("ui/chirps/login_window.chirp")),
-                    LoginInitUi,
-                    StationSceneObj,
-                ));
+                // Go through our marked components, and change their visibility
+                // to switch which ui is displayed.
+                for (_menu_entity, mut visibility, mark) in sub_uis.iter_mut() {
+                    match mark.0.as_str() {
+                        "init" => *visibility = Visibility::Hidden,
+                        "window" => *visibility = Visibility::Inherited,
+                        _ => {}
+                    }
+                }
                 UiAction::add_action("login", || {
                     // if this gets too big, split out into its own function
                     OnClick::run(
@@ -167,16 +166,17 @@ pub fn station_login(
                         |mut cmds: Commands,
                          mut login_state: ResMut<LoginState>,
                          text_map: Res<StrMap>,
-                         ui: Query<Entity, With<LoginInitUi>>,
+                         mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>,
                          serv: Res<AssetServer>| {
                             log::info!("Closing window");
-                            cmds.entity(ui.iter().next().unwrap()).despawn_recursive();
-                            cmds.spawn((
-                                // Possibly proc gen ui elements from available wallets?
-                                ChirpBundle::new(serv.load("ui/chirps/login_init.chirp")),
-                                LoginInitUi,
-                                StationSceneObj,
-                            ));
+                            // Switch which ui is visible
+                            for (_menu_entity, mut visibility, mark) in sub_uis.iter_mut() {
+                                match mark.0.as_str() {
+                                    "init" => *visibility = Visibility::Inherited,
+                                    "window" => *visibility = Visibility::Hidden,
+                                    _ => {}
+                                }
+                            }
                             *login_state = LoginState::None;
                         },
                     )

@@ -1,25 +1,36 @@
 fn button(action) {
     Overlay(column layout("voCaC") rules(1.0*, 1.0*)){
         Button(button(action) highlight image("ui/textures/button.png") rules(1.0*, 1.0*) )
-        Text(font("fonts/FiraSans-Bold.ttf") text("test"))
+        Text(font("fonts/FiraSans-Bold.ttf") text("Confirm"))
+    }
+}
+fn login_init() {
+    ThePressAnyKeyScreen(column layout("vdEaC") rules(100%, 100%) margin(100)) {
+        // Call it like a rust macro
+        Text(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Press any key to request station access"))
+    }
+}
+fn login_window() {
+    LoginWindow(column rules(100%, 100%) ) {
+        // Extra column to center the thing
+        Column(column layout("vdEaC") rules(1.0*, 1.0*) margin(20) image("ui/textures/board.png")) {
+            Column(column layout("voCaC") rules(1.0*, 1.0*)) {
+                Text(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Enter Station Credentials"))
+                Column(column layout(">dEaC") rules(400px, 1.0*)) {
+                    Text(button("close") highlight font_size(30) font("fonts/FiraSans-Bold.ttf") text("X") )
+                }
+            }
+            Column(column layout("vdSaC") rules(1.0*, 1.0*) margin(50) image("ui/textures/board.png")) {
+                Text(text_box("login_data") rules(300px, 50px))
+                button!("login")
+            }
+        }
     }
 }
 Root(screen_root row distrib_start main_margin(50) ) {
-    // Extra column to center the thing
-    Column(column rules(100%, 100%)) {
-        Column(column layout("vdSaS") rules(1.0*, 1.0*) main_margin(10) ) {
-            TitleCard(width(1.0*) image("ui/textures/board.png"))
-            // Call it like a rust macro
-            button!("PrintHello")
-            button!("increment_counter")
-            button!("increment_counter")
-            Text(label("counter") rules(300px, 50px))
-            button!()
-            button!()
-            Text(text_box("test") rules(300px, 50px))
-            Text(text_box("test1") rules(300px, 50px))
-            Text(text_box("test2") rules(300px, 50px))
-        }
+    Menu(layout(">oCaC") rules(100%, 100%)) {
+        login_init!()(mark("init"))
+        login_window!()(hidden mark("window"))
     }
 }
 

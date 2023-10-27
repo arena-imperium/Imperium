@@ -2,11 +2,12 @@ use std::sync::RwLock;
 
 use bevy::ecs::system::EntityCommands;
 use bevy::log;
-use bevy::prelude::{Color, Component, Entity, Reflect, ReflectComponent};
+use bevy::prelude::{Color, Component, Entity, Reflect, ReflectComponent, Visibility};
+use bevy::reflect::TypeRegistry;
 use bevy::utils::HashMap;
 use bevy_mod_picking;
 use bevy_mod_picking::prelude::{Click, On, Pointer};
-use cuicui_chirp::parse_dsl_impl;
+use cuicui_chirp::{anyhow, parse_dsl_impl};
 use cuicui_dsl::DslBundle;
 use cuicui_layout_bevy_ui::UiDsl;
 use lazy_static::lazy_static;
@@ -70,6 +71,13 @@ impl<'a> From<&'a UiAction> for OnClick {
     }
 }
 
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
+pub struct Mark(pub String);
+/*fn parse_mark<T>(reg: &TypeRegistry, _: T, input: &str) -> Result<Mark, anyhow::Error> {
+    Ok(Mark(input.to_owned()))
+}*/
+
 pub struct ImperiumDsl {
     inner: UiDsl,
     // Need a variable here that encapsulates all the different kinds of actions
@@ -77,6 +85,8 @@ pub struct ImperiumDsl {
     is_text_box: bool,
     is_highlightable: bool,
     is_label: bool,
+    is_hidden: bool,
+    mark: Option<Box<str>>,
     /// Data shared by actions and text box's
     ///
     /// actions need to know what action is being executed, and
@@ -92,6 +102,8 @@ impl Default for ImperiumDsl {
             is_text_box: false,
             is_highlightable: false,
             is_label: false,
+            is_hidden: false,
+            mark: None,
             data: None,
         }
     }
@@ -101,6 +113,22 @@ impl ImperiumDsl {
     fn button(&mut self, text: &str) {
         self.is_button = true;
         self.data = Some(text.into());
+    }
+
+    fn highlight(&mut self) {
+        self.is_highlightable = true;
+    }
+
+    /// Sets this ui element to be hidden.
+    /// (as a result, all its child elemnts will also be hidden)
+    fn hidden(&mut self) {
+        self.is_hidden = true;
+    }
+
+    /// Attaches a Mark(String) component to this entity.
+    /// Useful when you want to do something to a specific ui entity.
+    fn mark(&mut self, mark: &str) {
+        self.mark = Some(mark.into())
     }
 
     /// allows dynamic text from egui key value par
@@ -118,9 +146,6 @@ impl ImperiumDsl {
     fn text_box(&mut self, text: &str) {
         self.is_text_box = true;
         self.data = Some(text.into());
-    }
-    fn highlight(&mut self) {
-        self.is_highlightable = true;
     }
 
     /// Like the text box, allows dyinamic text from egui key value par
@@ -152,6 +177,9 @@ impl DslBundle for ImperiumDsl {
         if self.is_highlightable {
             cmds.insert(Highlight::new(Color::DARK_GREEN));
         }
+        if let Some(data) = self.mark.take() {
+            cmds.insert(Mark(data.into()));
+        }
         if self.is_text_box {
             if let Some(data) = self.data.take() {
                 cmds.insert(EguiTextBox { id: data.into() });
@@ -162,6 +190,14 @@ impl DslBundle for ImperiumDsl {
                 cmds.insert(EguiLabel { id: data.into() });
             }
         }
-        self.inner.insert(cmds)
+        let id = self.inner.insert(cmds);
+        // By adding this *after* insert(cmds) on inner, we ensure
+        // Visibility is added after nodebundle (which adds its own visibility)
+        // is added by the UiDsl, so that we overwrite it.
+        //
+        if self.is_hidden {
+            cmds.insert(Visibility::Hidden);
+        }
+        id
     }
 }

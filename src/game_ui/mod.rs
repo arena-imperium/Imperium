@@ -34,7 +34,7 @@ impl Plugin for GameGuiPlugin {
         app.add_plugins(cuicui_chirp::loader::Plugin::new::<ImperiumDsl>());
         app.add_plugins(DefaultPickingPlugins);
         app.add_plugins(MirrorPlugin::<OnClick, UiAction>::new_from());
-
+        app.register_type::<dsl::Mark>();
         // custom ui modules
         app.add_plugins(HighlightPlugin);
         // Needed for text boxes and dynamic labels

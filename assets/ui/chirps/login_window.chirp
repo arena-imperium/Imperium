@@ -4,8 +4,14 @@ fn button(action) {
         Text(font("fonts/FiraSans-Bold.ttf") text("Confirm"))
     }
 }
-Root(screen_root row distrib_start main_margin(50) ) {
-    Column(column rules(100%, 100%) ) {
+fn login_init() {
+    ThePressAnyKeyScreen(column layout("vdEaC") rules(100%, 100%) margin(100)) {
+        // Call it like a rust macro
+        Text(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Press any key to request station access"))
+    }
+}
+fn login_window() {
+    LoginWindow(column rules(100%, 100%) ) {
         // Extra column to center the thing
         Column(column layout("vdEaC") rules(1.0*, 1.0*) margin(20) image("ui/textures/board.png")) {
             Column(column layout("voCaC") rules(1.0*, 1.0*)) {
@@ -19,5 +25,11 @@ Root(screen_root row distrib_start main_margin(50) ) {
                 button!("login")
             }
         }
+    }
+}
+Root(screen_root row distrib_start main_margin(50) ) {
+    Menu(layout(">oCaC") rules(100%, 100%) marked(Tabs) bg(burlywood)) {
+        login_init!()(mark("init"))
+        login_window!()(hidden mark("window"))
     }
 }
