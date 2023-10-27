@@ -1,9 +1,12 @@
 use bevy::ecs::reflect::ReflectComponent;
-use bevy::prelude::{App, Commands, Component, Deref, DerefMut, GlobalTransform, Plugin, Query, Reflect, ResMut, Resource, Update};
+use bevy::prelude::{
+    App, Commands, Component, ComputedVisibility, Deref, DerefMut, GlobalTransform, Plugin, Query,
+    Reflect, ResMut, Resource, Update, Visibility,
+};
 use bevy::ui::Node;
 use bevy::utils::HashMap;
-use bevy_egui::{egui, EguiContexts};
 use bevy_egui::egui::Align2;
+use bevy_egui::{egui, EguiContexts};
 
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
@@ -37,31 +40,37 @@ impl Plugin for CuiCuiEguiPlugin {
 }
 
 fn draw_text_box(
-    query: Query<(&EguiTextBox, &Node, &GlobalTransform)>,
+    query: Query<(&EguiTextBox, &Node, &GlobalTransform, &ComputedVisibility)>,
     mut contexts: EguiContexts,
     mut text_map: ResMut<StrMap>,
 ) {
     let egui_context = contexts.ctx_mut();
-    for (tex_box, ui_node, trnsfrm) in &query {
+    for (tex_box, ui_node, trnsfrm, visibility) in &query {
+        if !visibility.is_visible() {
+            continue;
+        };
         let node_pos = ui_node.logical_rect(trnsfrm).center();
 
         egui::Area::new(tex_box.id.clone())
             .fixed_pos(egui::Pos2::new(node_pos.x, node_pos.y))
             .pivot(Align2::CENTER_CENTER)
             .show(egui_context, |ui| {
-                    let text_ref = text_map.entry(tex_box.id.clone()).or_default();
-                    ui.text_edit_singleline(text_ref);
+                let text_ref = text_map.entry(tex_box.id.clone()).or_default();
+                ui.text_edit_singleline(text_ref);
             });
     }
 }
 
 fn draw_label(
-    mut query: Query<(&EguiLabel, &Node, &GlobalTransform)>,
+    mut query: Query<(&EguiLabel, &Node, &GlobalTransform, &ComputedVisibility)>,
     mut contexts: EguiContexts,
     mut text_map: ResMut<StrMap>,
 ) {
     let egui_context = contexts.ctx_mut();
-    for (tex_box, ui_node, trnsfrm) in &mut query {
+    for (tex_box, ui_node, trnsfrm, visibility) in &mut query {
+        if !visibility.is_visible() {
+            continue;
+        };
         let node_pos = ui_node.logical_rect(trnsfrm).center();
 
         egui::Area::new(tex_box.id.clone())
