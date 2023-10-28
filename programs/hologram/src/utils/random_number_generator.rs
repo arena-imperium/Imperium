@@ -31,8 +31,16 @@ impl RandomNumberGenerator {
         }
         start + self.next() % (end - start)
     }
-}
 
+    // Fisher-Yates (or Knuth) shuffle algorithm, O(n) time complexity
+    pub fn shuffle<T>(&mut self, array: &mut [T]) {
+        let len = array.len();
+        for i in (1..len).rev() {
+            let j = self.range(0, (i + 1) as u64) as usize;
+            array.swap(i, j);
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

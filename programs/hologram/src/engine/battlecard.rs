@@ -1,16 +1,15 @@
 use {
-    super::{ActivePowerup, FightOutcome, PassivePowerup, PowerUp},
+    super::{ConcretePowerup, FightOutcome, PowerUp},
     crate::{
         state::{HitPoints, RepairTarget, Shots, SpaceShip, WeaponType},
         utils::RandomNumberGenerator,
-        BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE, BASE_SHIELD_LAYERS,
-        DODGE_CHANCE_CAP, JAMMING_NULLIFYING_CHANCE_CAP,
+        BASE_DODGE_CHANCE, BASE_HULL_HITPOINTS, BASE_JAMMING_NULLIFYING_CHANCE, BASE_JAM_CHANCE,
+        BASE_SHIELD_LAYERS, DODGE_CHANCE_CAP, JAMMING_NULLIFYING_CHANCE_CAP,
     },
     std::cmp::max,
 };
 
 // Note: Recently == 5 last turns
-#[derive(Debug)]
 pub struct SpaceShipBattleCard {
     pub name: String,
     pub id: u64,
@@ -22,10 +21,7 @@ pub struct SpaceShipBattleCard {
     pub dodge_chance: u8,
     pub jamming_nullifying_chance: u8,
     // powerups -------------------------------------
-    // they are kept in order to cycle through them during the actual fight
-    pub active_powerups: Vec<ActivePowerup>,
-    // their effects are already compounded in the stas above. they are kept for reference
-    pub passive_powerups: Vec<PassivePowerup>,
+    pub concrete_powerups: Vec<ConcretePowerup>,
     // data -----------------------------------------
     // Note: data internal to the game engine that is updated along the match
     // for CapacitativeArmor
@@ -75,20 +71,10 @@ impl SpaceShipBattleCard {
         dodge_chance = max(dodge_chance, DODGE_CHANCE_CAP);
         jamming_nullifying_chance = max(jamming_nullifying_chance, JAMMING_NULLIFYING_CHANCE_CAP);
 
-        // split powerups into active and passive
-        let (active_powerups, passive_powerups): (Vec<_>, Vec<_>) = powerups
+        let concrete_powerups: Vec<ConcretePowerup> = powerups
             .into_iter()
-            .partition(|powerup| powerup.is_active());
-
-        let active_powerups = active_powerups
-            .into_iter()
-            .map(|powerup| ActivePowerup::new(powerup))
-            .collect::<Vec<_>>();
-
-        let passive_powerups = passive_powerups
-            .into_iter()
-            .map(|powerup| PassivePowerup::new(powerup))
-            .collect::<Vec<_>>();
+            .map(|powerup| ConcretePowerup::new(powerup))
+            .collect();
 
         Self {
             name: spaceship.name.to_string(),
@@ -97,8 +83,7 @@ impl SpaceShipBattleCard {
             shield_layers,
             dodge_chance,
             jamming_nullifying_chance,
-            active_powerups,
-            passive_powerups,
+            concrete_powerups,
             recent_hull_damage_per_turn: vec![0, 0, 0, 0, 0],
         }
     }
@@ -119,6 +104,15 @@ impl SpaceShipBattleCard {
         self.recent_hull_damage_per_turn.iter().sum()
     }
 
+    // return a MUTABLE iterator over the active powerups. You can then use this iterator to modify the active powerups
+    fn get_active_powerups_mutable_iterator(
+        &mut self,
+    ) -> impl Iterator<Item = &mut ConcretePowerup> {
+        self.concrete_powerups
+            .iter_mut()
+            .filter(|p| p.og_powerup.is_active())
+    }
+
     pub fn fire_at(
         &mut self,
         target: &mut SpaceShipBattleCard,
@@ -128,7 +122,7 @@ impl SpaceShipBattleCard {
         weapon_type: WeaponType,
         event_callback: &mut dyn FnMut(BattleEvent),
     ) {
-        #[cfg(feature = "render-hooks")]
+        #[cfg(any(test, feature = "render-hooks"))]
         event_callback(BattleEvent::Fire {
             origin_id: self.id,
             target_id: target.id,
@@ -136,14 +130,18 @@ impl SpaceShipBattleCard {
             weapon_type,
             shots,
         });
-        // hit roll (plasma attacks cannot be dodged)
-        if weapon_type != WeaponType::Plasma {
-            let hit_roll = rng.roll_dice(100);
-            let did_hit = hit_roll >= target.dodge_chance as u64;
-            if !did_hit {
-                #[cfg(feature = "render-hooks")]
-                event_callback(BattleEvent::Dodge { origin_id: self.id });
-                return;
+
+        // Dodge roll
+        match weapon_type {
+            WeaponType::Plasma | WeaponType::Missile => { /* attacks cannot be dodged */ }
+            _ => {
+                let hit_roll = rng.roll_dice(100);
+                let did_hit = hit_roll >= target.dodge_chance as u64;
+                if !did_hit {
+                    #[cfg(any(test, feature = "render-hooks"))]
+                    event_callback(BattleEvent::Dodge { origin_id: self.id });
+                    return;
+                }
             }
         }
 
@@ -163,55 +161,57 @@ impl SpaceShipBattleCard {
         &mut self,
         target: &mut SpaceShipBattleCard,
         rng: &mut RandomNumberGenerator,
-        chance: u8,
         charge_burn: u8,
         event_callback: &mut dyn FnMut(BattleEvent),
     ) {
-        let jam_chance = chance.saturating_sub(target.jamming_nullifying_chance);
-        #[cfg(feature = "render-hooks")]
+        let jam_chance = BASE_JAM_CHANCE.saturating_sub(target.jamming_nullifying_chance);
+        #[cfg(any(test, feature = "render-hooks"))]
         event_callback(BattleEvent::Jam {
             origin_id: self.id,
             target_id: target.id,
             chance: jam_chance,
             charge_burn,
         });
-        if rng.roll_dice(100 as usize) <= jam_chance as u64 {
-            // filter powerups with charge only
-            let active_powerups_with_charge_indexes: Vec<usize> = target
-                .active_powerups
-                .iter_mut()
-                .enumerate()
-                .filter(|(_, a)| a.accumulated_charge != 0)
-                .map(|(i, _)| i)
-                .collect();
+        if rng.roll_dice(BASE_JAM_CHANCE as usize) <= jam_chance as u64 {
+            let target_id = target.id;
+            let active_powerups_iter_mut = target.get_active_powerups_mutable_iterator();
+            // filter powerups to get the active one, with some accumulated_charge
+            let mut active_powerups_iter_mut_with_charge = active_powerups_iter_mut
+                .filter(|a| a.accumulated_charge != 0)
+                .peekable();
 
-            if active_powerups_with_charge_indexes.is_empty() {
-                #[cfg(feature = "render-hooks")]
+            // if there is no active powerup with charge, we can't jam anything and abort
+            if active_powerups_iter_mut_with_charge.peek().is_none() {
+                #[cfg(any(test, feature = "render-hooks"))]
                 event_callback(BattleEvent::NothingToJam {
                     origin_id: self.id,
-                    target_id: target.id,
+                    target_id,
                 });
                 return;
             }
 
-            let roll = rng.roll_dice(active_powerups_with_charge_indexes.len());
-            let index = active_powerups_with_charge_indexes[roll as usize];
-            #[cfg(feature = "render-hooks")]
+            // now we know there is at least one active powerup with charge, we can pick one at random
+            // collect all element in a vector
+            let mut active_powerups_with_charge: Vec<&mut ConcretePowerup> =
+                active_powerups_iter_mut_with_charge.collect();
+            let random_index = rng.roll_dice(active_powerups_with_charge.len()) as usize - 1;
+            #[cfg(any(test, feature = "render-hooks"))]
             {
-                let target_powerup_name = target.active_powerups[index].name.clone();
+                let target_powerup_name = active_powerups_with_charge[random_index].name.clone();
                 event_callback(BattleEvent::ActivePowerUpJammed {
                     origin_id: self.id,
-                    target_id: target.id,
+                    target_id,
                     active_power_up_name: target_powerup_name.to_string(),
-                    active_power_up_index: index,
+                    active_power_up_index: random_index,
                     charge_burn,
                 });
             }
-            target.active_powerups[index].accumulated_charge = target.active_powerups[index]
-                .accumulated_charge
-                .saturating_sub(charge_burn);
+            active_powerups_with_charge[random_index].accumulated_charge =
+                active_powerups_with_charge[random_index]
+                    .accumulated_charge
+                    .saturating_sub(charge_burn);
         } else {
-            #[cfg(feature = "render-hooks")]
+            #[cfg(any(test, feature = "render-hooks"))]
             event_callback(BattleEvent::JamResisted { origin_id: self.id });
         }
     }
@@ -237,7 +237,7 @@ impl SpaceShipBattleCard {
                 if self.shield_layers.depleted() {
                     self.apply_hull_damage(damage, event_callback)
                 } else {
-                    #[cfg(feature = "render-hooks")]
+                    #[cfg(any(test, feature = "render-hooks"))]
                     event_callback(BattleEvent::ShieldCounterPlasmaAttack { origin_id: self.id });
                 }
             }
@@ -245,26 +245,27 @@ impl SpaceShipBattleCard {
     }
 
     fn apply_hull_damage(&mut self, damage: u8, event_callback: &mut dyn FnMut(BattleEvent)) {
-        #[cfg(feature = "render-hooks")]
+        #[cfg(any(test, feature = "render-hooks"))]
         event_callback(BattleEvent::HullDamaged {
             origin_id: self.id,
             damage,
         });
         self.hull_hitpoints.deplete(damage);
-        if let Some(last) = self.recent_hull_damage_per_turn.last_mut() {
+        if let Some(last) = self.recent_hull_damage_per_turn.first_mut() {
             *last += damage;
         }
     }
 
     fn deplete_shield_layer(&mut self, event_callback: &mut dyn FnMut(BattleEvent)) {
-        #[cfg(feature = "render-hooks")]
+        #[cfg(any(test, feature = "render-hooks"))]
         event_callback(BattleEvent::ShieldLayerDown { origin_id: self.id });
         self.shield_layers.deplete(1);
     }
 }
 
-#[cfg(feature = "render-hooks")]
+#[cfg(any(test, feature = "render-hooks"))]
 pub enum BattleEvent {
+    MatchStarted {},
     TurnStart {
         turn: u16,
     },
@@ -319,6 +320,5 @@ pub enum BattleEvent {
         amount: u8,
     },
 }
-
-#[cfg(not(feature = "render-hooks"))]
+#[cfg(not(any(test, feature = "render-hooks")))]
 pub enum BattleEvent {}

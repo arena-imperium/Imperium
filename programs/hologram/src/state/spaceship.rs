@@ -242,6 +242,7 @@ pub enum ModuleClass {
     Weapon(WeaponModuleStats),
     Repairer(Bonuses, RepairModuleStats),
     Capacitative(Bonuses, Passive),
+    Jammer(Bonuses, JammerModuleStats),
 }
 
 impl PartialEq for ModuleClass {
@@ -254,7 +255,7 @@ impl PartialEq for ModuleClass {
 pub enum DroneClass {
     // Fighter
     Weapon(WeaponModuleStats),
-    // Eletronic warfare drones
+    // Electronic warfare drones
     ECM(JammerModuleStats),
 }
 
@@ -304,19 +305,16 @@ pub struct Bonuses {
 pub enum Passive {
     // when the hull has taken a given amount of damage recentely (5 turns), it will heal a specific amount of HP
     CapacitativeRepair {
-        threshold: u8,
+        recent_damage_threshold: u8,
         repair_amount: u8,
+        heat: u8,
         target: RepairTarget,
-    },
-    ShieldRecharge {
-        amount: u8,
     },
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy)]
 pub struct JammerModuleStats {
     pub charge_burn: u8,
-    pub chance: u8,
     pub charge_time: u8,
 }
 
@@ -326,4 +324,57 @@ pub enum WeaponType {
     Missile,
     Laser,
     Plasma,
+}
+
+#[cfg(test)]
+pub fn mock_spaceship(
+    modules: Vec<Module>,
+    drones: Vec<Drone>,
+    mutations: Vec<Mutation>,
+) -> SpaceShip {
+    SpaceShip {
+        bump: 0,
+        owner: Pubkey::default(),
+        id: 0,
+        name: LimitedString::new("Mock Spaceship"),
+        analytics: SpaceShipAnalytics {
+            total_arena_matches: 0,
+            total_arena_victories: 0,
+        },
+        randomness: Randomness {
+            switchboard_request_info: SwitchboardRequestInfo {
+                account: Pubkey::default(),
+                status: SwitchboardFunctionRequestStatus::Settled { slot: 0 },
+            },
+            original_seed: 0,
+            current_seed: 0,
+            iteration: 0,
+        },
+        arena_matchmaking: ArenaMatchmaking {
+            switchboard_request_info: SwitchboardRequestInfo {
+                account: Pubkey::default(),
+                status: SwitchboardFunctionRequestStatus::Settled { slot: 0 },
+            },
+            matchmaking_status: MatchMakingStatus::None,
+        },
+        crate_picking: CratePicking {
+            switchboard_request_info: SwitchboardRequestInfo {
+                account: Pubkey::default(),
+                status: SwitchboardFunctionRequestStatus::Settled { slot: 0 },
+            },
+        },
+        hull: Hull::CommonOne,
+        fuel: Fuel {
+            max: 0,
+            current: 0,
+            daily_allowance_last_collection: 0,
+        },
+        wallet: Wallet {
+            imperial_credits: 0,
+            activate_nanite_paste: 0,
+        },
+        modules,
+        drones,
+        mutations,
+    }
 }

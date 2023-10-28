@@ -32,12 +32,15 @@ pub const DODGE_CHANCE_CAP: u8 = 35; // 35%
 pub const BASE_JAMMING_NULLIFYING_CHANCE: u8 = 10; // 10%
 pub const JAMMING_NULLIFYING_CHANCE_CAP: u8 = 75; // 75%
 pub const BASE_HULL_HITPOINTS: u8 = 30;
-pub const BASE_SHIELD_LAYERS: u8 = 1;
+pub const BASE_SHIELD_LAYERS: u8 = 0;
 pub const ARENA_MATCHMAKING_FUEL_COST: u8 = 1;
 pub const ARENA_MATCHMAKING_ORDNANCE_PER_RANGE: u8 = 2;
 pub const ARENA_MATCHMAKING_SPACESHIPS_PER_RANGE: u8 = 5;
 pub const MATCH_MAX_TURN: u16 = 1000;
 pub const CHARGE_PER_TURN: u8 = 1;
+pub const HEAT_DISSIPATION_PER_TURN: u8 = 1;
+pub const BASE_HEAT: u8 = 5;
+pub const BASE_JAM_CHANCE: u8 = 100;
 
 solana_security_txt::security_txt! {
     name: "Hologram",

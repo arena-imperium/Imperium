@@ -11,10 +11,14 @@ use {
 // tag trait for Modules, Drones and Mutations
 pub trait PowerUp {
     fn get_name(&self) -> LimitedString;
+    // for active power-ups, how many charge it takes before being activated
     fn is_active(&self) -> bool;
+    // activation delay mechanism for active modules
     fn get_charge_time(&self) -> Option<u8>;
+    // reactivation delay mechanism for passive modules
+    fn get_heat(&self) -> Option<u8>;
     // get what happen on activation
-    fn get_effects(&self) -> Vec<Effect>;
+    fn get_effect(&self) -> Effect;
     // get bonuses
     fn get_bonuses(&self) -> Option<Bonuses>;
     fn get_kind(&self) -> PowerupKind;
@@ -27,7 +31,9 @@ impl PowerUp for Module {
 
     fn is_active(&self) -> bool {
         match &self.class {
-            ModuleClass::Weapon(_) | ModuleClass::Repairer(_, _) => true,
+            ModuleClass::Weapon(_) | ModuleClass::Repairer(_, _) | ModuleClass::Jammer(_, _) => {
+                true
+            }
             ModuleClass::Capacitative(_, _) => false,
         }
     }
@@ -37,50 +43,68 @@ impl PowerUp for Module {
             ModuleClass::Weapon(wms) => Some(wms.charge_time as u8),
             ModuleClass::Repairer(_, rms) => Some(rms.charge_time as u8),
             ModuleClass::Capacitative(_, _) => None,
+            ModuleClass::Jammer(_, jms) => Some(jms.charge_time as u8),
         }
     }
 
-    fn get_effects(&self) -> Vec<Effect> {
+    fn get_heat(&self) -> Option<u8> {
         match &self.class {
-            ModuleClass::Weapon(wms) => {
-                vec![Effect::Fire {
-                    damage: wms.damage,
-                    shots: wms.shots,
-                    weapon_type: wms.weapon_type,
-                }]
+            ModuleClass::Weapon(_) => None,
+            ModuleClass::Repairer(_, _) => None,
+            ModuleClass::Capacitative(_, passive) => {
+                let Passive::CapacitativeRepair {
+                    recent_damage_threshold: _,
+                    heat,
+                    repair_amount: _,
+                    target: _,
+                } = &passive;
+                Some(*heat)
             }
-            ModuleClass::Repairer(_, rms) => vec![Effect::Repair {
+            ModuleClass::Jammer(_, _) => None,
+        }
+    }
+
+    fn get_effect(&self) -> Effect {
+        match &self.class {
+            ModuleClass::Weapon(wms) => Effect::Fire {
+                damage: wms.damage,
+                shots: wms.shots,
+                weapon_type: wms.weapon_type,
+            },
+            ModuleClass::Repairer(_, rms) => Effect::Repair {
                 target: rms.target,
                 amount: rms.repair_amount,
-            }],
+            },
             ModuleClass::Capacitative(_, passive) => {
-                if let Passive::CapacitativeRepair {
-                    threshold,
+                let Passive::CapacitativeRepair {
+                    recent_damage_threshold: threshold,
+                    heat: _,
                     repair_amount,
                     target,
-                } = &passive
-                {
-                    let threshold_clone = threshold.clone();
-                    vec![Effect::Conditionnal {
-                        condition: ConditionFn {
-                            func: Arc::new(move |sbc| sbc.recent_hull_damage() >= threshold_clone),
-                        },
-                        effect: Box::new(Effect::Repair {
-                            target: *target,
-                            amount: *repair_amount,
-                        }),
-                    }]
-                } else {
-                    panic!("wrong passive")
+                } = &passive;
+                let threshold_clone = threshold.clone();
+                Effect::Conditionnal {
+                    condition: ConditionFn {
+                        func: Arc::new(move |sbc| sbc.recent_hull_damage() >= threshold_clone),
+                    },
+                    effect: Box::new(Effect::Repair {
+                        target: *target,
+                        amount: *repair_amount,
+                    }),
                 }
             }
+            ModuleClass::Jammer(_, jms) => Effect::Jam {
+                charge_burn: jms.charge_burn,
+            },
         }
     }
 
     fn get_bonuses(&self) -> Option<Bonuses> {
         match &self.class {
             ModuleClass::Weapon(_) => None,
-            ModuleClass::Repairer(b, _) | ModuleClass::Capacitative(b, _) => Some(b.clone()),
+            ModuleClass::Repairer(bonuses, _)
+            | ModuleClass::Capacitative(bonuses, _)
+            | ModuleClass::Jammer(bonuses, _) => Some(bonuses.clone()),
         }
     }
 
@@ -109,19 +133,20 @@ impl PowerUp for Drone {
         }
     }
 
-    fn get_effects(&self) -> Vec<Effect> {
+    fn get_heat(&self) -> Option<u8> {
+        None
+    }
+
+    fn get_effect(&self) -> Effect {
         match &self.class {
-            DroneClass::Weapon(wms) => {
-                vec![Effect::Fire {
-                    damage: wms.damage,
-                    shots: wms.shots,
-                    weapon_type: wms.weapon_type,
-                }]
-            }
-            DroneClass::ECM(jms) => vec![Effect::Jam {
-                chance: jms.chance,
+            DroneClass::Weapon(wms) => Effect::Fire {
+                damage: wms.damage,
+                shots: wms.shots,
+                weapon_type: wms.weapon_type,
+            },
+            DroneClass::ECM(jms) => Effect::Jam {
                 charge_burn: jms.charge_burn,
-            }],
+            },
         }
     }
 
@@ -147,7 +172,10 @@ impl PowerUp for Mutation {
     fn get_charge_time(&self) -> Option<u8> {
         panic!("Not implemented")
     }
-    fn get_effects(&self) -> Vec<Effect> {
+    fn get_heat(&self) -> Option<u8> {
+        panic!("Not implemented")
+    }
+    fn get_effect(&self) -> Effect {
         panic!("Not implemented")
     }
     fn get_bonuses(&self) -> Option<Bonuses> {

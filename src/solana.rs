@@ -817,6 +817,17 @@ impl HologramServer {
         )
     }
 
+    // FLOW
+    // 1. You know the real name, let's say it's "GameRealm1" (alluser share this realm)
+    // 2. You know the user's pubkey, that's the one you sign with
+    // 3. From this user pubkey, you can derive it's UserAccount PDA (because a UserAccount PDA == "user_account" + realm_pda + user_pubkey)
+    // 4. Check if the UserAccount exists 
+    // 4.1. if not, create it (calling the create_user_account IX)
+    // 4.2. if yes, continue
+    // 5. you now have a user_account PDA (the address), so you can call fetch_account in solana.rs with the user_account PDA to retreive the data,
+    //    that data contains the list of spaceship PDAs
+  
+
     pub fn get_spaceship_pda(
         realm_pda: &Pubkey,
         user: &Pubkey,
