@@ -42,7 +42,7 @@ pub fn on_station_init(
         OnClick::run(
             |text_map: Res<StrMap>,
              mut next_state: ResMut<NextState<crate::Scene>>,
-             server: Res<HologramServer>| {
+             server: Option<Res<HologramServer>>| {
                 let login_data = text_map.get("login_data").unwrap();
                 // Todo: make actual solana login logic here
                 //  And add extra states for waiting for login return val.
