@@ -2,7 +2,7 @@ use crate::game_ui::dsl::{Mark, OnClick, UiAction};
 use crate::game_ui::egui_wrappers::StrMap;
 use crate::game_ui::LoginState;
 use crate::input_util::all_key_codes;
-use crate::solana::HologramServer;
+use crate::solana::{generate_test_client, HologramServer};
 use crate::Scene;
 use bevy::asset::AssetServer;
 use bevy::hierarchy::{BuildChildren, DespawnRecursiveExt};
@@ -37,33 +37,49 @@ pub fn on_station_init(
     camera_query: Query<Entity, With<Camera>>,
 ) {
     // Need to add the actions before the ui.
-    UiAction::add_action("login", || {
+    UiAction::add_action("connect_id", || {
         // if this gets too big, split out into its own function
         OnClick::run(
-            |text_map: Res<StrMap>,
+            |mut login_state: ResMut<LoginState>,
              mut next_state: ResMut<NextState<crate::Scene>>,
-             server: Option<Res<HologramServer>>| {
-                let login_data = text_map.get("login_data").unwrap();
-                // Todo: make actual solana login logic here
-                //  And add extra states for waiting for login return val.
-                //server.fire_fetch_account_task(&mut commands);
-
-                // For now we just directly consider any input as acceptable.
-                if login_data != "" {
+             server: Option<Res<HologramServer>>,
+             mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>| {
+                if let Some(server) = server {
                     log::info!("Logging in, loading hanger");
                     // Todo: Play confirmation sound
                     // Transition directly to hanger.
                     next_state.set(Scene::Hanger)
-                }
-                // We will count empty input as failure
-                else {
-                    log::info!("Logging in failed!");
-                    // Todo: Play error sound
-                    // Make ui window shake or something?
+                } else {
+                    for (_menu_entity, mut visibility, mark) in sub_uis.iter_mut() {
+                        match mark.0.as_str() {
+                            "init" => *visibility = Visibility::Hidden,
+                            "window" => *visibility = Visibility::Hidden,
+                            "sel_sol_window" => *visibility = Visibility::Inherited,
+                            _ => {}
+                        }
+                    }
+                    *login_state = LoginState::SelectSolanaClientWindow
+                    // Switch to client connection UI
                 }
             },
         )
     });
+
+    UiAction::add_action("select_default_client", || {
+        // if this gets too big, split out into its own function
+        OnClick::run(
+            |mut login_state: ResMut<LoginState>,
+             mut commands: Commands,
+             mut next_state: ResMut<NextState<crate::Scene>>,
+             server: Option<Res<HologramServer>>| {
+                // Todo: Add window variant "loading" or something
+                //  for when we wait for the web wallet or whatever to confirm
+                commands.insert_resource(HologramServer::new(generate_test_client()));
+                next_state.set(Scene::Hanger)
+            },
+        )
+    });
+
     UiAction::add_action("close", || {
         OnClick::run(
             |mut login_state: ResMut<LoginState>,
@@ -74,6 +90,7 @@ pub fn on_station_init(
                     match mark.0.as_str() {
                         "init" => *visibility = Visibility::Inherited,
                         "window" => *visibility = Visibility::Hidden,
+                        "sel_sol_window" => *visibility = Visibility::Hidden,
                         _ => {}
                     }
                 }
@@ -168,6 +185,7 @@ pub fn station_login(
                     match mark.0.as_str() {
                         "init" => *visibility = Visibility::Hidden,
                         "window" => *visibility = Visibility::Inherited,
+                        "sel_sol_window" => *visibility = Visibility::Hidden,
                         _ => {}
                     }
                 }
@@ -179,5 +197,6 @@ pub fn station_login(
 
             }*/
         }
+        LoginState::SelectSolanaClientWindow => {}
     }
 }

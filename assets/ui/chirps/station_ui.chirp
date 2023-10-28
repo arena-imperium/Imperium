@@ -1,7 +1,8 @@
-fn button(action) {
+fn button(action, text) {
     Overlay(column layout("voCaC") rules(1.0*, 1.0*)){
         Button(button(action) highlight image("ui/textures/button.png") rules(1.0*, 1.0*) )
-        Text(font("fonts/FiraSans-Bold.ttf") text("Confirm"))
+
+        Text(font("fonts/FiraSans-Bold.ttf") text(text))
     }
 }
 fn login_init() {
@@ -15,14 +16,30 @@ fn login_window() {
         // Extra column to center the thing
         Window(column layout("vdEaC") rules(1.0*, 1.0*) margin(20) image("ui/textures/board.png")) {
             WindowTitle(column layout("voCaC") rules(1.0*, 1.0*)) {
-                StationMessage(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Enter Station Credentials"))
+                StationMessage(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Station Entry Id Request"))
                 ToTheRight(column layout(">dEaC") rules(400px, 1.0*)) {
                     CloseButton(button("close") highlight font_size(30) font("fonts/FiraSans-Bold.ttf") text("X") )
                 }
             }
             LoginButton(column layout("vdSaC") rules(1.0*, 1.0*) margin(50) image("ui/textures/board.png")) {
-                Text(text_box("login_data") rules(300px, 50px))
-                button!(login)
+                button!("connect_id", "Connect ID")
+            }
+        }
+    }
+}
+fn sel_sol_window() {
+    SlectSolanaWindow(column rules(100%, 100%) ) {
+        // Extra column to center the thing
+        Window(column layout("vdEaC") rules(1.0*, 1.0*) margin(20) image("ui/textures/board.png")) {
+            WindowTitle(column layout("voCaC") rules(1.0*, 1.0*)) {
+                StationMessage(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Select Solana Client"))
+                ToTheRight(column layout(">dEaC") rules(400px, 1.0*)) {
+                    CloseButton(button("close") highlight font_size(30) font("fonts/FiraSans-Bold.ttf") text("X") )
+                }
+            }
+            LoginButton(column layout("vdSaC") rules(1.0*, 1.0*) margin(50) image("ui/textures/board.png")) {
+                button!("select_default_client", "HardcodedWallet")
+                button!("select_default_client", "HardCodedWallet#2")
             }
         }
     }
@@ -31,6 +48,7 @@ Root(screen_root row distrib_start main_margin(50) ) {
     Menu(layout(">oCaC") rules(100%, 100%)) {
         login_init!()(mark("init"))
         login_window!()(hidden mark("window"))
+        sel_sol_window!()(hidden mark("sel_sol_window"))
     }
 }
 

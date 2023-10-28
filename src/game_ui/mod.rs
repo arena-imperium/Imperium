@@ -20,6 +20,7 @@ pub enum LoginState {
     #[default]
     None,
     LoginWindow,
+    SelectSolanaClientWindow,
 }
 
 pub struct GameGuiPlugin;
