@@ -13,14 +13,14 @@ fn login_init() {
 fn login_window() {
     LoginWindow(column rules(100%, 100%) ) {
         // Extra column to center the thing
-        Column(column layout("vdEaC") rules(1.0*, 1.0*) margin(20) image("ui/textures/board.png")) {
-            Column(column layout("voCaC") rules(1.0*, 1.0*)) {
-                Text(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Enter Station Credentials"))
-                Column(column layout(">dEaC") rules(400px, 1.0*)) {
-                    Text(button("close") highlight font_size(30) font("fonts/FiraSans-Bold.ttf") text("X") )
+        Window(column layout("vdEaC") rules(1.0*, 1.0*) margin(20) image("ui/textures/board.png")) {
+            WindowTitle(column layout("voCaC") rules(1.0*, 1.0*)) {
+                StationMessage(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Enter Station Credentials"))
+                ToTheRight(column layout(">dEaC") rules(400px, 1.0*)) {
+                    CloseButton(button("close") highlight font_size(30) font("fonts/FiraSans-Bold.ttf") text("X") )
                 }
             }
-            Column(column layout("vdSaC") rules(1.0*, 1.0*) margin(50) image("ui/textures/board.png")) {
+            LoginButton(column layout("vdSaC") rules(1.0*, 1.0*) margin(50) image("ui/textures/board.png")) {
                 Text(text_box("login_data") rules(300px, 50px))
                 button!(login)
             }
