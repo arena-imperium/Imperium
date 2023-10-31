@@ -678,15 +678,11 @@ impl HologramServer {
     }
 
     /// Returns the account at the given address
-    fn fire_fetch_account_task<T: 'static + AccountDeserialize + Send>(
+    pub fn fire_fetch_account_task<T: 'static + AccountDeserialize + Send>(
         &self,
         commands: &mut Commands,
         account: &Pubkey,
     ) {
-        struct Test {
-            a: bool,
-        }
-        Test { a: true };
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
         let account_clone = account.clone();
