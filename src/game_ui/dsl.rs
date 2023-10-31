@@ -75,9 +75,11 @@ impl<'a> From<&'a UiAction> for OnClick {
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct Mark(pub String);
-/*fn parse_mark<T>(reg: &TypeRegistry, _: T, input: &str) -> Result<Mark, anyhow::Error> {
-    Ok(Mark(input.to_owned()))
-}*/
+
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
+/// Like mark, but indicates that entity belongs to a specific group.
+pub struct Group(pub String);
 
 pub struct ImperiumDsl {
     inner: UiDsl,
@@ -88,6 +90,7 @@ pub struct ImperiumDsl {
     is_label: bool,
     is_hidden: bool,
     mark: Option<Box<str>>,
+    group: Option<Box<str>>,
     /// Data shared by actions and text box's
     ///
     /// actions need to know what action is being executed, and
@@ -130,6 +133,12 @@ impl ImperiumDsl {
     /// Useful when you want to do something to a specific ui entity.
     fn mark(&mut self, mark: &str) {
         self.mark = Some(mark.into())
+    }
+
+    /// Attaches a Group(String) component to this entity.
+    /// Useful when you want to limit operations on marks etc to a specific group
+    fn group(&mut self, group: &str) {
+        self.group = Some(group.into())
     }
 
     /// allows dynamic text from egui key value par
@@ -180,6 +189,9 @@ impl DslBundle for ImperiumDsl {
         }
         if let Some(data) = self.mark.take() {
             cmds.insert(Mark(data.into()));
+        }
+        if let Some(data) = self.group.take() {
+            cmds.insert(Group(data.into()));
         }
         if self.is_text_box {
             if let Some(data) = self.data.take() {

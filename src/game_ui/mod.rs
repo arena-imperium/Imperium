@@ -14,6 +14,7 @@ pub mod dsl;
 pub mod egui_wrappers;
 mod highlight;
 mod mirror;
+mod switch;
 
 #[derive(Default, Resource)]
 pub enum LoginState {
@@ -35,6 +36,7 @@ impl Plugin for GameGuiPlugin {
         app.add_plugins(DefaultPickingPlugins);
         app.add_plugins(MirrorPlugin::<OnClick, UiAction>::new_from());
         app.register_type::<dsl::Mark>();
+        app.register_type::<dsl::Group>();
         // custom ui modules
         app.add_plugins(HighlightPlugin);
         // Needed for text boxes and dynamic labels
