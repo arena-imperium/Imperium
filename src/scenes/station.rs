@@ -1,5 +1,6 @@
-use crate::game_ui::dsl::{Mark, OnClick, UiAction};
+use crate::game_ui::dsl::{OnClick, UiAction};
 use crate::game_ui::egui_wrappers::StrMap;
+use crate::game_ui::switch::SwitchToUI;
 use crate::game_ui::LoginState;
 use crate::input_util::all_key_codes;
 use crate::solana::{generate_test_client, HologramServer};
@@ -9,9 +10,9 @@ use bevy::hierarchy::{BuildChildren, DespawnRecursiveExt};
 use bevy::input::Input;
 use bevy::log;
 use bevy::prelude::{
-    default, in_state, App, Camera, Commands, Component, Entity, IntoSystemConfigs, KeyCode,
-    MouseButton, NextState, OnEnter, OnExit, Plugin, Query, Res, ResMut, SpriteBundle, Time,
-    Transform, Update, Visibility, With,
+    default, in_state, App, Camera, Commands, Component, Entity, EventWriter, IntoSystemConfigs,
+    KeyCode, MouseButton, NextState, OnEnter, OnExit, Plugin, Query, Res, ResMut, SpriteBundle,
+    Time, Transform, Update, With,
 };
 use cuicui_chirp::ChirpBundle;
 
@@ -43,21 +44,14 @@ pub fn on_station_init(
             |mut login_state: ResMut<LoginState>,
              mut next_state: ResMut<NextState<crate::Scene>>,
              server: Option<Res<HologramServer>>,
-             mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>| {
+             mut event_writer: EventWriter<SwitchToUI>| {
                 if let Some(server) = server {
                     log::info!("Logging in, loading hanger");
                     // Todo: Play confirmation sound
                     // Transition directly to hanger.
                     next_state.set(Scene::Hanger)
                 } else {
-                    for (_menu_entity, mut visibility, mark) in sub_uis.iter_mut() {
-                        match mark.0.as_str() {
-                            "init" => *visibility = Visibility::Hidden,
-                            "window" => *visibility = Visibility::Hidden,
-                            "sel_sol_window" => *visibility = Visibility::Inherited,
-                            _ => {}
-                        }
-                    }
+                    event_writer.send(SwitchToUI::new("sel_sol_window"));
                     *login_state = LoginState::SelectSolanaClientWindow
                     // Switch to client connection UI
                 }
@@ -82,18 +76,10 @@ pub fn on_station_init(
 
     UiAction::add_action("close", || {
         OnClick::run(
-            |mut login_state: ResMut<LoginState>,
-             mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>| {
+            |mut login_state: ResMut<LoginState>, mut event_writer: EventWriter<SwitchToUI>| {
                 log::info!("Closing window");
                 // Switch which ui is visible
-                for (_menu_entity, mut visibility, mark) in sub_uis.iter_mut() {
-                    match mark.0.as_str() {
-                        "init" => *visibility = Visibility::Inherited,
-                        "window" => *visibility = Visibility::Hidden,
-                        "sel_sol_window" => *visibility = Visibility::Hidden,
-                        _ => {}
-                    }
-                }
+                event_writer.send(SwitchToUI::new("init"));
                 *login_state = LoginState::None;
             },
         )
@@ -166,7 +152,7 @@ pub fn station_login(
     mut login_state: ResMut<LoginState>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
-    mut sub_uis: Query<(Entity, &mut Visibility, &Mark)>,
+    mut event_writer: EventWriter<SwitchToUI>,
 ) {
     match login_state.as_ref() {
         LoginState::None => {
@@ -179,16 +165,7 @@ pub fn station_login(
                 // "message recieved"
                 // then interpolate/make the ui resize from zero in transition affect.
 
-                // Go through our marked components, and change their visibility
-                // to switch which ui is displayed.
-                for (_menu_entity, mut visibility, mark) in sub_uis.iter_mut() {
-                    match mark.0.as_str() {
-                        "init" => *visibility = Visibility::Hidden,
-                        "window" => *visibility = Visibility::Inherited,
-                        "sel_sol_window" => *visibility = Visibility::Hidden,
-                        _ => {}
-                    }
-                }
+                event_writer.send(SwitchToUI::new("window"));
                 *login_state = LoginState::LoginWindow;
             }
         }
