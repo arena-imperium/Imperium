@@ -1,7 +1,5 @@
 use crate::game_ui::dsl::{OnClick, UiAction};
-use crate::game_ui::egui_wrappers::StrMap;
 use crate::game_ui::switch::SwitchToUI;
-use crate::game_ui::LoginState;
 use crate::input_util::all_key_codes;
 use crate::solana::{generate_test_client, HologramServer};
 use crate::Scene;
@@ -11,8 +9,8 @@ use bevy::input::Input;
 use bevy::log;
 use bevy::prelude::{
     default, in_state, App, Camera, Commands, Component, Entity, EventWriter, IntoSystemConfigs,
-    KeyCode, MouseButton, NextState, OnEnter, OnExit, Plugin, Query, Res, ResMut, SpriteBundle,
-    Time, Transform, Update, With,
+    KeyCode, MouseButton, NextState, OnEnter, OnExit, Plugin, Query, Res, ResMut, Resource,
+    SpriteBundle, Time, Transform, Update, With,
 };
 use cuicui_chirp::ChirpBundle;
 
@@ -21,6 +19,7 @@ pub struct StationScenePlugin;
 
 impl Plugin for StationScenePlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<LoginState>();
         app.add_systems(Update, station_login.run_if(in_state(Scene::Station)));
         app.add_systems(Update, station_move.run_if(in_state(Scene::Station)));
         app.add_systems(OnEnter(Scene::Station), on_station_init);
@@ -175,5 +174,17 @@ pub fn station_login(
             }*/
         }
         LoginState::SelectSolanaClientWindow => {}
+        LoginState::CheckAccountExists => {}
+        LoginState::CreateUserAccount => {}
     }
+}
+
+#[derive(Default, Resource)]
+pub enum LoginState {
+    #[default]
+    None,
+    LoginWindow,
+    SelectSolanaClientWindow,
+    CheckAccountExists,
+    CreateUserAccount,
 }

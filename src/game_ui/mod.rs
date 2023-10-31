@@ -10,6 +10,7 @@ use crate::game_ui::egui_wrappers::{CuiCuiEguiPlugin, StrMap};
 use crate::game_ui::highlight::HighlightPlugin;
 use crate::game_ui::mirror::MirrorPlugin;
 use crate::game_ui::switch::SwitchPlugin;
+use crate::scenes::station::LoginState;
 
 pub mod dsl;
 pub mod egui_wrappers;
@@ -17,20 +18,11 @@ mod highlight;
 mod mirror;
 pub mod switch;
 
-#[derive(Default, Resource)]
-pub enum LoginState {
-    #[default]
-    None,
-    LoginWindow,
-    SelectSolanaClientWindow,
-}
-
 pub struct GameGuiPlugin;
 
 impl Plugin for GameGuiPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<crate::Scene>();
-        app.init_resource::<LoginState>();
 
         // Ui crates and functionality stuff
         app.add_plugins(cuicui_layout_bevy_ui::Plugin);
