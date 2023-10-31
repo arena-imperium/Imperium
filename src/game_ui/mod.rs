@@ -9,12 +9,13 @@ use crate::game_ui::dsl::{ImperiumDsl, OnClick, UiAction};
 use crate::game_ui::egui_wrappers::{CuiCuiEguiPlugin, StrMap};
 use crate::game_ui::highlight::HighlightPlugin;
 use crate::game_ui::mirror::MirrorPlugin;
+use crate::game_ui::switch::SwitchPlugin;
 
 pub mod dsl;
 pub mod egui_wrappers;
 mod highlight;
 mod mirror;
-mod switch;
+pub mod switch;
 
 #[derive(Default, Resource)]
 pub enum LoginState {
@@ -41,6 +42,7 @@ impl Plugin for GameGuiPlugin {
         app.add_plugins(HighlightPlugin);
         // Needed for text boxes and dynamic labels
         app.add_plugins(CuiCuiEguiPlugin);
+        app.add_plugins(SwitchPlugin);
 
         app.add_systems(Startup, setup);
         //app.add_systems(Startup, ui_test_scene.after(setup));

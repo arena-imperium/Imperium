@@ -108,6 +108,7 @@ impl Default for ImperiumDsl {
             is_label: false,
             is_hidden: false,
             mark: None,
+            group: None,
             data: None,
         }
     }
