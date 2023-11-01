@@ -49,15 +49,19 @@ fn loading() {
         // Extra column to center the thing
         Window(column layout("vdEaC") rules(1.0*, 1.0*) margin(20) image("ui/textures/board.png")) {
             WindowTitle(column layout("voCaC") rules(1.0*, 1.0*)) {
-                StationMessage(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Attempting Connection"))
+                StationMessage(font_size(30) font("fonts/FiraSans-Bold.ttf") text("Verifying Id"))
                 ToTheRight(column layout(">dEaC") rules(400px, 1.0*)) {
                     CloseButton(button("close") highlight font_size(30) font("fonts/FiraSans-Bold.ttf") text("X") )
                 }
             }
-            Text(font_size(30) font("fonts/FiraSans-Bold.ttf") text(". . ."))
+            Menu(layout(">oCaC") rules(100%, 100%)) {
+                Text(mark("waiting") group("loading") font_size(30) font("fonts/FiraSans-Bold.ttf") text(". . ."))
+                Text(mark("no_id") group("loading") hidden font_size(30) font("fonts/FiraSans-Bold.ttf") text("No Id Found! Creating new user id..."))
+            }
         }
     }
 }
+
 Root(screen_root row distrib_start main_margin(50) ) {
     Menu(layout(">oCaC") rules(100%, 100%)) {
         login_init!()(mark("init"))

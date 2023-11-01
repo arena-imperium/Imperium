@@ -147,9 +147,13 @@ pub fn on_station_exit(
     mut cmds: Commands,
     ui: Query<Entity, With<StationUI>>,
     station_scene: Query<Entity, With<StationSceneObj>>,
+    tasks: Query<Entity, With<SolanaFetchAccountTask<UserAccount>>>,
 ) {
     cmds.entity(ui.iter().next().unwrap()).despawn_recursive();
     for entity in &station_scene {
+        cmds.entity(entity).despawn();
+    }
+    for entity in &tasks {
         cmds.entity(entity).despawn();
     }
 }
@@ -181,6 +185,7 @@ pub fn station_login(
     mut event_writer: EventWriter<SwitchToUI>,
     mut server: Option<ResMut<HologramServer>>,
     mut fetch_acount: Query<(Entity, &mut SolanaFetchAccountTask<UserAccount>)>,
+    mut next_state: ResMut<NextState<Scene>>,
 ) {
     match login_state.as_ref() {
         LoginState::None => {
@@ -204,37 +209,62 @@ pub fn station_login(
         }
         LoginState::SelectSolanaClientWindow => {}
         LoginState::CheckAccountExists => {
-            let mut on_unrecoverable_error = |result: &dyn std::fmt::Debug| {
-                event_writer.send(SwitchToUI::new("init"));
-                *login_state = LoginState::None;
-                println!("fetch task wierd error{result:?}");
-            };
+            // Not sure about this closure; wanted to have the abort logic in one place
+            // instead 5 places, to make sure nothings forgotten, but signature is long because
+            // mutability issues and etc. Eh, probably fine to leave it as is at this point.
+            let mut on_unrecoverable_error =
+                |result: &dyn std::fmt::Debug,
+                 login_state: &mut LoginState,
+                 writer: &mut EventWriter<SwitchToUI>| {
+                    writer.send(SwitchToUI::new("init"));
+                    *login_state = LoginState::None;
+                    println!("fetch task had unexpected error{result:?}");
+                };
             for (entity, mut task) in fetch_acount.iter_mut() {
+                // Handle all possible combinations of results for our fetch account task
                 if let Some(result) = block_on(poll_once(&mut task.task)) {
                     match result {
                         Ok(account) => {
                             if let Some(server) = &mut server {
                                 server.user_account_pda = Some(account);
                                 println!("success");
+                                // since we acquired all info needed in login, we can switch to the hanger scene
+                                next_state.set(Scene::Hanger);
                             } else {
-                                on_unrecoverable_error(&"expected server to be initialized")
+                                on_unrecoverable_error(
+                                    &"expected server to be initialized",
+                                    &mut login_state,
+                                    &mut event_writer,
+                                );
                             }
                         }
                         Err(error) => {
                             let error: ClientError = error;
                             match error {
                                 ClientError::AccountNotFound => {
-                                    // Todo: change to create user account state here
-                                    println!("account not found");
+                                    if let Some(server) = &mut server {
+                                        println!("account not found, creating one");
+                                        event_writer.send(SwitchToUI::new("no_id"));
+                                        *login_state = LoginState::CreateUserAccount;
+                                        server.fire_default_create_user_account_task(&mut commands);
+                                    } else {
+                                        on_unrecoverable_error(
+                                            &"expected server to be initialized",
+                                            &mut login_state,
+                                            &mut event_writer,
+                                        );
+                                    }
                                 }
-                                _ => on_unrecoverable_error(&error),
+                                _ => on_unrecoverable_error(
+                                    &error,
+                                    &mut login_state,
+                                    &mut event_writer,
+                                ),
                             }
                         }
                     }
-                    // Remove task component from entity since it's done
-                    commands
-                        .entity(entity)
-                        .remove::<SolanaFetchAccountTask<UserAccount>>();
+                    // Remove task entity since we are done handling its task now.
+                    commands.entity(entity).despawn();
                 } else {
                     println!("waiting for task to execute");
                     // Task is not yet complete. You can do something else here.
