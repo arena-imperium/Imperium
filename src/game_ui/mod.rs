@@ -10,7 +10,6 @@ use crate::game_ui::egui_wrappers::{CuiCuiEguiPlugin, StrMap};
 use crate::game_ui::highlight::HighlightPlugin;
 use crate::game_ui::mirror::MirrorPlugin;
 use crate::game_ui::switch::SwitchPlugin;
-use crate::scenes::station::LoginState;
 
 pub mod dsl;
 pub mod egui_wrappers;

@@ -1,8 +1,9 @@
 use crate::game_ui::dsl::{OnClick, UiAction};
 use crate::game_ui::switch::SwitchToUI;
 use crate::input_util::all_key_codes;
-use crate::solana::{generate_test_client, HologramServer};
+use crate::solana::{generate_test_client, HologramServer, SolanaFetchAccountTask};
 use crate::Scene;
+use anchor_client::ClientError;
 use bevy::asset::AssetServer;
 use bevy::hierarchy::{BuildChildren, DespawnRecursiveExt};
 use bevy::input::Input;
@@ -13,6 +14,12 @@ use bevy::prelude::{
     SpriteBundle, Time, Transform, Update, With,
 };
 use cuicui_chirp::ChirpBundle;
+use futures_lite::future;
+use futures_lite::future::{block_on, poll_once};
+use hologram::state::UserAccount;
+use solana_program::pubkey::Pubkey;
+use std::fmt::Debug;
+use std::task::Poll;
 
 /// Requires [`crate::GameGuiPlugin`]
 pub struct StationScenePlugin;
@@ -44,15 +51,21 @@ pub fn on_station_init(
              mut next_state: ResMut<NextState<crate::Scene>>,
              server: Option<Res<HologramServer>>,
              mut event_writer: EventWriter<SwitchToUI>| {
-                if let Some(server) = server {
-                    log::info!("Logging in, loading hanger");
-                    // Todo: Play confirmation sound
-                    // Transition directly to hanger.
-                    next_state.set(Scene::Hanger)
-                } else {
+                let mut if_no_server = || {
                     event_writer.send(SwitchToUI::new("sel_sol_window"));
                     *login_state = LoginState::SelectSolanaClientWindow
-                    // Switch to client connection UI
+                };
+                if let Some(server) = server {
+                    if let Some(account) = &server.user_account_pda {
+                        log::info!("Logging in, loading hanger");
+                        // Todo: Play confirmation sound
+                        // Transition directly to hanger.
+                        next_state.set(Scene::Hanger)
+                    } else {
+                        if_no_server();
+                    }
+                } else {
+                    if_no_server();
                 }
             },
         )
@@ -64,11 +77,24 @@ pub fn on_station_init(
             |mut login_state: ResMut<LoginState>,
              mut commands: Commands,
              mut next_state: ResMut<NextState<crate::Scene>>,
+             mut event_writer: EventWriter<SwitchToUI>,
              server: Option<Res<HologramServer>>| {
                 // Todo: Add window variant "loading" or something
                 //  for when we wait for the web wallet or whatever to confirm
-                commands.insert_resource(HologramServer::new(generate_test_client()));
-                next_state.set(Scene::Hanger)
+
+                // Also can consider caching the account pda
+                let holo_server = HologramServer::new(generate_test_client());
+
+                // Launch fetch account task to see if we need to tell the smart contract to
+                // create a new account for this wallet or not
+                holo_server.fire_fetch_account_task::<UserAccount>(
+                    &mut commands,
+                    &holo_server.calc_user_account_pda().0,
+                );
+                commands.insert_resource(holo_server);
+                event_writer.send(SwitchToUI::new("loading"));
+                *login_state = LoginState::CheckAccountExists;
+                //next_state.set(Scene::Hanger)
             },
         )
     });
@@ -148,10 +174,13 @@ pub fn station_move(time: Res<Time>, mut station_query: Query<&mut Transform, Wi
 }
 
 pub fn station_login(
+    mut commands: Commands,
     mut login_state: ResMut<LoginState>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
     mut event_writer: EventWriter<SwitchToUI>,
+    mut server: Option<ResMut<HologramServer>>,
+    mut fetch_acount: Query<(Entity, &mut SolanaFetchAccountTask<UserAccount>)>,
 ) {
     match login_state.as_ref() {
         LoginState::None => {
@@ -174,7 +203,44 @@ pub fn station_login(
             }*/
         }
         LoginState::SelectSolanaClientWindow => {}
-        LoginState::CheckAccountExists => {}
+        LoginState::CheckAccountExists => {
+            let mut on_unrecoverable_error = |result: &dyn std::fmt::Debug| {
+                event_writer.send(SwitchToUI::new("init"));
+                *login_state = LoginState::None;
+                println!("fetch task wierd error{result:?}");
+            };
+            for (entity, mut task) in fetch_acount.iter_mut() {
+                if let Some(result) = block_on(poll_once(&mut task.task)) {
+                    match result {
+                        Ok(account) => {
+                            if let Some(server) = &mut server {
+                                server.user_account_pda = Some(account);
+                                println!("success");
+                            } else {
+                                on_unrecoverable_error(&"expected server to be initialized")
+                            }
+                        }
+                        Err(error) => {
+                            let error: ClientError = error;
+                            match error {
+                                ClientError::AccountNotFound => {
+                                    // Todo: change to create user account state here
+                                    println!("account not found");
+                                }
+                                _ => on_unrecoverable_error(&error),
+                            }
+                        }
+                    }
+                    // Remove task component from entity since it's done
+                    commands
+                        .entity(entity)
+                        .remove::<SolanaFetchAccountTask<UserAccount>>();
+                } else {
+                    println!("waiting for task to execute");
+                    // Task is not yet complete. You can do something else here.
+                }
+            }
+        }
         LoginState::CreateUserAccount => {}
     }
 }

@@ -113,6 +113,8 @@ pub struct SolanaFetchAccountsTask<T> {
 pub struct HologramServer {
     pub solana_client: Arc<SolanaClient>,
     pub realm_name: String,
+    pub user_account_pda: Option<UserAccount>,
+
     pub admin_pubkey: Pubkey,
     // Custom Switchboard functions
     pub spaceship_seed_generation_function: Pubkey,
@@ -150,6 +152,7 @@ impl HologramServer {
         HologramServer {
             solana_client: client,
             realm_name: "Holorealm1".to_string(), // @HARDCODED
+            user_account_pda: None,
             admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
             spaceship_seed_generation_function: Pubkey::from_str(
                 "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe",
@@ -813,6 +816,19 @@ impl HologramServer {
     pub fn get_user_account_pda(realm_pda: &Pubkey, user: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[b"user_account", realm_pda.as_ref(), user.as_ref()],
+            &hologram::id(),
+        )
+    }
+
+    /// OInly difference from [`get_user_account_pda`] is that this takes self value, and uses the
+    /// built in realm and user values stored there.
+    pub fn calc_user_account_pda(&self) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[
+                b"user_account",
+                Self::get_realm_pda(&self.realm_name).0.as_ref(),
+                &self.solana_client.payer.pubkey().as_ref(),
+            ],
             &hologram::id(),
         )
     }
