@@ -271,7 +271,9 @@ pub fn station_login(
                 }
             }
         }
-        LoginState::CreateUserAccount => {}
+        LoginState::CreateUserAccount => {
+            // Todo: handle tracking the create account status
+        }
     }
 }
 

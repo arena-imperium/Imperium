@@ -54,7 +54,7 @@ fn loading() {
                     CloseButton(button("close") highlight font_size(30) font("fonts/FiraSans-Bold.ttf") text("X") )
                 }
             }
-            Menu(layout(">oCaC") rules(100%, 100%)) {
+            Menu(layout(">oCaC") rules(1.0*, 1.0*)) {
                 Text(mark("waiting") group("loading") font_size(30) font("fonts/FiraSans-Bold.ttf") text(". . ."))
                 Text(mark("no_id") group("loading") hidden font_size(30) font("fonts/FiraSans-Bold.ttf") text("No Id Found! Creating new user id..."))
             }
