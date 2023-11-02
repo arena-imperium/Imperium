@@ -16,12 +16,8 @@ use bevy::prelude::{
     SpriteBundle, Time, Transform, Update, With,
 };
 use cuicui_chirp::ChirpBundle;
-use futures_lite::future;
 use futures_lite::future::{block_on, poll_once};
 use hologram::state::UserAccount;
-use solana_program::pubkey::Pubkey;
-use std::fmt::Debug;
-use std::task::Poll;
 
 /// Requires [`crate::GameGuiPlugin`]
 pub struct StationScenePlugin;
@@ -58,7 +54,7 @@ pub fn on_station_init(
                     *login_state = LoginState::SelectSolanaClientWindow
                 };
                 if let Some(server) = server {
-                    if let Some(account) = &server.user_account_pda {
+                    if let Some(_account) = &server.user_account {
                         log::info!("Logging in, loading hanger");
                         // Todo: Play confirmation sound
                         // Transition directly to hanger.
@@ -78,12 +74,7 @@ pub fn on_station_init(
         OnClick::run(
             |mut login_state: ResMut<LoginState>,
              mut commands: Commands,
-             mut next_state: ResMut<NextState<crate::Scene>>,
-             mut event_writer: EventWriter<SwitchToUI>,
-             server: Option<Res<HologramServer>>| {
-                // Todo: Add window variant "loading" or something
-                //  for when we wait for the web wallet or whatever to confirm
-
+             mut event_writer: EventWriter<SwitchToUI>| {
                 // Also can consider caching the account pda
                 let holo_server = HologramServer::new(generate_test_client());
 
@@ -187,7 +178,7 @@ pub fn station_login(
     mut event_writer: EventWriter<SwitchToUI>,
     mut server: Option<ResMut<HologramServer>>,
     mut fetch_acount: Query<(Entity, &mut SolanaFetchAccountTask<UserAccount>)>,
-    mut create_account: Query<(Entity, &mut SolanaTransactionTask)>,
+    create_account: Query<(Entity, &SolanaTransactionTask)>,
     mut next_state: ResMut<NextState<Scene>>,
 ) {
     match login_state.as_ref() {
@@ -215,13 +206,13 @@ pub fn station_login(
             // Not sure about this closure; wanted to have the abort logic in one place
             // instead 5 places, to make sure nothings forgotten, but signature is long because
             // mutability issues and etc. Eh, probably fine to leave it as is at this point.
-            let mut on_unrecoverable_error =
+            let on_unrecoverable_error =
                 |result: &dyn std::fmt::Debug,
                  login_state: &mut LoginState,
                  writer: &mut EventWriter<SwitchToUI>| {
                     writer.send(SwitchToUI::new("init"));
                     *login_state = LoginState::None;
-                    println!("fetch task had unexpected error{result:?}");
+                    log::error!("fetch task had unexpected error{result:?}");
                 };
             for (entity, mut task) in fetch_acount.iter_mut() {
                 // Handle all possible combinations of results for our fetch account task
@@ -229,8 +220,8 @@ pub fn station_login(
                     match result {
                         Ok(account) => {
                             if let Some(server) = &mut server {
-                                server.user_account_pda = Some(account);
-                                println!("successfully fetched user account");
+                                server.user_account = Some(account);
+                                log::info!("successfully fetched user account");
                                 // since we acquired all info needed in login, we can switch to the hanger scene
                                 next_state.set(Scene::Hanger);
                             } else {
@@ -246,7 +237,7 @@ pub fn station_login(
                             match error {
                                 ClientError::AccountNotFound => {
                                     if let Some(server) = &mut server {
-                                        println!("account not found, creating one");
+                                        log::info!("account not found, creating one");
                                         event_writer.send(SwitchToUI::new("no_id"));
                                         *login_state = LoginState::CreateUserAccount;
                                         server.fire_default_create_user_account_task(&mut commands);
@@ -269,7 +260,7 @@ pub fn station_login(
                     // Remove task entity since we are done handling its task now.
                     commands.entity(entity).despawn();
                 } else {
-                    println!("waiting for fetch account response");
+                    log::trace!("waiting for fetch account response");
                     // Task is not yet complete.
                 }
             }
@@ -279,9 +270,9 @@ pub fn station_login(
             // So what we do here is track it by measuring the number of create accounts
             // tasks in flight. Once there are no longer any in-flight, we can assume
             // the create account task completed.
-            println!("waiting for create account response");
+            log::trace!("waiting for create account response");
             if create_account.iter().len() == 0 {
-                println!("account should be created attempting to fetch it... ");
+                log::info!("account should be created attempting to fetch it... ");
                 if let Some(server) = server {
                     server.fire_fetch_account_task::<UserAccount>(
                         &mut commands,

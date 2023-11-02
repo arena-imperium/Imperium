@@ -113,7 +113,7 @@ pub struct SolanaFetchAccountsTask<T> {
 pub struct HologramServer {
     pub solana_client: Arc<SolanaClient>,
     pub realm_name: String,
-    pub user_account_pda: Option<UserAccount>,
+    pub user_account: Option<UserAccount>,
 
     pub admin_pubkey: Pubkey,
     // Custom Switchboard functions
@@ -152,7 +152,7 @@ impl HologramServer {
         HologramServer {
             solana_client: client,
             realm_name: "Holorealm5".to_string(), // @HARDCODED
-            user_account_pda: None,
+            user_account: None,
             admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
             spaceship_seed_generation_function: Pubkey::from_str(
                 "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe",
