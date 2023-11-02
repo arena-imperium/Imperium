@@ -151,7 +151,7 @@ impl HologramServer {
     pub fn new(client: Arc<SolanaClient>) -> HologramServer {
         HologramServer {
             solana_client: client,
-            realm_name: "Holorealm1".to_string(), // @HARDCODED
+            realm_name: "Holorealm5".to_string(), // @HARDCODED
             user_account_pda: None,
             admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
             spaceship_seed_generation_function: Pubkey::from_str(

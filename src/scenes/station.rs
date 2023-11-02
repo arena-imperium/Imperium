@@ -1,7 +1,9 @@
 use crate::game_ui::dsl::{OnClick, UiAction};
 use crate::game_ui::switch::SwitchToUI;
 use crate::input_util::all_key_codes;
-use crate::solana::{generate_test_client, HologramServer, SolanaFetchAccountTask};
+use crate::solana::{
+    generate_test_client, HologramServer, SolanaFetchAccountTask, SolanaTransactionTask,
+};
 use crate::Scene;
 use anchor_client::ClientError;
 use bevy::asset::AssetServer;
@@ -185,6 +187,7 @@ pub fn station_login(
     mut event_writer: EventWriter<SwitchToUI>,
     mut server: Option<ResMut<HologramServer>>,
     mut fetch_acount: Query<(Entity, &mut SolanaFetchAccountTask<UserAccount>)>,
+    mut create_account: Query<(Entity, &mut SolanaTransactionTask)>,
     mut next_state: ResMut<NextState<Scene>>,
 ) {
     match login_state.as_ref() {
@@ -227,7 +230,7 @@ pub fn station_login(
                         Ok(account) => {
                             if let Some(server) = &mut server {
                                 server.user_account_pda = Some(account);
-                                println!("success");
+                                println!("successfully fetched user account");
                                 // since we acquired all info needed in login, we can switch to the hanger scene
                                 next_state.set(Scene::Hanger);
                             } else {
@@ -266,13 +269,35 @@ pub fn station_login(
                     // Remove task entity since we are done handling its task now.
                     commands.entity(entity).despawn();
                 } else {
-                    println!("waiting for task to execute");
-                    // Task is not yet complete. You can do something else here.
+                    println!("waiting for fetch account response");
+                    // Task is not yet complete.
                 }
             }
         }
         LoginState::CreateUserAccount => {
-            // Todo: handle tracking the create account status
+            // solana.rs already has a built in system for handling creating accounts.
+            // So what we do here is track it by measuring the number of create accounts
+            // tasks in flight. Once there are no longer any in-flight, we can assume
+            // the create account task completed.
+            println!("waiting for create account response");
+            if create_account.iter().len() == 0 {
+                println!("account should be created attempting to fetch it... ");
+                if let Some(server) = server {
+                    server.fire_fetch_account_task::<UserAccount>(
+                        &mut commands,
+                        &server.calc_user_account_pda().0,
+                    );
+                } else {
+                    event_writer.send(SwitchToUI::new("init"));
+                    *login_state = LoginState::None;
+                    log::error!("in state LoginState::CreateUserAccount but hologram server wasn't initialized! aborting..");
+                }
+                // In this case we can expect the account to be created.
+                // With it created, we switch back to the CheckAccountExists state
+                // to handle acquiring it and continuing.
+                event_writer.send(SwitchToUI::new("waiting"));
+                *login_state = LoginState::CheckAccountExists;
+            }
         }
     }
 }
