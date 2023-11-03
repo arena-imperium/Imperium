@@ -24,6 +24,7 @@ Root(screen_root row distrib_start main_margin(50) ) {
 }
 
 // note: Changing asset location doesn't work without recompiling
+// Changing Root elements doesn't seem to have an affect without recompiling
 
 // rules() = specify 2 of the following items, (x, y) on how the element should be sized:
 // * = absolute ratio of original image size (or size of children-contents)

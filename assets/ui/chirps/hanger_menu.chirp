@@ -1,14 +1,77 @@
+fn button(action, text) {
+    Overlay(column layout("voCaC") rules(1.0*, 1.0*)){
+        Button(button(action) highlight image("ui/textures/button.png") rules(1.0*, 1.0*) )
+        Text(font("fonts/FiraSans-Bold.ttf") text(text))
+    }
+}
 
-Root(screen_root row distrib_start main_margin(50) ) {
-    // Extra column to center the thing
-    Column(column rules(100%, 100%)) {
-        Column(column layout("vdSaS") rules(1.0*, 1.0*) main_margin(10) ) {
-            Text(font("fonts/FiraSans-Bold.ttf") text("TODO: Hanger UI"))
+fn text(text){
+    Text(font_size(30) font("fonts/FiraSans-Bold.ttf") text(text))
+}
+
+fn ship_card(id){
+    Card(column button(id) layout(">dSaS") mark(id) rules(469px, 96px) image("ui/textures/ship_card.png") highlight) {
+        ShipColumn(layout("vdSaS") rules(1.0*, 1.0*) margin(7) cross_margin(9)) {
+            ShipImage(image("textures/ship1.png"))
+        }
+        Other(column layout("vdSaS") rules(25%, 1.0*)  main_margin(5)) {
+            Other(column layout(">dSaC") rules(100%, 1.0*)) {
+                text!("Wins: ") (font_size(20))
+                text!("20") (font_size(20))
+            }
+            Other(column layout(">dSaC") rules(100%, 1.0*)) {
+                text!("Losses: ") (font_size(20))
+                text!("5") (font_size(20))
+            }
+        }
+        Other(column layout("vdSaC") rules(30%, 1.0*) main_margin(5)) {
+            Other(column layout(">dSaC") rules(100%, 1.0*)) {
+                text!("Wins: ") (font_size(20))
+                text!("20") (font_size(20))
+            }
+            Other(column layout(">dSaC") rules(100%, 1.0*)) {
+                text!("Losses: ") (font_size(20))
+                text!("5") (font_size(20))
+            }
         }
     }
 }
 
+
+Root(screen_root row distrib_start main_margin(0) bg(black) border(10, grey) cross_margin(0)) {
+
+    ShipInfoPanel(column layout("vdSaC") rules(35%, 100%) main_margin(10) bg(#222222) border(10, grey)) {
+        text!("ShipInfoPanel")
+        HangerBackround(layout("vdSaC") rules(100%, 35%) main_margin(10) bg(#222222) border(10, grey)) {
+            text!("Hanger Backround")
+            text!("and Selected Ship")
+        }
+        CombatLog(layout("vdSaC") rules(100%, 35%) main_margin(10) bg(#222222) border(10, grey)) {
+            text!("Combat Log")
+        }
+        ButtonsPanel(main_margin(10) column layout(">dSaS") rules(100%, 1.0*)) {
+            Launch(column layout("vdSaC") rules(50%, 1.0*)) {
+                button!("queue_match_making", "Launch") (rules(50%, 1.0*))
+                text!("Hanger UI")
+            }
+            Other(column layout("vdSaC") rules(50%, 1.0*)) {
+                text!("Other")
+                text!("Hanger UI")
+            }
+        }
+    }
+
+    ShipList(column layout("vdSaC") rules(65%, 100%) main_margin(30)) {
+        button!("buy ship", "Buy New Spaceship!")
+        ship_card!("1")
+        ship_card!("2") (hidden)
+        ship_card!("3") (hidden)
+    }
+
+}
+
 // note: Changing asset location doesn't work without recompiling
+// Changing Root elements doesn't seem to have an affect without recompiling
 
 // rules() = specify 2 of the following items, (x, y) on how the element should be sized:
 // * = absolute ratio of original image size (or size of children-contents)

@@ -2,11 +2,10 @@ use crate::Scene;
 use bevy::log;
 use bevy::prelude::*;
 use cuicui_chirp::ChirpBundle;
-/*
 use cuicui_dsl::dsl;
 use cuicui_layout::dsl_functions::{child, pct};
 use cuicui_layout_bevy_ui::UiDsl;
-*/
+
 pub struct HangerScenePlugin;
 
 impl Plugin for HangerScenePlugin {
@@ -40,18 +39,6 @@ pub fn on_hanger_init(
         ChirpBundle::new(serv.load("ui/chirps/hanger_menu.chirp")),
         HangerSceneObj,
     ));
-    // Todo: figure out why macro based dsl ui doesn't show text.
-    /*dsl! {
-        <UiDsl>
-        &mut cmds.spawn(HangerUi),
-        Root(screen_root row distrib_start main_margin(50.0)) {
-            Column(rules(pct(50), pct(50)) main_margin(10.0)){
-                Column(column layout("vdSaS") rules(child(1.0), child(1.0)) main_margin(10.0) ) {
-                    Text(font_size(30) text("TODO: Hanger UI"))
-                }
-            }
-        }
-    };*/
 }
 
 // Despawn scene
