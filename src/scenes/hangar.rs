@@ -1,4 +1,5 @@
 use crate::game_ui::dsl::{OnClick, UiAction};
+use crate::game_ui::egui_wrappers::StrMap;
 use crate::solana::HologramServer;
 use crate::Scene;
 use bevy::log;
@@ -30,6 +31,8 @@ pub struct HangarUi;
 
 #[derive(Default, Component)]
 pub struct HangarSceneObj;
+#[derive(Default, Component)]
+pub struct NewShipDialog;
 
 // Setup the scene for when the station is focused on
 pub fn on_hangar_init(
@@ -37,6 +40,7 @@ pub fn on_hangar_init(
     asset_server: Res<AssetServer>,
     server: Option<Res<HologramServer>>, // mut text_map: ResMut<StrMap>,
     mut next_state: ResMut<NextState<Scene>>,
+    mut text_map: ResMut<StrMap>,
 ) {
     'outer: {
         if let Some(server) = server {
@@ -56,16 +60,39 @@ pub fn on_hangar_init(
 
     UiAction::add_action("buy_spaceship", || {
         // if this gets too big, split out into its own function
-        OnClick::run(
-            |mut next_state: ResMut<NextState<crate::Scene>>,
-             server: Option<Res<HologramServer>>| {
-                if let Some(server) = server {
-                    // Show popup dialog asking for ship name
+        OnClick::run(|mut cmds: Commands, asset_server: Res<AssetServer>| {
+            cmds.spawn((
+                ChirpBundle::new(asset_server.load("ui/chirps/hangar_popup.chirp")),
+                HangarSceneObj,
+                NewShipDialog,
+            ));
+        })
+    });
 
-                    // server.fire_create_spaceship_task()
-                } else {
-                    // if_no_server();
-                }
+    UiAction::add_action("cancel", || {
+        OnClick::run(
+            |mut cmds: Commands, popup: Query<Entity, With<NewShipDialog>>| {
+                cmds.entity(popup.iter().next().unwrap())
+                    .despawn_recursive();
+            },
+        )
+    });
+
+    text_map.insert("new_ship_name".to_owned(), "DefaultShip".to_owned());
+    UiAction::add_action("confirm", || {
+        OnClick::run(
+            |mut cmds: Commands,
+             popup: Query<Entity, With<NewShipDialog>>,
+             server: Option<Res<HologramServer>>,
+             mut text_map: ResMut<StrMap>| {
+                server.as_ref().unwrap().fire_create_spaceship_task(
+                    &mut cmds,
+                    text_map.get("new_ship_name").unwrap(),
+                    &server.as_ref().unwrap().calc_realm_pda().0,
+                    &server.as_ref().unwrap().user_account.as_ref().unwrap().user,
+                );
+                cmds.entity(popup.iter().next().unwrap())
+                    .despawn_recursive();
             },
         )
     });
@@ -73,10 +100,6 @@ pub fn on_hangar_init(
     log::info!("hangar init");
     cmds.spawn((
         ChirpBundle::new(asset_server.load("ui/chirps/hangar_menu.chirp")),
-        HangarSceneObj,
-    ));
-    cmds.spawn((
-        ChirpBundle::new(asset_server.load("ui/chirps/hangar_popup.chirp")),
         HangarSceneObj,
     ));
 }

@@ -813,6 +813,10 @@ impl HologramServer {
         Pubkey::find_program_address(&[b"realm", realm_name.as_bytes()], &hologram::id())
     }
 
+    pub fn calc_realm_pda(&self) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"realm", self.realm_name.as_bytes()], &hologram::id())
+    }
+
     pub fn get_user_account_pda(realm_pda: &Pubkey, user: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[b"user_account", realm_pda.as_ref(), user.as_ref()],
