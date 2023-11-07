@@ -7,6 +7,7 @@ use cuicui_chirp::ChirpBundle;
 use cuicui_dsl::dsl;
 use cuicui_layout::dsl_functions::{child, pct};
 use cuicui_layout_bevy_ui::UiDsl;
+use hologram::state::SpaceShip;
 
 pub struct HangerScenePlugin;
 
@@ -37,20 +38,20 @@ pub fn on_hanger_init(
     server: Option<Res<HologramServer>>, // mut text_map: ResMut<StrMap>,
     mut next_state: ResMut<NextState<Scene>>,
 ) {
-    match (server, server.and_then(|s| s.user_account)) {
-        (Some(server), Some(account)) => {
-            // if both server and server.user_account are cachied
-            // we can start the process to load ship data.
-            for ship in account.spaceships {
-                server.fire_fetch_account_task(&mut cmds, &ship.spaceship)
+    'outer: {
+        if let Some(server) = server {
+            if let Some(account) = &server.user_account {
+                for ship in &account.spaceships {
+                    server.fire_fetch_account_task::<SpaceShip>(&mut cmds, &ship.spaceship);
+                }
+                // if both server and server.user_account are cached
+                // we can start the process to load ship data.
+                break 'outer;
             }
         }
-        _ => {
-            // if not, something went wrong with sign in; we should never
-            // get here, so go back to the station scene.
-            next_state.set(Scene::Station);
-            return;
-        }
+        // if not, something went wrong with sign in; we should never
+        // get here, so go back to the station scene.
+        next_state.set(Scene::Station);
     }
 
     UiAction::add_action("buy_spaceship", || {
@@ -61,9 +62,9 @@ pub fn on_hanger_init(
                 if let Some(server) = server {
                     // Show popup dialog asking for ship name
 
-                    server.fire_create_spaceship_task()
+                    // server.fire_create_spaceship_task()
                 } else {
-                    if_no_server();
+                    // if_no_server();
                 }
             },
         )
