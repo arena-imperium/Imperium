@@ -50,7 +50,7 @@ pub fn on_station_init(
              server: Option<Res<HologramServer>>,
              mut event_writer: EventWriter<SwitchToUI>| {
                 let mut if_no_server = || {
-                    event_writer.send(SwitchToUI::new("sel_sol_window"));
+                    event_writer.send(SwitchToUI::new("select_wallet_window"));
                     *login_state = LoginState::SelectSolanaClientWindow
                 };
                 if let Some(server) = server {
