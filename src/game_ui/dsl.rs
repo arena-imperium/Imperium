@@ -2,7 +2,7 @@ use std::sync::RwLock;
 
 use bevy::ecs::system::EntityCommands;
 use bevy::log;
-use bevy::prelude::{Color, Component, Entity, Reflect, ReflectComponent};
+use bevy::prelude::{Color, Component, Entity, Reflect, ReflectComponent, Visibility};
 use bevy::utils::HashMap;
 use bevy_mod_picking;
 use bevy_mod_picking::prelude::{Click, On, Pointer};
@@ -20,6 +20,7 @@ type OnClickFunction = Box<dyn Fn() -> OnClick + Send + Sync>;
 // of the functions that are activated by a button press dynamically.
 // If you can think of a better method let let me know
 lazy_static! {
+    #[derive(Debug)]
     static ref ON_CLICK_MAP: RwLock<HashMap<&'static str, OnClickFunction>> = {
         let m: HashMap<&'static str, OnClickFunction> = HashMap::new();
         RwLock::new(m)
@@ -43,7 +44,10 @@ impl UiAction {
     /// ```
     /// UiAction::add_action("NewAction", || OnClick::run(|| log::info!("This is a new action")));
     /// ```
-    pub fn add_action<F: Fn() -> OnClick + 'static + Send + Sync>(action_name: &'static str, func: F) {
+    pub fn add_action<F: Fn() -> OnClick + 'static + Send + Sync>(
+        action_name: &'static str,
+        func: F,
+    ) {
         let mut map = ON_CLICK_MAP.write().unwrap();
         map.insert(action_name, Box::new(func));
     }
@@ -58,10 +62,24 @@ impl<'a> From<&'a UiAction> for OnClick {
         if let Some(func) = map.get(value.action_lookup.as_str()) {
             func()
         } else {
+            log::warn!(
+                "Action map assignment failed!, action name: {}, map contents: {:?}",
+                value.action_lookup,
+                ON_CLICK_MAP,
+            );
             OnClick::run(|| log::info!("Nothing happened"))
         }
     }
 }
+
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
+pub struct Mark(pub String);
+
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
+/// Like mark, but indicates that entity belongs to a specific group.
+pub struct Group(pub String);
 
 pub struct ImperiumDsl {
     inner: UiDsl,
@@ -70,6 +88,9 @@ pub struct ImperiumDsl {
     is_text_box: bool,
     is_highlightable: bool,
     is_label: bool,
+    is_hidden: bool,
+    mark: Option<Box<str>>,
+    group: Option<Box<str>>,
     /// Data shared by actions and text box's
     ///
     /// actions need to know what action is being executed, and
@@ -85,16 +106,40 @@ impl Default for ImperiumDsl {
             is_text_box: false,
             is_highlightable: false,
             is_label: false,
+            is_hidden: false,
+            mark: None,
+            group: None,
             data: None,
         }
     }
 }
 #[parse_dsl_impl(delegate = inner)]
 impl ImperiumDsl {
-
     fn button(&mut self, text: &str) {
         self.is_button = true;
         self.data = Some(text.into());
+    }
+
+    fn highlight(&mut self) {
+        self.is_highlightable = true;
+    }
+
+    /// Sets this ui element to be hidden.
+    /// (as a result, all its child elemnts will also be hidden)
+    fn hidden(&mut self) {
+        self.is_hidden = true;
+    }
+
+    /// Attaches a Mark(String) component to this entity.
+    /// Useful when you want to do something to a specific ui entity.
+    fn mark(&mut self, mark: &str) {
+        self.mark = Some(mark.into())
+    }
+
+    /// Attaches a Group(String) component to this entity.
+    /// Useful when you want to limit operations on marks etc to a specific group
+    fn group(&mut self, group: &str) {
+        self.group = Some(group.into())
     }
 
     /// allows dynamic text from egui key value par
@@ -112,9 +157,6 @@ impl ImperiumDsl {
     fn text_box(&mut self, text: &str) {
         self.is_text_box = true;
         self.data = Some(text.into());
-    }
-    fn highlight(&mut self) {
-        self.is_highlightable = true;
     }
 
     /// Like the text box, allows dyinamic text from egui key value par
@@ -136,27 +178,40 @@ impl ImperiumDsl {
     }
 }
 
-
 impl DslBundle for ImperiumDsl {
     fn insert(&mut self, cmds: &mut EntityCommands) -> Entity {
         if self.is_button {
-            if let Some(data) = self.data.take(){
+            if let Some(data) = self.data.take() {
                 cmds.insert(UiAction::new(data.into()));
             }
         }
         if self.is_highlightable {
             cmds.insert(Highlight::new(Color::DARK_GREEN));
         }
+        if let Some(data) = self.mark.take() {
+            cmds.insert(Mark(data.into()));
+        }
+        if let Some(data) = self.group.take() {
+            cmds.insert(Group(data.into()));
+        }
         if self.is_text_box {
-            if let Some(data) = self.data.take(){
-                cmds.insert(EguiTextBox{ id: data.into()});
+            if let Some(data) = self.data.take() {
+                cmds.insert(EguiTextBox { id: data.into() });
             }
         }
         if self.is_label {
-            if let Some(data) = self.data.take(){
-                cmds.insert(EguiLabel{ id: data.into()});
+            if let Some(data) = self.data.take() {
+                cmds.insert(EguiLabel { id: data.into() });
             }
         }
-        self.inner.insert(cmds)
+        let id = self.inner.insert(cmds);
+        // By adding this *after* insert(cmds) on inner, we ensure
+        // Visibility is added after nodebundle (which adds its own visibility)
+        // is added by the UiDsl, so that we overwrite it.
+        //
+        if self.is_hidden {
+            cmds.insert(Visibility::Hidden);
+        }
+        id
     }
 }

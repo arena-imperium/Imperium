@@ -1,0 +1,38 @@
+
+Root(screen_root row distrib_start main_margin(50) ) {
+    // Extra column to center the thing
+    Column(column rules(100%, 100%)) {
+        Column(column layout("vdSaS") rules(1.0*, 1.0*) main_margin(10) ) {
+            Text(font("fonts/FiraSans-Bold.ttf") text("TODO: Hanger UI"))
+        }
+    }
+}
+
+// note: Changing asset location doesn't work without recompiling
+
+// rules() = specify 2 of the following items, (x, y) on how the element should be sized:
+// * = absolute ratio of original image size (or size of children-contents)
+// % percentage of parent
+// px fixed number of pixels
+
+// layout(); must have one of each in this order. First is default.
+// Don't use layout at all if you want to center things right in the middle
+// v = vertical
+// > = horiz
+// -----
+// "dS" = Items are clumped together at the left/top.
+// "dE" = Items are distributed evenly, with no space left on the sides of the container.
+// "dC" = Items are clumped together at the right/bottom.
+// "oS" = Items overlap at the left/top.
+// "oC" = Items overlap centered on the middle of the container.
+// "oE" = Items overlap at the right/bottom.
+// -----
+// "aS" = The items within the container are all aligned to the top or left.
+              ///
+              /// If the container's axis is `Direction::Vertical`, a start alignment
+              /// will align all items to the left.
+// "aC" = The items within the container are all centered on the container's axis.
+// "aE" = The items within the container are all aligned to the bottom or right.
+              ///
+              /// If the container's axis is `Direction::Vertical`, an end alignment
+              /// will align all items to the right.

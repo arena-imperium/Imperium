@@ -1,63 +1,75 @@
 // disable console on windows for release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod dev_ui;
-mod solana;
 mod asset_loading;
+mod dev_ui;
 mod game_ui;
+pub mod input_util;
+mod scenes;
+mod solana;
 
-use std::time::Duration;
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use std::time::Duration;
 
-use image::ImageFormat::Png;
+use crate::asset_loading::AssetLoadingPlugin;
+use crate::dev_ui::DevUI;
+use crate::scenes::ScenesPlugin;
+use crate::solana::SolanaPlugin;
+use game_ui::GameGuiPlugin;
 use image::load;
+use image::ImageFormat::Png;
 use {
-    bevy::{DefaultPlugins, prelude::*, window::PrimaryWindow, winit::WinitWindows},
+    bevy::{prelude::*, window::PrimaryWindow, winit::WinitWindows, DefaultPlugins},
     bevy_inspector_egui::quick::WorldInspectorPlugin,
     std::io::Cursor,
     winit::window::Icon,
 };
-use game_ui::GamePlugin;
-use crate::asset_loading::AssetLoadingPlugin;
-use crate::dev_ui::DevUI;
-use crate::solana::SolanaPlugin;
 
 fn main() {
     let mut app = App::new();
     app.insert_resource(Msaa::Off);
     app.insert_resource(ClearColor(Color::rgb(0.4, 0.4, 0.4)));
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Imperium".to_string(),
-                resolution: (1024., 780.).into(),
-                // Bind to canvas included in `index.html`
-                canvas: Some("#bevy".to_owned()),
-                // Tells wasm not to override default event handling, like F5 and Ctrl+R
-                prevent_default_event_handling: false,
+    app.add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Imperium".to_string(),
+                    resolution: (1024., 780.).into(),
+                    // Bind to canvas included in `index.html`
+                    canvas: Some("#bevy".to_owned()),
+                    // Tells wasm not to override default event handling, like F5 and Ctrl+R
+                    prevent_default_event_handling: false,
+                    ..default()
+                }),
                 ..default()
-            }),
-            ..default()
-        })
-        .set({
-            // Add hot reloading for assets
-        let delay = Duration::from_millis(200);
-        let watch_for_changes = bevy::asset::ChangeWatcher::with_delay(delay);
-        let asset_folder = "assets".to_owned();
-        AssetPlugin { asset_folder, watch_for_changes }
-    })
+            })
+            .set({
+                // Add hot reloading for assets
+                let delay = Duration::from_millis(200);
+                let watch_for_changes = bevy::asset::ChangeWatcher::with_delay(delay);
+                let asset_folder = "assets".to_owned();
+                AssetPlugin {
+                    asset_folder,
+                    watch_for_changes,
+                }
+            })
+            // prevents blurry sprites
+            .set(ImagePlugin::default_nearest()),
     );
+
     app.add_systems(Startup, set_window_icon);
     app.add_plugins(WorldInspectorPlugin::new());
     app.add_plugins(AssetLoadingPlugin);
     app.add_plugins(SolanaPlugin);
-    app.add_plugins(GamePlugin);
+    app.add_plugins(GameGuiPlugin);
+    app.add_plugins(ScenesPlugin);
     app.add_plugins(DevUI);
     #[cfg(debug_assertions)]
     {
         app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
     }
-     app.run();
+    app.run();
 }
 
 // Sets the icon on windows and X11
@@ -109,3 +121,14 @@ fn update() {
     }
 }
  */
+
+/// Ie: what gamemode/scene are we currently in?
+#[derive(Default, Clone, Eq, PartialEq, Debug, Hash, States, Copy)]
+pub enum Scene {
+    #[default]
+    Loading,
+    /// Starting scene, where the player can setup a connection with their wallet
+    Station,
+    /// Here the menu is drawn and waiting for player interaction
+    Hanger,
+}
