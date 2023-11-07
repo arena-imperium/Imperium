@@ -42,8 +42,8 @@ Root(screen_root row distrib_start main_margin(0) bg(black) border(10, grey) cro
 
     ShipInfoPanel(column layout("vdSaC") rules(35%, 100%) main_margin(10) bg(#222222) border(10, grey)) {
         text!("ShipInfoPanel")
-        HangerBackround(layout("vdSaC") rules(100%, 35%) main_margin(10) bg(#222222) border(10, grey)) {
-            text!("Hanger Backround")
+        HangarBackround(layout("vdSaC") rules(100%, 35%) main_margin(10) bg(#222222) border(10, grey)) {
+            text!("Hangar Backround")
             text!("and Selected Ship")
         }
         CombatLog(layout("vdSaC") rules(100%, 35%) main_margin(10) bg(#222222) border(10, grey)) {
@@ -52,11 +52,11 @@ Root(screen_root row distrib_start main_margin(0) bg(black) border(10, grey) cro
         ButtonsPanel(main_margin(10) column layout(">dSaS") rules(100%, 1.0*)) {
             Launch(column layout("vdSaC") rules(50%, 1.0*)) {
                 button!("queue_match_making", "Launch") (rules(50%, 1.0*))
-                text!("Hanger UI")
+                text!("Hangar UI")
             }
             Other(column layout("vdSaC") rules(50%, 1.0*)) {
                 text!("Other")
-                text!("Hanger UI")
+                text!("Hangar UI")
             }
         }
     }

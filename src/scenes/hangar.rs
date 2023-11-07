@@ -77,7 +77,7 @@ pub fn on_hangar_init(
     ));
     cmds.spawn((
         ChirpBundle::new(asset_server.load("ui/chirps/hangar_popup.chirp")),
-        HangerSceneObj,
+        HangarSceneObj,
     ));
 }
 
