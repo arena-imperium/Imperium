@@ -9,30 +9,30 @@ use cuicui_layout::dsl_functions::{child, pct};
 use cuicui_layout_bevy_ui::UiDsl;
 use hologram::state::SpaceShip;
 
-pub struct HangerScenePlugin;
+pub struct HangarScenePlugin;
 
-impl Plugin for HangerScenePlugin {
+impl Plugin for HangarScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, hanger.run_if(in_state(Scene::Hanger)));
-        app.add_systems(OnEnter(Scene::Hanger), on_hanger_init);
-        app.add_systems(OnExit(Scene::Hanger), on_hanger_exit);
+        app.add_systems(Update, hangar.run_if(in_state(Scene::Hangar)));
+        app.add_systems(OnEnter(Scene::Hangar), on_hangar_init);
+        app.add_systems(OnExit(Scene::Hangar), on_hangar_exit);
     }
 }
-fn hanger(mut init: Local<bool>) {
+fn hangar(mut init: Local<bool>) {
     if !*init {
-        log::info!("Inside hanger");
+        log::info!("Inside hangar");
         *init = true;
     }
 }
 
 #[derive(Default, Component)]
-pub struct HangerUi;
+pub struct HangarUi;
 
 #[derive(Default, Component)]
-pub struct HangerSceneObj;
+pub struct HangarSceneObj;
 
 // Setup the scene for when the station is focused on
-pub fn on_hanger_init(
+pub fn on_hangar_init(
     mut cmds: Commands,
     asset_server: Res<AssetServer>,
     server: Option<Res<HologramServer>>, // mut text_map: ResMut<StrMap>,
@@ -70,10 +70,10 @@ pub fn on_hanger_init(
         )
     });
 
-    log::info!("hanger init");
+    log::info!("hangar init");
     cmds.spawn((
-        ChirpBundle::new(asset_server.load("ui/chirps/hanger_menu.chirp")),
-        HangerSceneObj,
+        ChirpBundle::new(asset_server.load("ui/chirps/hangar_menu.chirp")),
+        HangarSceneObj,
     ));
     cmds.spawn((
         ChirpBundle::new(asset_server.load("ui/chirps/hangar_popup.chirp")),
@@ -82,13 +82,13 @@ pub fn on_hanger_init(
 }
 
 // Despawn scene
-pub fn on_hanger_exit(
+pub fn on_hangar_exit(
     mut cmds: Commands,
-    ui: Query<Entity, With<HangerUi>>,
-    hanger_scene: Query<Entity, With<HangerSceneObj>>,
+    ui: Query<Entity, With<HangarUi>>,
+    hangar_scene: Query<Entity, With<HangarSceneObj>>,
 ) {
     cmds.entity(ui.iter().next().unwrap()).despawn_recursive();
-    for entity in &hanger_scene {
+    for entity in &hangar_scene {
         cmds.entity(entity).despawn();
     }
 }
