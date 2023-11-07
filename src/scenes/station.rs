@@ -55,10 +55,10 @@ pub fn on_station_init(
                 };
                 if let Some(server) = server {
                     if let Some(_account) = &server.user_account {
-                        log::info!("Logging in, loading hanger");
+                        log::info!("Logging in, loading hangar");
                         // Todo: Play confirmation sound
-                        // Transition directly to hanger.
-                        next_state.set(Scene::Hanger)
+                        // Transition directly to hangar.
+                        next_state.set(Scene::Hangar)
                     } else {
                         if_no_server();
                     }
@@ -87,7 +87,7 @@ pub fn on_station_init(
                 commands.insert_resource(holo_server);
                 event_writer.send(SwitchToUI::new("loading"));
                 *login_state = LoginState::CheckAccountExists;
-                //next_state.set(Scene::Hanger)
+                //next_state.set(Scene::Hangar)
             },
         )
     });
@@ -222,8 +222,8 @@ pub fn station_login(
                             if let Some(server) = &mut server {
                                 server.user_account = Some(account);
                                 log::info!("successfully fetched user account");
-                                // since we acquired all info needed in login, we can switch to the hanger scene
-                                next_state.set(Scene::Hanger);
+                                // since we acquired all info needed in login, we can switch to the hangar scene
+                                next_state.set(Scene::Hangar);
                             } else {
                                 on_unrecoverable_error(
                                     &"expected server to be initialized",
