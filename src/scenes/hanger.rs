@@ -1,3 +1,5 @@
+use crate::game_ui::dsl::{OnClick, UiAction};
+use crate::solana::HologramServer;
 use crate::Scene;
 use bevy::log;
 use bevy::prelude::*;
@@ -31,12 +33,49 @@ pub struct HangerSceneObj;
 // Setup the scene for when the station is focused on
 pub fn on_hanger_init(
     mut cmds: Commands,
-    serv: Res<AssetServer>,
-    // mut text_map: ResMut<StrMap>,
+    asset_server: Res<AssetServer>,
+    server: Option<Res<HologramServer>>, // mut text_map: ResMut<StrMap>,
+    mut next_state: ResMut<NextState<Scene>>,
 ) {
+    match (server, server.and_then(|s| s.user_account)) {
+        (Some(server), Some(account)) => {
+            // if both server and server.user_account are cachied
+            // we can start the process to load ship data.
+            for ship in account.spaceships {
+                server.fire_fetch_account_task(&mut cmds, &ship.spaceship)
+            }
+        }
+        _ => {
+            // if not, something went wrong with sign in; we should never
+            // get here, so go back to the station scene.
+            next_state.set(Scene::Station);
+            return;
+        }
+    }
+
+    UiAction::add_action("buy_spaceship", || {
+        // if this gets too big, split out into its own function
+        OnClick::run(
+            |mut next_state: ResMut<NextState<crate::Scene>>,
+             server: Option<Res<HologramServer>>| {
+                if let Some(server) = server {
+                    // Show popup dialog asking for ship name
+
+                    server.fire_create_spaceship_task()
+                } else {
+                    if_no_server();
+                }
+            },
+        )
+    });
+
     log::info!("hanger init");
     cmds.spawn((
-        ChirpBundle::new(serv.load("ui/chirps/hanger_menu.chirp")),
+        ChirpBundle::new(asset_server.load("ui/chirps/hanger_menu.chirp")),
+        HangerSceneObj,
+    ));
+    cmds.spawn((
+        ChirpBundle::new(asset_server.load("ui/chirps/hangar_popup.chirp")),
         HangerSceneObj,
     ));
 }

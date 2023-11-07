@@ -61,13 +61,14 @@ Root(screen_root row distrib_start main_margin(0) bg(black) border(10, grey) cro
         }
     }
 
-    ShipList(column layout("vdSaC") rules(65%, 100%) main_margin(30)) {
-        button!("buy ship", "Buy New Spaceship!")
-        ship_card!("1")
-        ship_card!("2") (hidden)
-        ship_card!("3") (hidden)
+    ShipThings(column layout("vdSaC") rules(65%, 100%) main_margin(30)) {
+        ShipList(column layout("vdSaC") rules(65%, 100%) main_margin(30)) {
+            button!("buy_spaceship", "Buy New Spaceship!")
+            ship_card!("1")
+            ship_card!("2") (hidden)
+            ship_card!("3") (hidden)
+        }
     }
-
 }
 
 // note: Changing asset location doesn't work without recompiling
