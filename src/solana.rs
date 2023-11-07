@@ -877,8 +877,8 @@ type Payer = Arc<Keypair>;
 
 /// `Client` allows you to send typed RPC requests to a Solana cluster.
 pub struct SolanaClient {
-    payer: Payer,
-    anchor_client: AnchorClient<Payer>,
+    pub payer: Payer,
+    pub anchor_client: AnchorClient<Payer>,
 }
 #[allow(dead_code)]
 impl SolanaClient {

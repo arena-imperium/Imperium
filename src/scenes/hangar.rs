@@ -9,7 +9,7 @@ use cuicui_dsl::dsl;
 use cuicui_layout::dsl_functions::{child, pct};
 use cuicui_layout_bevy_ui::UiDsl;
 use hologram::state::SpaceShip;
-
+use solana_sdk::signature::Signer;
 pub struct HangarScenePlugin;
 
 impl Plugin for HangarScenePlugin {
@@ -89,7 +89,11 @@ pub fn on_hangar_init(
                     &mut cmds,
                     text_map.get("new_ship_name").unwrap(),
                     &server.as_ref().unwrap().calc_realm_pda().0,
-                    &server.as_ref().unwrap().user_account.as_ref().unwrap().user,
+                    // Todo: refactor solana.rs, change api to minimize need to pass in
+                    //  manual key's like this, using data cachied in the
+                    //  hologram server tyoe.
+                    //  Also wrap the various PubKey types in Wrapper structs.
+                    &server.as_ref().unwrap().solana_client.payer.pubkey(),
                 );
                 cmds.entity(popup.iter().next().unwrap())
                     .despawn_recursive();
