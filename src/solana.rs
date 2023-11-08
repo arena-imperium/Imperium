@@ -153,7 +153,9 @@ impl HologramServer {
             solana_client: client,
             realm_name: "Holorealm5".to_string(), // @HARDCODED
             user_account: None,
-            admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
+            // Acammmm's pub key
+            // admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
+            admin_pubkey: Pubkey::from_str("FSVrGMbyb6KMMDYNruja8KwD1diwbXWJGKxXNUhQon5L").unwrap(),
             spaceship_seed_generation_function: Pubkey::from_str(
                 "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe",
             )
