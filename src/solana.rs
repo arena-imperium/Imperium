@@ -34,8 +34,7 @@ pub struct SolanaPlugin;
 
 impl Plugin for SolanaPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<HologramServer>()
-            .add_systems(PostUpdate, solana_transaction_task_handler);
+        app.add_systems(PostUpdate, solana_transaction_task_handler);
     }
 }
 
@@ -114,6 +113,8 @@ pub struct SolanaFetchAccountsTask<T> {
 pub struct HologramServer {
     pub solana_client: Arc<SolanaClient>,
     pub realm_name: String,
+    pub user_account: Option<UserAccount>,
+
     pub admin_pubkey: Pubkey,
     // Custom Switchboard functions
     pub spaceship_seed_generation_function: Pubkey,
@@ -123,29 +124,35 @@ pub struct HologramServer {
     pub switchboard_attestation_queue: Pubkey,
 }
 
-impl Default for HologramServer {
-    fn default() -> HologramServer {
-        dotenv::dotenv().ok();
-        // Solana setup
-        let payer = match env::var("SOLANA_PAYER_KEY").ok() {
-            Some(k) => read_keypair_file(&*shellexpand::tilde(&k))
-                .expect("Failed to parse $SOLANA_PAYER_KEY"),
-            None => panic!("Could not load payer key,"),
-        };
-        let rpc_url = match env::var("SOLANA_RPC_URL").ok() {
-            Some(url) => url,
-            None => panic!("Could not load solana_rpc_url,"),
-        };
-        let ws_url = match env::var("SOLANA_WS_URL").ok() {
-            Some(url) => url,
-            None => panic!("Could not load solana_ws_url,"),
-        };
+pub fn generate_test_client() -> Arc<SolanaClient> {
+    dotenv::dotenv().ok();
+    // Solana setup
+    let payer = match env::var("SOLANA_PAYER_KEY").ok() {
+        Some(k) => {
+            read_keypair_file(&*shellexpand::tilde(&k)).expect("Failed to parse $SOLANA_PAYER_KEY")
+        }
+        None => panic!("Could not load payer key,"),
+    };
+    let rpc_url = match env::var("SOLANA_RPC_URL").ok() {
+        Some(url) => url,
+        None => panic!("Could not load solana_rpc_url,"),
+    };
+    let ws_url = match env::var("SOLANA_WS_URL").ok() {
+        Some(url) => url,
+        None => panic!("Could not load solana_ws_url,"),
+    };
 
-        let cluster = Cluster::Custom(rpc_url, ws_url);
-        let client = Arc::new(SolanaClient::new(payer.clone(), cluster));
+    let cluster = Cluster::Custom(rpc_url, ws_url);
+    let client = Arc::new(SolanaClient::new(payer.clone(), cluster));
+    client
+}
+
+impl HologramServer {
+    pub fn new(client: Arc<SolanaClient>) -> HologramServer {
         HologramServer {
             solana_client: client,
-            realm_name: "Holorealm1".to_string(), // @HARDCODED
+            realm_name: "Holorealm5".to_string(), // @HARDCODED
+            user_account: None,
             admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
             spaceship_seed_generation_function: Pubkey::from_str(
                 "5vPREeVxqBEyY499k9VuYf4A8cBVbNYBWbxoA5nwERhe",
@@ -674,15 +681,11 @@ impl HologramServer {
     }
 
     /// Returns the account at the given address
-    fn fire_fetch_account_task<T: 'static + AccountDeserialize + Send>(
+    pub fn fire_fetch_account_task<T: 'static + AccountDeserialize + Send>(
         &self,
         commands: &mut Commands,
         account: &Pubkey,
     ) {
-        struct Test {
-            a: bool,
-        }
-        Test { a: true };
         let thread_pool = IoTaskPool::get();
         let client = Arc::clone(&self.solana_client);
         let account_clone = account.clone();
@@ -817,16 +820,28 @@ impl HologramServer {
         )
     }
 
+    /// OInly difference from [`get_user_account_pda`] is that this takes self value, and uses the
+    /// built in realm and user values stored there.
+    pub fn calc_user_account_pda(&self) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[
+                b"user_account",
+                Self::get_realm_pda(&self.realm_name).0.as_ref(),
+                &self.solana_client.payer.pubkey().as_ref(),
+            ],
+            &hologram::id(),
+        )
+    }
+
     // FLOW
     // 1. You know the real name, let's say it's "GameRealm1" (alluser share this realm)
     // 2. You know the user's pubkey, that's the one you sign with
     // 3. From this user pubkey, you can derive it's UserAccount PDA (because a UserAccount PDA == "user_account" + realm_pda + user_pubkey)
-    // 4. Check if the UserAccount exists 
+    // 4. Check if the UserAccount exists
     // 4.1. if not, create it (calling the create_user_account IX)
     // 4.2. if yes, continue
     // 5. you now have a user_account PDA (the address), so you can call fetch_account in solana.rs with the user_account PDA to retreive the data,
     //    that data contains the list of spaceship PDAs
-  
 
     pub fn get_spaceship_pda(
         realm_pda: &Pubkey,

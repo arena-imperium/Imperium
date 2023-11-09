@@ -3,7 +3,7 @@ Root(screen_root row distrib_start main_margin(50) ) {
     // Extra column to center the thing
     Column(column rules(100%, 100%)) {
         Column(column layout("vdSaS") rules(1.0*, 1.0*) main_margin(10) ) {
-            Text(font("fonts/FiraSans-Bold.ttf") text("TODO: Hanger UI"))
+            Text(font("fonts/FiraSans-Bold.ttf") text("TODO: Hangar UI"))
         }
     }
 }

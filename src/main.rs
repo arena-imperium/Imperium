@@ -108,7 +108,7 @@ fn update() {
 
                 }
                 Login::LoginWindow => {
-                        /*&format!("Hanger Entry Id Request"),*/
+                        /*&format!("Hangar Entry Id Request"),*/
                     login_window(c);
                 }
             }
@@ -130,5 +130,5 @@ pub enum Scene {
     /// Starting scene, where the player can setup a connection with their wallet
     Station,
     /// Here the menu is drawn and waiting for player interaction
-    Hanger,
+    Hangar,
 }

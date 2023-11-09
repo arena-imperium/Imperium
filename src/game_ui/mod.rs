@@ -17,19 +17,11 @@ mod highlight;
 mod mirror;
 pub mod switch;
 
-#[derive(Default, Resource)]
-pub enum LoginState {
-    #[default]
-    None,
-    LoginWindow,
-}
-
 pub struct GameGuiPlugin;
 
 impl Plugin for GameGuiPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<crate::Scene>();
-        app.init_resource::<LoginState>();
 
         // Ui crates and functionality stuff
         app.add_plugins(cuicui_layout_bevy_ui::Plugin);
