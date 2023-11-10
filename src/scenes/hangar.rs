@@ -1,6 +1,6 @@
-use crate::game_ui::dsl::{OnClick, UiAction};
+use crate::game_ui::dsl::{Mark, OnClick, UiAction};
 use crate::game_ui::egui_wrappers::StrMap;
-use crate::solana::HologramServer;
+use crate::solana::{CreatedSpaceShip, HologramServer};
 use crate::Scene;
 use bevy::log;
 use bevy::prelude::*;
@@ -14,15 +14,15 @@ pub struct HangarScenePlugin;
 
 impl Plugin for HangarScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, hangar.run_if(in_state(Scene::Hangar)));
+        app.add_systems(
+            Update,
+            handle_create_spaceships
+                .run_if(in_state(Scene::Hangar))
+                .before(hangar_loop),
+        );
+        app.add_systems(Update, hangar_loop.run_if(in_state(Scene::Hangar)));
         app.add_systems(OnEnter(Scene::Hangar), on_hangar_init);
         app.add_systems(OnExit(Scene::Hangar), on_hangar_exit);
-    }
-}
-fn hangar(mut init: Local<bool>) {
-    if !*init {
-        log::info!("Inside hangar");
-        *init = true;
     }
 }
 
@@ -106,6 +106,49 @@ pub fn on_hangar_init(
         ChirpBundle::new(asset_server.load("ui/chirps/hangar_menu.chirp")),
         HangarSceneObj,
     ));
+}
+
+/// Handle the new spaceships, if we need to update state etc.
+pub fn handle_create_spaceships(
+    mut cmds: Commands,
+    mut events: EventReader<CreatedSpaceShip>,
+    server: Res<HologramServer>,
+) {
+    if !events.is_empty() {
+        for ship in &server.user_account.as_ref().unwrap().spaceships {
+            server.fire_fetch_account_task::<SpaceShip>(&mut cmds, &ship.spaceship);
+        }
+        for event in events.iter() {
+            println!("Spaceship creation success.");
+        }
+    }
+}
+
+pub fn hangar_loop(
+    mut cmds: Commands,
+    mut query: Query<(&mut Visibility, &Mark)>,
+    server: Res<HologramServer>,
+) {
+    if let Some(ship) = server
+        .user_account
+        .as_ref()
+        .unwrap()
+        .spaceships
+        .iter()
+        .next()
+    {
+        for (mut visibility, mark) in query.iter_mut() {
+            if mark.0 == "ship_info_card" {
+                *visibility = Visibility::Inherited;
+            }
+        }
+    } else {
+        for (mut visibility, mark) in query.iter_mut() {
+            if mark.0 == "ship_info_card" {
+                *visibility = Visibility::Hidden;
+            }
+        }
+    }
 }
 
 // Despawn scene

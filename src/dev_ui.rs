@@ -1,4 +1,8 @@
 use crate::solana::generate_test_client;
+use bevy::prelude::ResMut;
+use hologram::state::{Hull, SpaceShipLite};
+use hologram::utils::LimitedString;
+pub use solana_program::pubkey::Pubkey;
 use {
     crate::solana::HologramServer,
     bevy::{
@@ -20,14 +24,14 @@ impl Plugin for DevUI {
 
 pub fn dev_ui(
     mut contexts: EguiContexts,
-    server: Option<Res<HologramServer>>,
+    mut server: Option<ResMut<HologramServer>>,
     mut commands: Commands,
 ) {
     let egui_context = contexts.ctx_mut();
     egui::Window::new("Dev Test Window")
         .default_pos(egui::Pos2::new(0.0, 0.0))
         .show(egui_context, |ui| {
-            if let Some(server) = server {
+            if let Some(mut server) = server {
                 if ui.button("Init Realm").clicked() {
                     server.fire_default_initialize_realm_task(&mut commands);
                 }
@@ -42,6 +46,18 @@ pub fn dev_ui(
                 }
                 if ui.button("Join Arena Matchmaking Queue").clicked() {
                     server.fire_default_arena_matchmaking_task(&mut commands);
+                }
+                if ui.button("Insert Test Spaceship").clicked() {
+                    server
+                        .user_account
+                        .as_mut()
+                        .unwrap()
+                        .spaceships
+                        .push(SpaceShipLite {
+                            name: LimitedString::new("TestShipName"),
+                            hull: Hull::RareOne,
+                            spaceship: Pubkey::default(),
+                        })
                 }
                 if ui.button("Reset").clicked() {
                     //*c.scene = Scene::Loading

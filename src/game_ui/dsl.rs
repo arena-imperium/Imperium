@@ -186,7 +186,7 @@ impl DslBundle for ImperiumDsl {
             }
         }
         if self.is_highlightable {
-            cmds.insert(Highlight::new(Color::DARK_GREEN));
+            cmds.insert(Highlight::new(Color::rgb_linear(2.0, 2.0, 2.0)));
         }
         if let Some(data) = self.mark.take() {
             cmds.insert(Mark(data.into()));

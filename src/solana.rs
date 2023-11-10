@@ -1,4 +1,5 @@
 pub use anchor_client::Client as AnchorClient;
+use bevy::prelude::{Event, EventWriter};
 use {
     anchor_client::{
         anchor_lang::{prelude::System, Id},
@@ -35,6 +36,7 @@ pub struct SolanaPlugin;
 impl Plugin for SolanaPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostUpdate, solana_transaction_task_handler);
+        app.add_event::<CreatedSpaceShip>();
     }
 }
 
@@ -44,9 +46,14 @@ pub struct SolanaTransactionTask {
     pub task: Task<Result<EncodedConfirmedTransactionWithStatusMeta, SolanaTransactionTaskError>>,
 }
 
+#[derive(Event)]
+// Todo: send this when create spaceship task is finished.
+pub struct CreatedSpaceShip;
+
 pub(crate) fn solana_transaction_task_handler(
     mut commands: Commands,
     mut solana_transaction_tasks: Query<(Entity, &mut SolanaTransactionTask)>,
+    mut events: EventWriter<CreatedSpaceShip>,
 ) {
     for (entity, mut task) in &mut solana_transaction_tasks {
         match future::block_on(future::poll_once(&mut task.task)) {
@@ -57,7 +64,13 @@ pub(crate) fn solana_transaction_task_handler(
                             Some(error) => {
                                 format!("Transaction failed: {}", error)
                             }
-                            None => "Transaction succeeded".to_string(),
+                            None => {
+                                match task.description.as_str() {
+                                    "create_spaceship" => events.send(CreatedSpaceShip),
+                                    _ => {}
+                                }
+                                "Transaction succeeded".to_string()
+                            }
                         }
                     }
                     Err(error) => {
@@ -151,7 +164,7 @@ impl HologramServer {
     pub fn new(client: Arc<SolanaClient>) -> HologramServer {
         HologramServer {
             solana_client: client,
-            realm_name: "Holorealm5".to_string(), // @HARDCODED
+            realm_name: "Holorealm9".to_string(), // @HARDCODED
             user_account: None,
             // Acammmm's pub key
             // admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
