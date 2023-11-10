@@ -132,6 +132,7 @@ pub fn handle_create_spaceships(
 }
 
 pub fn refresh_ship_info(
+    mut cmds: Commands,
     mut server: ResMut<HologramServer>,
     mut fetch_acount: Query<(Entity, &mut SolanaFetchAccountTask<UserAccount>)>,
     mut next_state: ResMut<NextState<Scene>>,
@@ -149,6 +150,8 @@ pub fn refresh_ship_info(
                     next_state.set(Scene::Station);
                 }
             }
+            // Remove task entity since we are done handling its task now.
+            cmds.entity(entity).despawn();
         } else {
             log::trace!("waiting for fetch account response");
             // Task is not yet complete. Todo: put a loading animation here

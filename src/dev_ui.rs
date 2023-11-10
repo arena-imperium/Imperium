@@ -61,7 +61,7 @@ pub fn dev_ui(
                 }
                 if ui.button("Reset").clicked() {
                     //*c.scene = Scene::Loading
-                    log::info!("button click test was successful, yay!")
+                    log::info!("Reset doesn't do anything yet")
                 }
             } else {
                 if ui.button("Init HologramServer with test Client").clicked() {
