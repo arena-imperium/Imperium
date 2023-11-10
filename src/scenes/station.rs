@@ -141,6 +141,7 @@ pub fn on_station_exit(
     ui: Query<Entity, With<StationUI>>,
     station_scene: Query<Entity, With<StationSceneObj>>,
     tasks: Query<Entity, With<SolanaFetchAccountTask<UserAccount>>>,
+    mut login_state: ResMut<LoginState>,
 ) {
     cmds.entity(ui.iter().next().unwrap()).despawn_recursive();
     for entity in &station_scene {
@@ -150,6 +151,7 @@ pub fn on_station_exit(
         cmds.entity(entity).despawn();
     }
     UiAction::clear_actions();
+    *login_state = LoginState::None;
 }
 
 /// Station component. Currently we only have this.
