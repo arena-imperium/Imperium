@@ -1,6 +1,6 @@
 use crate::game_ui::dsl::{Mark, OnClick, UiAction};
 use crate::game_ui::egui_wrappers::StrMap;
-use crate::solana::{CreatedSpaceShip, HologramServer};
+use crate::solana::{CreatedSpaceShip, HologramServer, SolanaFetchAccountTask};
 use crate::Scene;
 use bevy::log;
 use bevy::prelude::*;
@@ -8,7 +8,8 @@ use cuicui_chirp::ChirpBundle;
 use cuicui_dsl::dsl;
 use cuicui_layout::dsl_functions::{child, pct};
 use cuicui_layout_bevy_ui::UiDsl;
-use hologram::state::SpaceShip;
+use futures_lite::future::{block_on, poll_once};
+use hologram::state::{SpaceShip, UserAccount};
 use solana_sdk::signature::Signer;
 pub struct HangarScenePlugin;
 
@@ -16,7 +17,7 @@ impl Plugin for HangarScenePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            handle_create_spaceships
+            (handle_create_spaceships, refresh_ship_info)
                 .run_if(in_state(Scene::Hangar))
                 .before(hangar_loop),
         );
@@ -69,6 +70,12 @@ pub fn on_hangar_init(
         })
     });
 
+    UiAction::add_action("goto_station", || {
+        OnClick::run(|mut next_state: ResMut<NextState<Scene>>| {
+            next_state.set(Scene::Station);
+        })
+    });
+
     UiAction::add_action("cancel", || {
         OnClick::run(
             |mut cmds: Commands, popup: Query<Entity, With<NewShipDialog>>| {
@@ -104,7 +111,7 @@ pub fn on_hangar_init(
     log::info!("hangar init");
     cmds.spawn((
         ChirpBundle::new(asset_server.load("ui/chirps/hangar_menu.chirp")),
-        HangarSceneObj,
+        HangarUi,
     ));
 }
 
@@ -115,11 +122,37 @@ pub fn handle_create_spaceships(
     server: Res<HologramServer>,
 ) {
     if !events.is_empty() {
-        for ship in &server.user_account.as_ref().unwrap().spaceships {
-            server.fire_fetch_account_task::<SpaceShip>(&mut cmds, &ship.spaceship);
-        }
+        // If we created a new spaceship; fetch the updated account
+        // to refresh the spaceship info
+        server.fire_fetch_account_task::<UserAccount>(&mut cmds, &server.calc_user_account_pda().0);
         for event in events.iter() {
             println!("Spaceship creation success.");
+        }
+    }
+}
+
+pub fn refresh_ship_info(
+    mut server: ResMut<HologramServer>,
+    mut fetch_acount: Query<(Entity, &mut SolanaFetchAccountTask<UserAccount>)>,
+    mut next_state: ResMut<NextState<Scene>>,
+) {
+    for (entity, mut task) in fetch_acount.iter_mut() {
+        // Handle all possible combinations of results for our fetch account task
+        if let Some(result) = block_on(poll_once(&mut task.task)) {
+            match result {
+                Ok(account) => {
+                    server.user_account = Some(account);
+                    log::info!("successfully refreshed user account info");
+                    // since we acquired all info needed in login, we can switch to the hangar scene
+                }
+                Err(error) => {
+                    next_state.set(Scene::Station);
+                }
+            }
+        } else {
+            log::trace!("waiting for fetch account response");
+            // Task is not yet complete. Todo: put a loading animation here
+            //  or something in the future
         }
     }
 }
@@ -161,4 +194,5 @@ pub fn on_hangar_exit(
     for entity in &hangar_scene {
         cmds.entity(entity).despawn();
     }
+    UiAction::clear_actions();
 }

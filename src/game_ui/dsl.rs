@@ -51,6 +51,11 @@ impl UiAction {
         let mut map = ON_CLICK_MAP.write().unwrap();
         map.insert(action_name, Box::new(func));
     }
+
+    pub fn clear_actions() {
+        let mut map = ON_CLICK_MAP.write().unwrap();
+        map.clear();
+    }
 }
 
 pub type OnClick = On<Pointer<Click>>;

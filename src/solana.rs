@@ -164,7 +164,7 @@ impl HologramServer {
     pub fn new(client: Arc<SolanaClient>) -> HologramServer {
         HologramServer {
             solana_client: client,
-            realm_name: "Holorealm9".to_string(), // @HARDCODED
+            realm_name: "Holorealm12".to_string(), // @HARDCODED
             user_account: None,
             // Acammmm's pub key
             // admin_pubkey: Pubkey::from_str("A4PzGUimdCMv8xvT5gK2fxonXqMMayDm3eSXRvXZhjzU").unwrap(),
@@ -839,7 +839,7 @@ impl HologramServer {
         )
     }
 
-    /// OInly difference from [`get_user_account_pda`] is that this takes self value, and uses the
+    /// Only difference from [`get_user_account_pda`] is that this takes self value, and uses the
     /// built in realm and user values stored there.
     pub fn calc_user_account_pda(&self) -> (Pubkey, u8) {
         Pubkey::find_program_address(

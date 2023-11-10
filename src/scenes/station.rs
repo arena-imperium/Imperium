@@ -149,6 +149,7 @@ pub fn on_station_exit(
     for entity in &tasks {
         cmds.entity(entity).despawn();
     }
+    UiAction::clear_actions();
 }
 
 /// Station component. Currently we only have this.

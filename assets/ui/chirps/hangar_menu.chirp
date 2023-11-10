@@ -41,6 +41,7 @@ fn ship_card(id){
 Root(screen_root row distrib_start main_margin(0) bg(black) border(10, grey) cross_margin(0)) {
 
     ShipInfoPanel(column layout("vdSaC") rules(35%, 100%) main_margin(10) bg(#222222) border(10, grey)) {
+        button!("goto_station", "Back")
         text!("ShipInfoPanel")
         HangarBackround(layout("vdSaC") rules(100%, 35%) main_margin(10) bg(#222222) border(10, grey)) {
             text!("Hangar Backround")
