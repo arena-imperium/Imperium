@@ -44,10 +44,6 @@ fn main() {
                 }),
                 ..default()
             })
-            .set({
-                // Add hot reloading for assets
-                let delay = Duration::from_millis(200);
-            })
             // prevents blurry sprites
             .set(ImagePlugin::default_nearest()),
     );
