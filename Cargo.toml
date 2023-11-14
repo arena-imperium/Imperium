@@ -29,7 +29,7 @@ dev = ["bevy/bevy_dylib"]
 
 [dependencies]
 # Engine dependencies
-bevy = { version = "0.11", default-features = false, features = [
+bevy = { version = "0.12", default-features = false, features = [
     "animation",
     "bevy_asset",
     "bevy_scene",
@@ -50,8 +50,8 @@ bevy = { version = "0.11", default-features = false, features = [
     "tonemapping_luts",
     "webgl2",
 ] }
-bevy_egui = { version = "0.21.0" }
-bevy_kira_audio = { version = "0.17.0" }
+bevy_egui = { version = "0.23.0" }
+bevy_kira_audio = { version = "0.18.0" }
 bevy_asset_loader = { version = "0.17" }
 bevy-inspector-egui = { version = "0.19.0" }
 
