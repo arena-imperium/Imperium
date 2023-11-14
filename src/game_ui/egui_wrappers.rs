@@ -1,6 +1,6 @@
 use bevy::ecs::reflect::ReflectComponent;
 use bevy::prelude::{
-    App, Component, ComputedVisibility, Deref, DerefMut, GlobalTransform, Plugin, Query, Reflect,
+    App, Component, Deref, DerefMut, GlobalTransform, InheritedVisibility, Plugin, Query, Reflect,
     ResMut, Resource, Update,
 };
 use bevy::ui::Node;
@@ -40,7 +40,7 @@ impl Plugin for CuiCuiEguiPlugin {
 }
 
 fn draw_text_box(
-    query: Query<(&EguiTextBox, &Node, &GlobalTransform, &ComputedVisibility)>,
+    query: Query<(&EguiTextBox, &Node, &GlobalTransform, &InheritedVisibility)>,
     mut contexts: EguiContexts,
     mut text_map: ResMut<StrMap>,
 ) {
@@ -62,7 +62,7 @@ fn draw_text_box(
 }
 
 fn draw_label(
-    mut query: Query<(&EguiLabel, &Node, &GlobalTransform, &ComputedVisibility)>,
+    mut query: Query<(&EguiLabel, &Node, &GlobalTransform, &InheritedVisibility)>,
     mut contexts: EguiContexts,
     mut text_map: ResMut<StrMap>,
 ) {
