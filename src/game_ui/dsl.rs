@@ -2,7 +2,7 @@ use std::sync::RwLock;
 
 use bevy::ecs::system::EntityCommands;
 use bevy::log;
-use bevy::prelude::{Color, Component, Entity, Reflect, ReflectComponent, Visibility};
+use bevy::prelude::{Color, Component, Reflect, ReflectComponent, Visibility};
 use bevy::utils::HashMap;
 use bevy_mod_picking;
 use bevy_mod_picking::prelude::{Click, On, Pointer};
@@ -179,7 +179,7 @@ impl ImperiumDsl {
 }
 
 impl DslBundle for ImperiumDsl {
-    fn insert(&mut self, cmds: &mut EntityCommands) -> Entity {
+    fn insert(&mut self, cmds: &mut EntityCommands) {
         if self.is_button {
             if let Some(data) = self.data.take() {
                 cmds.insert(UiAction::new(data.into()));
@@ -212,6 +212,5 @@ impl DslBundle for ImperiumDsl {
         if self.is_hidden {
             cmds.insert(Visibility::Hidden);
         }
-        id
     }
 }
