@@ -25,7 +25,7 @@ inherits = "release"
 lto = "thin"
 
 [features]
-dev = ["bevy/bevy_dylib"]
+dev = ["bevy/dynamic_linking"]
 
 [dependencies]
 # Engine dependencies
@@ -46,24 +46,24 @@ bevy = { version = "0.12", default-features = false, features = [
     "zstd",
     "x11",
     "ktx2",
-    "filesystem_watcher",
+    "file_watcher",
     "tonemapping_luts",
     "webgl2",
 ] }
 bevy_egui = { version = "0.23.0" }
 bevy_kira_audio = { version = "0.18.0" }
-bevy_asset_loader = { version = "0.17" }
-bevy-inspector-egui = { version = "0.19.0" }
+bevy_asset_loader = { version = "0.18" }
+bevy-inspector-egui = { version = "0.21" }
 
 #ui
-cuicui_layout_bevy_ui = "0.10.1"
-cuicui_layout = "0.10.1"
-cuicui_dsl = "0.10.1"
-cuicui_chirp = "0.10.1"
+cuicui_layout_bevy_ui = "0.12"
+cuicui_layout = "0.12"
+cuicui_dsl = "0.12"
+cuicui_chirp = "0.12"
 # Enable "frame pacing", a way to reduce input latency
-bevy_framepace = "0.13.3"
+bevy_framepace = "0.14"
 # Add mouse interaction
-bevy_mod_picking = { version = "0.15.0", default-features = false, features = [
+bevy_mod_picking = { version = "0.17.0", default-features = false, features = [
     "backend_bevy_ui",
 ] }
 
