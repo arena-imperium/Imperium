@@ -204,7 +204,7 @@ impl DslBundle for ImperiumDsl {
                 cmds.insert(EguiLabel { id: data.into() });
             }
         }
-        let id = self.inner.insert(cmds);
+        self.inner.insert(cmds);
         // By adding this *after* insert(cmds) on inner, we ensure
         // Visibility is added after nodebundle (which adds its own visibility)
         // is added by the UiDsl, so that we overwrite it.

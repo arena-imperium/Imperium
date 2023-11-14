@@ -8,14 +8,12 @@ pub mod input_util;
 mod scenes;
 mod solana;
 
-#[cfg(debug_assertions)]
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use std::time::Duration;
-
 use crate::asset_loading::AssetLoadingPlugin;
 use crate::dev_ui::DevUI;
 use crate::scenes::ScenesPlugin;
 use crate::solana::SolanaPlugin;
+#[cfg(debug_assertions)]
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use game_ui::GameGuiPlugin;
 use image::load;
 use image::ImageFormat::Png;
