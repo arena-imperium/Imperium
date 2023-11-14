@@ -47,12 +47,6 @@ fn main() {
             .set({
                 // Add hot reloading for assets
                 let delay = Duration::from_millis(200);
-                let watch_for_changes = bevy::asset::ChangeWatcher::with_delay(delay);
-                let asset_folder = "assets".to_owned();
-                AssetPlugin {
-                    asset_folder,
-                    watch_for_changes,
-                }
             })
             // prevents blurry sprites
             .set(ImagePlugin::default_nearest()),
