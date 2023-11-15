@@ -119,4 +119,6 @@ pub enum Scene {
     Station,
     /// Here the menu is drawn and waiting for player interaction
     Hangar,
+    /// The scene where battles between ships can be observed.
+    Replay,
 }

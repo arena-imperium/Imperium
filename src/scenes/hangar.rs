@@ -76,6 +76,14 @@ pub fn on_hangar_init(
         })
     });
 
+    // Currently just switches to the replay scene for testing.
+    // Todo: trigger replay scene properly when ship data is available
+    UiAction::add_action("queue_match_making", || {
+        OnClick::run(|mut next_state: ResMut<NextState<Scene>>| {
+            next_state.set(Scene::Replay);
+        })
+    });
+
     UiAction::add_action("cancel", || {
         OnClick::run(
             |mut cmds: Commands, popup: Query<Entity, With<NewShipDialog>>| {

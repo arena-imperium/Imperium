@@ -1,9 +1,11 @@
 use crate::scenes::hangar::HangarScenePlugin;
+use crate::scenes::replay::ReplayScenePlugin;
 use crate::scenes::station::StationScenePlugin;
 use crate::Scene;
 use bevy::prelude::{in_state, App, IntoSystemConfigs, NextState, Plugin, ResMut, Update};
 
 mod hangar;
+mod replay;
 mod station;
 
 /// Loads all the different scenes
@@ -13,6 +15,7 @@ impl Plugin for ScenesPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(StationScenePlugin);
         app.add_plugins(HangarScenePlugin);
+        app.add_plugins(ReplayScenePlugin);
         app.add_systems(Update, loading_screen.run_if(in_state(Scene::Loading)));
 
         //app.add_systems(Update, hangar_scene.run_if(in_state(Scene::Hangar)));
