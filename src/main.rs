@@ -8,14 +8,12 @@ pub mod input_util;
 mod scenes;
 mod solana;
 
-#[cfg(debug_assertions)]
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use std::time::Duration;
-
 use crate::asset_loading::AssetLoadingPlugin;
 use crate::dev_ui::DevUI;
 use crate::scenes::ScenesPlugin;
 use crate::solana::SolanaPlugin;
+#[cfg(debug_assertions)]
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use game_ui::GameGuiPlugin;
 use image::load;
 use image::ImageFormat::Png;
@@ -43,16 +41,6 @@ fn main() {
                     ..default()
                 }),
                 ..default()
-            })
-            .set({
-                // Add hot reloading for assets
-                let delay = Duration::from_millis(200);
-                let watch_for_changes = bevy::asset::ChangeWatcher::with_delay(delay);
-                let asset_folder = "assets".to_owned();
-                AssetPlugin {
-                    asset_folder,
-                    watch_for_changes,
-                }
             })
             // prevents blurry sprites
             .set(ImagePlugin::default_nearest()),

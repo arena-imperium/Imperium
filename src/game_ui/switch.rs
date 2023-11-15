@@ -57,7 +57,7 @@ fn track_removed_marks(
     mut mark_manager: ResMut<SwitchManager>,
     mut removed: RemovedComponents<Mark>,
 ) {
-    for entity in removed.iter() {
+    for entity in removed.read() {
         mark_manager.marks.retain(|_, v| *v != entity);
     }
 }
@@ -67,7 +67,7 @@ fn change_visibility_system(
     mark_manager: Res<SwitchManager>,
     mut query: Query<(&mut Visibility, Option<&Group>), With<Mark>>,
 ) {
-    for ev in ev_change_visibility.iter() {
+    for ev in ev_change_visibility.read() {
         if let Some(target_entity) = mark_manager.marks.get(&ev.target) {
             let mut target_group: Option<String> = None;
 

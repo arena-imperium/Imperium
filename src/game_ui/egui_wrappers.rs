@@ -1,7 +1,7 @@
 use bevy::ecs::reflect::ReflectComponent;
 use bevy::prelude::{
-    App, Component, ComputedVisibility, Deref, DerefMut, GlobalTransform, Plugin, Query, Reflect,
-    ResMut, Resource, Update,
+    App, Component, Deref, DerefMut, GlobalTransform, Plugin, Query, Reflect, ResMut, Resource,
+    Update, ViewVisibility,
 };
 use bevy::ui::Node;
 use bevy::utils::HashMap;
@@ -40,13 +40,13 @@ impl Plugin for CuiCuiEguiPlugin {
 }
 
 fn draw_text_box(
-    query: Query<(&EguiTextBox, &Node, &GlobalTransform, &ComputedVisibility)>,
+    query: Query<(&EguiTextBox, &Node, &GlobalTransform, &ViewVisibility)>,
     mut contexts: EguiContexts,
     mut text_map: ResMut<StrMap>,
 ) {
     let egui_context = contexts.ctx_mut();
     for (tex_box, ui_node, trnsfrm, visibility) in &query {
-        if !visibility.is_visible() {
+        if !visibility.get() {
             continue;
         };
         let node_pos = ui_node.logical_rect(trnsfrm).center();
@@ -62,13 +62,13 @@ fn draw_text_box(
 }
 
 fn draw_label(
-    mut query: Query<(&EguiLabel, &Node, &GlobalTransform, &ComputedVisibility)>,
+    mut query: Query<(&EguiLabel, &Node, &GlobalTransform, &ViewVisibility)>,
     mut contexts: EguiContexts,
     mut text_map: ResMut<StrMap>,
 ) {
     let egui_context = contexts.ctx_mut();
     for (tex_box, ui_node, trnsfrm, visibility) in &mut query {
-        if !visibility.is_visible() {
+        if !visibility.get() {
             continue;
         };
         let node_pos = ui_node.logical_rect(trnsfrm).center();
