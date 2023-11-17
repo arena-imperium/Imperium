@@ -2,9 +2,7 @@
 
 ## Smart Contract
 
-- handle passive powerups (in fight_engine.rs)
-
-- make shield have 1 layer by default
+- implement mutations power-ups
 
 - add passive power ups
         - afterburner (increase dodge chances)
@@ -15,21 +13,19 @@
                 - armor plates : + 10 hull HP
                 - capacitor battery: add a shield layer + reduce laser weapon charge time or smthg
 
-
 - add new drones and mutatio to the LT
 - add anti drone weapons
 - add anti missiles drones
 - add drone jammers
 
-- look into macro (ask node again) to sideload loot table at compile time from a CSV
-
 - test expired switchboard function request after 75 slots (warp and check it can be called again)
 
-- implement fight engine logic (in arena_matchmaking_settle, currently placeholder)
-        - One way is probably to have the docker create 2 fighter sheet, with all stats compiled form on chain accounts, and upload that temporarily onchain and pass it to the settle IX or smthg)
+- add a way to monitor anchor events
 
--- add a way to monitor anchor events
+- must implement historical data (either us or use a service) for matches replayability (save the seed, and state of both participants)
 
-- Implement more shop items
+- implement betting/wager module
 
-- think about replayability of fight (check tg chat with Aleph.im)
+- add more "products" to the shops
+
+- implement hardcore arena
