@@ -2,6 +2,10 @@
 
 ## Smart Contract
 
+- implement paid product spaceship
+
+- implement referal system
+
 - implement mutations power-ups
 
 - add passive power ups
